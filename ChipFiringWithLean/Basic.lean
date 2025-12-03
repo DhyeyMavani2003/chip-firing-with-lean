@@ -166,6 +166,18 @@ instance : Coe (V → ℤ) (CFDiv V) where
   simp [sub_apply, add_apply]
   ring
 
+@[simp] lemma smul_apply (n : ℤ) (D : CFDiv V) (v : V) :
+  (n • D) v = n * (D v) := by
+  induction n using Int.induction_on with
+  | hz =>
+    simp [smul_zero, zero_apply]
+  | hp k ih =>
+    simp [add_smul, add_apply,add_mul]
+    exact ih
+  | hn k ih =>
+    rw [sub_smul, sub_apply, sub_mul,one_smul,ih]
+    ring
+
 /-- Lemma: Lambda form of divisor subtraction equals standard form -/
 lemma divisor_sub_eq_lambda (G : CFGraph V) (D₁ D₂ : CFDiv V) :
   (λ v => D₁ v - D₂ v) = D₁ - D₂ := by
@@ -180,6 +192,12 @@ def num_edges (G : CFGraph V) (v w : V) : ℕ :=
 lemma num_edges_nonneg (G : CFGraph V) (v w : V) :
   num_edges G v w ≥ 0 := by
   exact Nat.zero_le (num_edges G v w)
+
+-- Lemma: Number of edges is symmetric
+lemma num_edges_symmetric (G : CFGraph V) (v w : V) :
+  num_edges G v w = num_edges G w v := by
+  unfold num_edges
+  simp [Or.comm]
 
 -- Degree (Valence) of a vertex as an integer (defined as the sum of incident edge multiplicities)
 def vertex_degree (G : CFGraph V) (v : V) : ℤ :=
@@ -400,6 +418,132 @@ theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : l
 
 -- Define a firing script as a function from vertices to integers
 def firing_script (V : Type) := V → ℤ
+
+-- Principal divisor associated to a firing script
+def prin (G : CFGraph V) (σ : firing_script V) : CFDiv V :=
+  λ v => ∑ u : V, (σ u - σ v) * (num_edges G v u : ℤ)
+
+lemma prin_eq_neg_laplacian_map (G : CFGraph V) (σ : firing_script V) :
+  prin G σ = -laplacian_map G σ := by
+  unfold prin laplacian_map
+  funext v
+  dsimp
+  simp [sub_mul]
+  apply sub_eq_sub_iff_sub_eq_sub.mp
+  -- change goal to showing that both sides of the equation are equal to 0
+  have h : ∑ x : V, σ x * ↑(num_edges G v x) - ∑ u : V, ↑(num_edges G v u) * σ u= 0 := by
+    rw [sub_eq_zero.mpr]
+    apply sum_congr rfl
+    intro u _
+    ring
+  rw [h,sub_eq_zero.mpr]
+  rw [sum_mul]
+  apply sum_congr rfl
+  intro u _
+  ring
+
+lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
+  D ∈ principal_divisors G ↔ ∃ σ : firing_script V, D = prin G σ := by
+  unfold principal_divisors
+  constructor
+  · -- Forward direction
+    intro h_inp
+    -- Use the defining property of a subgroup closure
+    refine AddSubgroup.closure_induction h_inp ?_ ?_ ?_ ?_
+    . -- Case 1: h_inp is a firing vector
+      intro x h_firing
+      rcases h_firing with ⟨v, rfl⟩
+      let σ : firing_script V := λ u => if u = v then 1 else 0
+      use σ
+      rw [prin_eq_neg_laplacian_map G σ]
+      unfold laplacian_map firing_vector
+      funext w
+      dsimp [σ]
+      by_cases h_eq : w = v
+      . -- Case w = v
+        simp [h_eq, num_edges_self_eq_zero G v]
+      . -- Case w ≠ v
+        simp [h_eq, num_edges_symmetric G v w]
+    . -- Case 2: h_inp is zero divisor
+      use (λ u => 0)
+      unfold prin
+      funext v
+      simp
+    . -- Case 3: h_inp is a sum of two principal divisors
+      intros x y h_x_prin h_y_prin
+      rcases h_x_prin with ⟨σ₁, h_x_eq⟩
+      rcases h_y_prin with ⟨σ₂, h_y_eq⟩
+      use (λ u => σ₁ u + σ₂ u)
+      funext u
+      rw [h_x_eq, h_y_eq]
+      unfold prin
+      simp [add_mul, Finset.sum_add_distrib]
+      -- combine the two sums on the left side
+      rw [← Finset.sum_add_distrib]
+      apply sum_congr rfl
+      intro u v
+      ring
+    . -- Case 4: h_inp is negation of a principal divisor
+      intro x h_x_prin
+      rcases h_x_prin with ⟨σ, h_x_eq⟩
+      use (λ u => - σ u)
+      funext u
+      rw [h_x_eq]
+      unfold prin
+      simp [Finset.sum_apply]
+      rw [← Finset.sum_neg_distrib]
+      apply sum_congr rfl
+      intro u v
+      ring
+  . -- Backward direction
+    intro h_prin
+    rcases h_prin with ⟨σ, h_eq⟩
+    unfold prin at h_eq
+    let D₁ := ∑ u : V, (σ u) • (firing_vector G u)
+    have D1_principal :D₁ ∈ principal_divisors G := by
+      apply AddSubgroup.sum_mem _ _
+      intro u _
+      apply AddSubgroup.zsmul_mem _ _
+      exact mem_principal_divisors_firing_vector G u
+    have D_eq : D₁ = D := by
+      rw [h_eq]
+      funext v
+      -- expand the definition of D₁
+      dsimp [D₁]
+      unfold firing_vector
+      -- Move that v into the sum on the left side
+      rw [Finset.sum_apply]
+      simp
+      have: ∀ (u : V), (σ u - σ v) * ↑(num_edges G v u) = σ u * ↑(num_edges G v u) - σ v * ↑(num_edges G v u) := by intro u; ring
+      simp [this]
+      rw [← Finset.mul_sum]
+      simp [← vertex_degree_eq_sum_num_edges]
+
+      have h (v : V): vertex_degree G v = ∑ x : V, if v = x then vertex_degree G v else 0 := by
+        rw [Finset.sum_ite]
+        rw [Finset.sum_const_zero,add_zero]
+        have : Finset.filter (Eq v) univ = {v} := by
+          ext x; simp [eq_comm]
+        rw [this, Finset.sum_singleton]
+      rw [h v]
+      rw [Finset.mul_sum]
+      -- Combine the right side into a single sum again
+      rw [← Finset.sum_sub_distrib]
+      apply sum_congr rfl
+      intro u _
+      by_cases h_eq : v = u
+      · -- Case v = u
+        rw [h_eq]
+        have : num_edges G u u = 0 := num_edges_self_eq_zero G u
+        rw [this]
+        simp
+      · -- Case v ≠ u
+        simp [h_eq]
+        left
+        rw [num_edges_symmetric G v u]
+    rw [← D_eq]
+    exact D1_principal
+
 
 -- Define Laplacian matrix as an |V| x |V| integer matrix
 open Matrix
