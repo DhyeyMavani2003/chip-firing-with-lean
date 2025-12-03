@@ -419,6 +419,12 @@ def apply_laplacian (G : CFGraph V) (σ : firing_script V) (D: CFDiv V) : CFDiv 
 def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
   (∀ v ∈ {v | v ≠ q}, D v ≥ 0) ∧
   (∀ S : Finset V, S ⊆ (Finset.univ.filter (λ v => v ≠ q)) → S.Nonempty →
+    ∃ v ∈ S, D v < ∑ w in (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
+
+-- Previously used definition retained for now. It had an extra restriction that the sum didn't include q, which leads to incorrect results illustrated in  degree_zero_divisor_is_q_reduced_old_implies_zero.
+def q_reduced_old (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
+  (∀ v ∈ {v | v ≠ q}, D v ≥ 0) ∧
+  (∀ S : Finset V, S ⊆ (Finset.univ.filter (λ v => v ≠ q)) → S.Nonempty →
     ∃ v ∈ S, D v < ∑ w in (univ.filter (λ x => x ≠ q)).filter (λ x => x ∉ S), (num_edges G v w : ℤ))
 
 -- Define the ordering of divisors
@@ -495,12 +501,109 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
 axiom q_reduced_unique_class (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂
 
-lemma principal_divisor_is_q_reduced_implies_zero (G : CFGraph V) (q_vertex : V) (τ : CFDiv V) :
-  τ ∈ principal_divisors G → q_reduced G q_vertex τ → τ = 0 := by
+-- This lemma is retained for now. It uses an old incorrect definition of q-reduced.
+lemma principal_divisor_is_q_reduced_old_implies_zero (G : CFGraph V) (q_vertex : V) (τ : CFDiv V) :
+  τ ∈ principal_divisors G → q_reduced_old G q_vertex τ → τ = 0 := by
   intros h_τ_principal h_τ_q_reduced
   by_contra h_τ_neq_zero
 
   have h_deg_τ_zero : deg τ = 0 := degree_of_principal_divisor_is_zero G τ h_τ_principal
+
+  let V' := Finset.univ.filter (λ v => v ≠ q_vertex)
+  have h_τ_q_reduced_cond1 : ∀ v ∈ V', τ v ≥ 0 := by
+    convert h_τ_q_reduced.left
+    funext v; simp [V']
+  have h_τ_q_reduced_cond2 : ∀ (S : Finset V), S ⊆ V' → S.Nonempty →
+    (∃ v ∈ S, τ v < ∑ w in V'.filter (λ x => x ∉ S), (num_edges G v w : ℤ)) := h_τ_q_reduced.right
+
+  have V'_nonempty_or_τ_is_zero : (V' = ∅ → τ = 0) := by
+    intro h_V'_is_empty
+    have h_deg_τ_eq_τ_q : deg τ = τ q_vertex := by
+      unfold deg;
+      have univ_eq_singleton : Finset.univ = {q_vertex} := by
+        apply Finset.eq_singleton_iff_unique_mem.mpr
+        refine' ⟨Finset.mem_univ q_vertex, ?_⟩
+        intro x _;
+        by_cases hx_eq_q : x = q_vertex
+        · exact hx_eq_q
+        · exact (Finset.not_mem_empty x (h_V'_is_empty ▸ (Finset.mem_filter.mpr ⟨Finset.mem_univ x, hx_eq_q⟩ : x ∈ V'))).elim
+      rw [univ_eq_singleton, Finset.sum_singleton]
+    rw [h_deg_τ_eq_τ_q] at h_deg_τ_zero
+    funext v
+    by_cases hv_eq_q : v = q_vertex
+    · rw [hv_eq_q, h_deg_τ_zero]; rfl
+    · have h_v_in_V' : v ∈ V' := Finset.mem_filter.mpr ⟨Finset.mem_univ v, hv_eq_q⟩
+      rw [h_V'_is_empty] at h_v_in_V'
+      exact absurd h_v_in_V' (Finset.not_mem_empty v)
+
+  have V'_nonempty : V'.Nonempty := by
+    apply Finset.nonempty_iff_ne_empty.mpr
+    intro h_V'_eq_empty_proof
+    apply h_τ_neq_zero
+    exact V'_nonempty_or_τ_is_zero h_V'_eq_empty_proof
+
+  have h_τ_q_lt_zero : τ q_vertex < 0 := by
+    have sum_V'_nonneg : ∑ v in V', τ v ≥ 0 := by
+      apply Finset.sum_nonneg
+      intro v hv_in_V'
+      exact h_τ_q_reduced_cond1 v hv_in_V'
+
+    have h_deg_τ_expanded : τ q_vertex + ∑ v in V', τ v = 0 := by
+      unfold deg at h_deg_τ_zero
+      rw [← Finset.sum_filter_add_sum_filter_not (s := Finset.univ) (p := λ v' => v' ≠ q_vertex)] at h_deg_τ_zero
+      rw [add_comm] at h_deg_τ_zero
+      have h_sum_filter_not : ∑ v in Finset.filter (λ v' => ¬(v' ≠ q_vertex)) Finset.univ, τ v = τ q_vertex := by
+        have h_filter_eq : Finset.filter (λ v' => ¬(v' ≠ q_vertex)) Finset.univ = {q_vertex} := by
+          ext x
+          simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
+          exact ⟨λ h => not_not.mp h, λ h => not_not.mpr h⟩
+        rw [h_filter_eq]
+        simp only [Finset.sum_singleton]
+      rw [h_sum_filter_not] at h_deg_τ_zero
+      have h_sum_filter_eq : ∑ v in Finset.filter (λ v' => v' ≠ q_vertex) Finset.univ, τ v = ∑ v in V', τ v := by rfl
+      rw [h_sum_filter_eq] at h_deg_τ_zero
+      exact h_deg_τ_zero
+
+    have h_τ_q_le_zero : τ q_vertex ≤ 0 := by
+      linarith [h_deg_τ_expanded, sum_V'_nonneg]
+
+    apply lt_of_le_of_ne h_τ_q_le_zero
+    intro h_τ_q_eq_zero
+
+    have sum_V'_eq_zero : ∑ v in V', τ v = 0 := by
+      rw [h_τ_q_eq_zero] at h_deg_τ_expanded
+      simp only [zero_add] at h_deg_τ_expanded
+      exact h_deg_τ_expanded
+
+    have all_V'_zero : ∀ v ∈ V', τ v = 0 := by
+      apply (Finset.sum_eq_zero_iff_of_nonneg (λ v hv => h_τ_q_reduced_cond1 v hv)).mp sum_V'_eq_zero
+
+    have τ_is_zero : τ = 0 := by
+      funext v
+      by_cases h_v_eq_q : v = q_vertex
+      · rw [h_v_eq_q, h_τ_q_eq_zero]; rfl
+      · exact all_V'_zero v (Finset.mem_filter.mpr ⟨Finset.mem_univ v, h_v_eq_q⟩)
+
+    exact h_τ_neq_zero τ_is_zero
+
+  specialize h_τ_q_reduced_cond2 V' (le_refl V') V'_nonempty
+  cases h_τ_q_reduced_cond2 with
+  | intro v₀ h_v₀_in_V'_and_lt_sum =>
+    have h_v₀_in_V' : v₀ ∈ V' := h_v₀_in_V'_and_lt_sum.1
+    have h_τ_v₀_lt_sum : τ v₀ < ∑ w in V'.filter (λ x => x ∉ V'), (num_edges G v₀ w : ℤ) :=
+      h_v₀_in_V'_and_lt_sum.2
+
+    have h_filter_is_empty : V'.filter (λ x => x ∉ V') = ∅ := by
+      rw [Finset.filter_eq_empty_iff]; intro x; simp;
+    rw [h_filter_is_empty, Finset.sum_empty] at h_τ_v₀_lt_sum
+    have h_τ_v₀_ge_zero : τ v₀ ≥ 0 := h_τ_q_reduced_cond1 v₀ h_v₀_in_V'
+    exact absurd h_τ_v₀_lt_sum (not_lt.mpr h_τ_v₀_ge_zero)
+
+-- This lemma shows that there is a problem with the definition of q-reduced divisors above. The proof above only uses the fact that a principal divisor is degree zero.
+lemma degree_zero_divisor_is_q_reduced_old_implies_zero (G : CFGraph V) (q_vertex : V) (τ : CFDiv V) :
+  deg τ = 0 → q_reduced_old G q_vertex τ → τ = 0 := by
+  intros h_deg_τ_zero h_τ_q_reduced
+  by_contra h_τ_neq_zero
 
   let V' := Finset.univ.filter (λ v => v ≠ q_vertex)
   have h_τ_q_reduced_cond1 : ∀ v ∈ V', τ v ≥ 0 := by

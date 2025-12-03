@@ -52,9 +52,15 @@ def config_linear_equiv {q : V} (G : CFGraph V) (c c' : Config V q) : Prop :=
   diff ∈ AddSubgroup.closure (Set.range (λ v => λ w => if w = v then -vertex_degree G v else num_edges G v w))
 
 -- Definition of the out-degree of a vertex v ∈ S with respect to a subset S ⊆ V \ {q}
--- This counts edges from v to vertices *outside* S (but not q).
--- outdeg_S(v) = |{ (v, w) ∈ E | w ∈ (V \ {q}) \ S }|
+-- This counts edges from v to vertices *outside* S.
+-- outdeg_S(v) = |{ (v, w) ∈ E | w ∈ V \ S }|
 def outdeg_S (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
+  -- Sum num_edges from v to w, where w is not in S and not q.
+  ∑ w in (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ)
+
+-- Old definition of outdeg_S incorrectly excluding the effect of chips fired into q.
+-- Retained for now, but should be deleted later.
+def outdeg_S_old (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
   -- Sum num_edges from v to w, where w is not in S and not q.
   ∑ w in (univ.filter (λ x => x ≠ q)).filter (λ x => x ∉ S), (num_edges G v w : ℤ)
 
