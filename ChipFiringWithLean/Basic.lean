@@ -125,21 +125,22 @@ def CFDiv (V : Type) := V → ℤ
 -- Make CFDiv an Additive Commutative Group
 instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
--- Divisor addition (pointwise)
-instance : Add (CFDiv V) := ⟨λ D₁ D₂ => λ v => D₁ v + D₂ v⟩
+-- Removed this lines, since they are done implicity by Pi.addCommGroup.
+-- -- Divisor addition (pointwise)
+-- instance : Add (CFDiv V) := ⟨λ D₁ D₂ => λ v => D₁ v + D₂ v⟩
 
--- Divisor subtraction (pointwise)
-instance : Sub (CFDiv V) := ⟨λ D₁ D₂ => λ v => D₁ v - D₂ v⟩
+-- -- Divisor subtraction (pointwise)
+-- instance : Sub (CFDiv V) := ⟨λ D₁ D₂ => λ v => D₁ v - D₂ v⟩
 
--- Zero divisor
-instance : Zero (CFDiv V) := ⟨λ _ => 0⟩
+-- -- Zero divisor
+-- instance : Zero (CFDiv V) := ⟨λ _ => 0⟩
 
--- Neg for divisors
-instance : Neg (CFDiv V) := ⟨λ D => λ v => -D v⟩
+-- -- Neg for divisors
+-- instance : Neg (CFDiv V) := ⟨λ D => λ v => -D v⟩
 
--- Add coercion from V → ℤ to CFDiv V
-instance : Coe (V → ℤ) (CFDiv V) where
-  coe f := f
+-- -- Add coercion from V → ℤ to CFDiv V
+-- instance : Coe (V → ℤ) (CFDiv V) where
+--   coe f := f
 
 -- Properties of divisor arithmetic
 @[simp] lemma add_apply (D₁ D₂ : CFDiv V) (v : V) :
@@ -419,9 +420,26 @@ theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : l
 -- Define a firing script as a function from vertices to integers
 def firing_script (V : Type) := V → ℤ
 
+instance: AddCommGroup (firing_script V) := Pi.addCommGroup
+
 -- Principal divisor associated to a firing script
-def prin (G : CFGraph V) (σ : firing_script V) : CFDiv V :=
-  λ v => ∑ u : V, (σ u - σ v) * (num_edges G v u : ℤ)
+def prin (G : CFGraph V) : firing_script V →+ CFDiv V :=
+  {
+    toFun := fun σ v => ∑ u : V, (σ u - σ v) * (num_edges G v u),
+    map_zero' := by
+      have h (w : V) : (0 : V → ℤ) w = 0 := rfl
+      simp [h]
+      rfl,
+    map_add' := by
+      intro σ₁ σ₂
+      funext v
+      dsimp
+      rw [← Finset.sum_add_distrib]
+      apply sum_congr rfl
+      intro u _
+      repeat rw [add_apply]
+      ring,
+  }
 
 lemma prin_eq_neg_laplacian_map (G : CFGraph V) (σ : firing_script V) :
   prin G σ = -laplacian_map G σ := by
@@ -465,36 +483,21 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
       . -- Case w ≠ v
         simp [h_eq, num_edges_symmetric G v w]
     . -- Case 2: h_inp is zero divisor
-      use (λ u => 0)
-      unfold prin
-      funext v
+      use 0
       simp
     . -- Case 3: h_inp is a sum of two principal divisors
       intros x y h_x_prin h_y_prin
       rcases h_x_prin with ⟨σ₁, h_x_eq⟩
       rcases h_y_prin with ⟨σ₂, h_y_eq⟩
-      use (λ u => σ₁ u + σ₂ u)
-      funext u
       rw [h_x_eq, h_y_eq]
-      unfold prin
-      simp [add_mul, Finset.sum_add_distrib]
-      -- combine the two sums on the left side
-      rw [← Finset.sum_add_distrib]
-      apply sum_congr rfl
-      intro u v
-      ring
+      use σ₁ + σ₂
+      simp
     . -- Case 4: h_inp is negation of a principal divisor
       intro x h_x_prin
       rcases h_x_prin with ⟨σ, h_x_eq⟩
-      use (λ u => - σ u)
-      funext u
+      use -σ
       rw [h_x_eq]
-      unfold prin
-      simp [Finset.sum_apply]
-      rw [← Finset.sum_neg_distrib]
-      apply sum_congr rfl
-      intro u v
-      ring
+      simp
   . -- Backward direction
     intro h_prin
     rcases h_prin with ⟨σ, h_eq⟩
