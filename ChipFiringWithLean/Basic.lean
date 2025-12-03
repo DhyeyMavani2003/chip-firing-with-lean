@@ -361,8 +361,18 @@ def complete_linear_system (G: CFGraph V) (D: CFDiv V) : Set (CFDiv V) :=
   {D' : CFDiv V | linear_equiv G D D' ∧ effective D'}
 
 -- Degree of a divisor
+def deg_hom : CFDiv V →+ ℤ := {
+  toFun := λ D => ∑ v, D v,
+  map_zero' := by
+    simp [Finset.sum_const_zero],
+  map_add' := by
+    intro D₁ D₂
+    simp [Finset.sum_add_distrib],
+}
+
+-- For legacy reasons, we also define deg as a function (not a homomorphism). Eventually should phase out this definition.
+-- [TODO]: remplace all use of "deg" with "deg_hom", and perhaps rename deg_hom to deg.
 def deg (D : CFDiv V) : ℤ := ∑ v, D v
-def deg_prop (D : CFDiv V) : Prop := deg D = ∑ v, D v
 
 lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   deg (firing_vector G v_fire) = 0 := by
@@ -377,17 +387,11 @@ lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   rw [← vertex_degree_eq_sum_incident_edges G v_fire]
   simp
 
-lemma deg_add (D₁ D₂ : CFDiv V) : deg (D₁ + D₂) = deg D₁ + deg D₂ := by
-  unfold deg
-  simp only [add_apply, Finset.sum_add_distrib]
-
-lemma deg_zero : deg (0 : CFDiv V) = 0 := by
-  unfold deg
-  simp only [zero_apply, Finset.sum_const_zero]
-
-lemma deg_neg (D : CFDiv V) : deg (-D) = - deg D := by
-  unfold deg
-  simp only [neg_apply, Finset.sum_neg_distrib]
+-- These lemmas are now unnecessary since they are homomorphism facts, but they are included for now since the rest of the package currently still refers to them.
+-- [TODO]: Remove these lemmas and update references later.
+lemma deg_add (D₁ D₂ : CFDiv V) : deg (D₁ + D₂) = deg D₁ + deg D₂ := deg_hom.map_add D₁ D₂
+lemma deg_zero : deg (0 : CFDiv V) = 0 := deg_hom.map_zero
+lemma deg_neg (D : CFDiv V) : deg (-D) = - deg D := deg_hom.map_neg D
 
 theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
   deg D = deg D' := by
