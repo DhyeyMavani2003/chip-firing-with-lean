@@ -295,11 +295,11 @@ axiom helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
   ∃ (E₁ E₂ : CFDiv V),
     effective E₁ ∧ effective E₂ ∧
     deg E₁ = k₁ ∧ deg E₂ = k₂ ∧
-    E'' = λ v => E₁ v + E₂ v
+    E'' = E₁ + E₂
 
 /- [Proven] Helper theorem: Winnability is preserved under addition -/
 theorem helper_winnable_add (G : CFGraph V) (D₁ D₂ : CFDiv V) :
-  winnable G D₁ → winnable G D₂ → winnable G (λ v => D₁ v + D₂ v) := by
+  winnable G D₁ → winnable G D₂ → winnable G (D₁ + D₂) := by
   -- Assume D₁ and D₂ are winnable
   intro h1 h2
 

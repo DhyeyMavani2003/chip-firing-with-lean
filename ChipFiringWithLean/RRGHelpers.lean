@@ -427,7 +427,7 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
   let k₂ := (rank G D').toNat
 
   -- Show rank is ≥ k₁ + k₂ by proving rank_geq
-  have h_rank_geq : rank_geq G (λ v => D v + D' v) (k₁ + k₂) := by
+  have h_rank_geq : rank_geq G (D + D') (k₁ + k₂) := by
     -- Take any effective divisor E'' of degree k₁ + k₂
     intro E'' h_E''
     have ⟨h_eff, h_deg⟩ := h_E''
@@ -453,15 +453,16 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
     have h_D_win := h_D_rank_geq E₁ (by exact ⟨h_E₁_eff, h_E₁_deg⟩)
     have h_D'_win := h_D'_rank_geq E₂ (by exact ⟨h_E₂_eff, h_E₂_deg⟩)
 
-    -- Show that (D + D') - (E₁ + E₂) = (D - E₁) + (D' - E₂)
-    have h_rearrange : (λ v => (D v + D' v) - (E₁ v + E₂ v)) =
-                      (λ v => (D v - E₁ v) + (D' v - E₂ v)) := by
-      funext v
-      ring
-
     -- Show winnability of sum using helper_winnable_add and rearrangement
-    rw [h_sum, h_rearrange]
-    exact helper_winnable_add G (λ v => D v - E₁ v) (λ v => D' v - E₂ v) h_D_win h_D'_win
+    rw [h_sum]
+    have h := helper_winnable_add G (D-E₁) (D'-E₂) h_D_win h_D'_win
+    have h_arr : D - E₁ + (D' - E₂) = (D + D') - (E₁ + E₂) := by
+      abel
+    rw [h_arr] at h
+    exact h
+
+
+
 
   -- Connect k₁, k₂ back to original ranks
   have h_k₁ : ↑k₁ = rank G D := by

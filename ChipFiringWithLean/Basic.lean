@@ -346,6 +346,25 @@ def effective_bool (D : CFDiv V) : Bool :=
 def effective (D : CFDiv V) : Prop :=
   ∀ v : V, D v ≥ 0
 
+lemma eff_of_eff_add_eff (D₁ D₂ : CFDiv V) :
+  effective D₁ → effective D₂ → effective (D₁ + D₂) := by
+  intro h_eff1 h_eff2 v
+  unfold effective at *
+  specialize h_eff1 v
+  specialize h_eff2 v
+  simp [add_apply]
+  linarith
+
+lemma eff_of_smul_eff (n : ℕ) (D : CFDiv V) :
+  effective D → effective (n • D) := by
+  intro h_eff v
+  unfold effective at *
+  specialize h_eff v
+  simp [smul_apply]
+  apply Int.mul_nonneg
+  · exact Int.ofNat_nonneg n
+  · exact h_eff
+
 -- Define the set of effective divisors
 -- Note: We use the Prop returned by `effective` in set comprehension
 def Div_plus (G : CFGraph V) : Set (CFDiv V) :=
@@ -373,6 +392,19 @@ def deg_hom : CFDiv V →+ ℤ := {
 -- For legacy reasons, we also define deg as a function (not a homomorphism). Eventually should phase out this definition.
 -- [TODO]: replace all use of "deg" with "deg_hom", and perhaps rename deg_hom to deg.
 def deg (D : CFDiv V) : ℤ := ∑ v, D v
+
+
+@[simp] lemma deg_eq_deg_hom (D : CFDiv V) : deg D = deg_hom D := by
+  dsimp [deg, deg_hom]
+
+lemma deg_of_eff_nonneg (D : CFDiv V) :
+  effective D → deg_hom D ≥ 0 := by
+  intro h_eff
+  refine Finset.sum_nonneg ?_
+  intro v _
+  specialize h_eff v
+  exact h_eff
+
 
 lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   deg (firing_vector G v_fire) = 0 := by
