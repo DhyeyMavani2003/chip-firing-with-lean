@@ -222,7 +222,7 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
 
       -- Since D' and D'' are both q-reduced and linearly equivalent, they must be equal
       have h_D'_eq_D'' : D' = D'' := by
-        apply q_reduced_unique_class G q D' D''
+        apply q_reduced_unique G q D' D''
         -- Provide the triple ⟨q_reduced D', q_reduced D'', D' ~ D''⟩
         exact ⟨h_qred_D', h_qred_D'', h_D'_equiv_D''⟩
 

@@ -80,9 +80,8 @@ lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv 
   -- Transitivity: linear_equiv G D₁ D ∧ linear_equiv G D D₂ → linear_equiv G D₁ D₂
   have h_equiv_D1_D2 : linear_equiv G D₁ D₂ := equiv_rel.trans h_equiv_D1_D h_equiv_D_D2
 
-  -- Apply the q_reduced_unique_class axiom from Basic.lean
   -- Needs: q_reduced G q D₁, q_reduced G q D₂, linear_equiv G D₁ D₂
-  exact q_reduced_unique_class G q D₁ D₂ ⟨h_qred_D1, h_qred_D2, h_equiv_D1_D2⟩
+  exact q_reduced_unique G q D₁ D₂ ⟨h_qred_D1, h_qred_D2, h_equiv_D1_D2⟩
 
 /- [Proven] Helper lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
 lemma helper_unique_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :

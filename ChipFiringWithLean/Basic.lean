@@ -686,7 +686,7 @@ lemma q_reducer_of_add_princ_reduced (G : CFGraph V) (q : V) (D : CFDiv V) (σ :
   linarith [w_argmin t (by simp)]
   linarith [num_edges_nonneg G x t]
 
-theorem q_reduced_unique_class (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
+theorem q_reduced_unique (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂ := by
   intro ⟨h_qred_1,h_qred_2,h_lequiv⟩
   unfold linear_equiv at h_lequiv
