@@ -371,7 +371,7 @@ def deg_hom : CFDiv V →+ ℤ := {
 }
 
 -- For legacy reasons, we also define deg as a function (not a homomorphism). Eventually should phase out this definition.
--- [TODO]: remplace all use of "deg" with "deg_hom", and perhaps rename deg_hom to deg.
+-- [TODO]: replace all use of "deg" with "deg_hom", and perhaps rename deg_hom to deg.
 def deg (D : CFDiv V) : ℤ := ∑ v, D v
 
 lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
@@ -572,21 +572,6 @@ def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
   (∀ S : Finset V, S ⊆ (Finset.univ.filter (λ v => v ≠ q)) → S.Nonempty →
     ∃ v ∈ S, D v < ∑ w in (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
 
--- Previously used definition retained for now. It had an extra restriction that the sum didn't include q, which leads to incorrect results illustrated in  degree_zero_divisor_is_q_reduced_old_implies_zero.
-def q_reduced_old (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
-  (∀ v ∈ {v | v ≠ q}, D v ≥ 0) ∧
-  (∀ S : Finset V, S ⊆ (Finset.univ.filter (λ v => v ≠ q)) → S.Nonempty →
-    ∃ v ∈ S, D v < ∑ w in (univ.filter (λ x => x ≠ q)).filter (λ x => x ∉ S), (num_edges G v w : ℤ))
-
--- Define the ordering of divisors
-def divisor_order (G : CFGraph V) (q : V) (D D' : CFDiv V) : Prop :=
-  (∃ T : Finset V, T ⊆ (Finset.univ.filter (λ v => v ≠ q)) ∧ D' = set_firing G D T) ∧
-  (∀ T' : Finset V, T' ⊆ (Finset.univ.filter (λ v => v ≠ q)) → D' ≠ set_firing G D T')
-
--- Define the ordering of divisors using the divisor_order relation
-def divisor_ordering (G : CFGraph V) (q : V) (D D' : CFDiv V) : Prop :=
-  divisor_order G q D' D
-
 -- Legal set-firing: Ensure no vertex in S is in debt after firing
 def legal_set_firing (G : CFGraph V) (D : CFDiv V) (S : Finset V) : Prop :=
   ∀ v ∈ S, set_firing G D S v ≥ 0
@@ -624,224 +609,112 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
     intros x h_deg_x_zero
     rw [deg_neg, h_deg_x_zero, neg_zero]
 
-/- [IN-PROGRESS LEMMA] Q-reduced form uniquely determines divisor class.
+def q_effective (q : V) (D : CFDiv V) : Prop :=
+  ∀ v : V, v ≠ q → D v ≥ 0
 
--- Proof idea:
-  intro h
-  cases h with
-  | intro h_qred_D1 h_rest =>
-    cases h_rest with
-    | intro h_qred_D2 h_lin_equiv =>
-      let h_diff := D₁ - D₂
-      have h_diff_is_principal : h_diff ∈ principal_divisors G := by
-        unfold linear_equiv at h_lin_equiv
-        -- Fix the definition issue - linear_equiv is D₂ - D₁ ∈ principal_divisors G
-        -- but h_diff is D₁ - D₂
-        have h_neg : -(D₂ - D₁) = D₁ - D₂ := by
-          simp only [neg_sub]
-        have h_prin_neg : -(D₂ - D₁) ∈ principal_divisors G := by
-          apply AddSubgroup.neg_mem
-          exact h_lin_equiv
-        rw [h_neg] at h_prin_neg
-        exact h_prin_neg
+def q_reducer (G : CFGraph V) (q : V) (σ : firing_script V) : Prop :=
+  ∀ v : V, σ q ≤ σ v
 
-      -- The rest of the proof involves showing that a q-reduced principal divisor must be zero
-      -- This is a key theorem in chip-firing theory
-      sorry
--/
-axiom q_reduced_unique_class (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
-  q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂
+lemma q_reducer_of_add_princ_reduced (G : CFGraph V) (q : V) (D : CFDiv V) (σ : firing_script V) :
+  q_reduced G q (D + prin G σ) → q_effective q D → q_reducer G q σ := by
+  intro h_q_reduced h_q_effective v
+  unfold q_reduced at h_q_reduced
+  rcases h_q_reduced with ⟨h_eff, h_S⟩
 
--- This lemma is retained for now. It uses an old incorrect definition of q-reduced.
-lemma principal_divisor_is_q_reduced_old_implies_zero (G : CFGraph V) (q_vertex : V) (τ : CFDiv V) :
-  τ ∈ principal_divisors G → q_reduced_old G q_vertex τ → τ = 0 := by
-  intros h_τ_principal h_τ_q_reduced
-  by_contra h_τ_neq_zero
+  have min_exists := Finset.exists_min_image Finset.univ σ (by use q; simp)
+  rcases min_exists with ⟨w, ⟨_,w_argmin⟩⟩
+  let S := Finset.univ.filter (σ · = σ w)
 
-  have h_deg_τ_zero : deg τ = 0 := degree_of_principal_divisor_is_zero G τ h_τ_principal
+  -- Reduce goal to q ∈ S
+  have sts : q ∈ S → σ q ≤ σ v := by
+    intro q_in_S; dsimp [S] at q_in_S; simp at q_in_S
+    linarith [w_argmin v (by simp)]
+  apply sts
 
-  let V' := Finset.univ.filter (λ v => v ≠ q_vertex)
-  have h_τ_q_reduced_cond1 : ∀ v ∈ V', τ v ≥ 0 := by
-    convert h_τ_q_reduced.left
-    funext v; simp [V']
-  have h_τ_q_reduced_cond2 : ∀ (S : Finset V), S ⊆ V' → S.Nonempty →
-    (∃ v ∈ S, τ v < ∑ w in V'.filter (λ x => x ∉ S), (num_edges G v w : ℤ)) := h_τ_q_reduced.right
+  -- Show that if q ∉ S then D + pring G σ isn't q-reduced
+  contrapose! h_S
+  use S
 
-  have V'_nonempty_or_τ_is_zero : (V' = ∅ → τ = 0) := by
-    intro h_V'_is_empty
-    have h_deg_τ_eq_τ_q : deg τ = τ q_vertex := by
-      unfold deg;
-      have univ_eq_singleton : Finset.univ = {q_vertex} := by
-        apply Finset.eq_singleton_iff_unique_mem.mpr
-        refine' ⟨Finset.mem_univ q_vertex, ?_⟩
-        intro x _;
-        by_cases hx_eq_q : x = q_vertex
-        · exact hx_eq_q
-        · exact (Finset.not_mem_empty x (h_V'_is_empty ▸ (Finset.mem_filter.mpr ⟨Finset.mem_univ x, hx_eq_q⟩ : x ∈ V'))).elim
-      rw [univ_eq_singleton, Finset.sum_singleton]
-    rw [h_deg_τ_eq_τ_q] at h_deg_τ_zero
+  -- Consider each part of the q-reducedness definition
+  -- Show that S ⊆ {v : v ≠ q}
+  constructor
+  rintro x x_S; simp
+  contrapose! h_S
+  rw [h_S] at x_S
+  exact x_S
+  -- Show S is nonempty
+  constructor
+  use w
+  dsimp [S]; simp
+  -- Show the outdegree inequality
+  rintro x x_S; simp
+  have h_σx: σ x = σ w := by dsimp[S] at x_S; simp at x_S; exact x_S
+  unfold prin; simp
+
+  rw [← Finset.sum_filter_add_sum_filter_not univ (fun x ↦ x ∉ S)]
+
+  have ineq_Dx : 0 ≤ D x := by
+    apply h_q_effective
+    contrapose! h_S
+    rw [← h_S]
+    exact x_S
+  -- Show some terms are zero, and bound the others
+  refine le_trans ?_ (le_add_of_nonneg_left ineq_Dx)
+  refine le_trans ?_ (le_add_of_nonneg_right ?_)
+  -- Part 1: bound prin σ using outdegree
+  refine Finset.sum_le_sum ?_
+  intro t h_t_S
+  simp at h_t_S
+  have h₁: 1 ≤ σ t - σ x := by
+    apply Int.pos_iff_one_le.mp
+    apply lt_of_le_of_ne
+    linarith [w_argmin t (by simp)]
+    contrapose! h_t_S
+    dsimp [S]; simp
+    linarith
+  have h₂ : (0:ℤ) ≤ ↑(num_edges G x t) := by
+    have := num_edges_nonneg G x t
+    -- This line looks weird, but it's doing something: upcasting from ℕ to ℤ. There's probably a better way to do this.
+    linarith
+  linarith [Int.mul_le_mul_of_nonneg_right h₁ h₂]
+
+  -- Part 2: show other terms are nonnegative
+  refine Finset.sum_nonneg ?_
+  intro t h_t_notin_S
+  rw [h_σx]
+  apply mul_nonneg
+  linarith [w_argmin t (by simp)]
+  linarith [num_edges_nonneg G x t]
+
+theorem q_reduced_unique_class (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
+  q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂ := by
+  intro ⟨h_qred_1,h_qred_2,h_lequiv⟩
+  unfold linear_equiv at h_lequiv
+  simp [principal_iff_eq_prin] at h_lequiv
+  rcases h_lequiv with ⟨σ, h_D2_eq⟩
+  have h_reducer_1 : q_reducer G q σ := by
+    apply q_reducer_of_add_princ_reduced G q D₁ σ
+    rw [← h_D2_eq]
+    simp
+    exact h_qred_2
+    exact h_qred_1.left
+  have h_reducer_2 : q_reducer G q (-σ) := by
+    apply q_reducer_of_add_princ_reduced G q D₂ (-σ)
+    rw [(prin G).map_neg, ← sub_eq_add_neg]
+    simp [← h_D2_eq]
+    exact h_qred_1
+    exact h_qred_2.left
+  have : ∀ v : V, σ v = σ q := by
+    intro v
+    specialize h_reducer_1 v
+    specialize h_reducer_2 v
+    repeat rw [Pi.neg_apply] at h_reducer_2
+    linarith
+  have : prin G σ = (0 : CFDiv V) := by
     funext v
-    by_cases hv_eq_q : v = q_vertex
-    · rw [hv_eq_q, h_deg_τ_zero]; rfl
-    · have h_v_in_V' : v ∈ V' := Finset.mem_filter.mpr ⟨Finset.mem_univ v, hv_eq_q⟩
-      rw [h_V'_is_empty] at h_v_in_V'
-      exact absurd h_v_in_V' (Finset.not_mem_empty v)
-
-  have V'_nonempty : V'.Nonempty := by
-    apply Finset.nonempty_iff_ne_empty.mpr
-    intro h_V'_eq_empty_proof
-    apply h_τ_neq_zero
-    exact V'_nonempty_or_τ_is_zero h_V'_eq_empty_proof
-
-  have h_τ_q_lt_zero : τ q_vertex < 0 := by
-    have sum_V'_nonneg : ∑ v in V', τ v ≥ 0 := by
-      apply Finset.sum_nonneg
-      intro v hv_in_V'
-      exact h_τ_q_reduced_cond1 v hv_in_V'
-
-    have h_deg_τ_expanded : τ q_vertex + ∑ v in V', τ v = 0 := by
-      unfold deg at h_deg_τ_zero
-      rw [← Finset.sum_filter_add_sum_filter_not (s := Finset.univ) (p := λ v' => v' ≠ q_vertex)] at h_deg_τ_zero
-      rw [add_comm] at h_deg_τ_zero
-      have h_sum_filter_not : ∑ v in Finset.filter (λ v' => ¬(v' ≠ q_vertex)) Finset.univ, τ v = τ q_vertex := by
-        have h_filter_eq : Finset.filter (λ v' => ¬(v' ≠ q_vertex)) Finset.univ = {q_vertex} := by
-          ext x
-          simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
-          exact ⟨λ h => not_not.mp h, λ h => not_not.mpr h⟩
-        rw [h_filter_eq]
-        simp only [Finset.sum_singleton]
-      rw [h_sum_filter_not] at h_deg_τ_zero
-      have h_sum_filter_eq : ∑ v in Finset.filter (λ v' => v' ≠ q_vertex) Finset.univ, τ v = ∑ v in V', τ v := by rfl
-      rw [h_sum_filter_eq] at h_deg_τ_zero
-      exact h_deg_τ_zero
-
-    have h_τ_q_le_zero : τ q_vertex ≤ 0 := by
-      linarith [h_deg_τ_expanded, sum_V'_nonneg]
-
-    apply lt_of_le_of_ne h_τ_q_le_zero
-    intro h_τ_q_eq_zero
-
-    have sum_V'_eq_zero : ∑ v in V', τ v = 0 := by
-      rw [h_τ_q_eq_zero] at h_deg_τ_expanded
-      simp only [zero_add] at h_deg_τ_expanded
-      exact h_deg_τ_expanded
-
-    have all_V'_zero : ∀ v ∈ V', τ v = 0 := by
-      apply (Finset.sum_eq_zero_iff_of_nonneg (λ v hv => h_τ_q_reduced_cond1 v hv)).mp sum_V'_eq_zero
-
-    have τ_is_zero : τ = 0 := by
-      funext v
-      by_cases h_v_eq_q : v = q_vertex
-      · rw [h_v_eq_q, h_τ_q_eq_zero]; rfl
-      · exact all_V'_zero v (Finset.mem_filter.mpr ⟨Finset.mem_univ v, h_v_eq_q⟩)
-
-    exact h_τ_neq_zero τ_is_zero
-
-  specialize h_τ_q_reduced_cond2 V' (le_refl V') V'_nonempty
-  cases h_τ_q_reduced_cond2 with
-  | intro v₀ h_v₀_in_V'_and_lt_sum =>
-    have h_v₀_in_V' : v₀ ∈ V' := h_v₀_in_V'_and_lt_sum.1
-    have h_τ_v₀_lt_sum : τ v₀ < ∑ w in V'.filter (λ x => x ∉ V'), (num_edges G v₀ w : ℤ) :=
-      h_v₀_in_V'_and_lt_sum.2
-
-    have h_filter_is_empty : V'.filter (λ x => x ∉ V') = ∅ := by
-      rw [Finset.filter_eq_empty_iff]; intro x; simp;
-    rw [h_filter_is_empty, Finset.sum_empty] at h_τ_v₀_lt_sum
-    have h_τ_v₀_ge_zero : τ v₀ ≥ 0 := h_τ_q_reduced_cond1 v₀ h_v₀_in_V'
-    exact absurd h_τ_v₀_lt_sum (not_lt.mpr h_τ_v₀_ge_zero)
-
--- This lemma shows that there is a problem with the definition of q-reduced divisors above. The proof above only uses the fact that a principal divisor is degree zero.
-lemma degree_zero_divisor_is_q_reduced_old_implies_zero (G : CFGraph V) (q_vertex : V) (τ : CFDiv V) :
-  deg τ = 0 → q_reduced_old G q_vertex τ → τ = 0 := by
-  intros h_deg_τ_zero h_τ_q_reduced
-  by_contra h_τ_neq_zero
-
-  let V' := Finset.univ.filter (λ v => v ≠ q_vertex)
-  have h_τ_q_reduced_cond1 : ∀ v ∈ V', τ v ≥ 0 := by
-    convert h_τ_q_reduced.left
-    funext v; simp [V']
-  have h_τ_q_reduced_cond2 : ∀ (S : Finset V), S ⊆ V' → S.Nonempty →
-    (∃ v ∈ S, τ v < ∑ w in V'.filter (λ x => x ∉ S), (num_edges G v w : ℤ)) := h_τ_q_reduced.right
-
-  have V'_nonempty_or_τ_is_zero : (V' = ∅ → τ = 0) := by
-    intro h_V'_is_empty
-    have h_deg_τ_eq_τ_q : deg τ = τ q_vertex := by
-      unfold deg;
-      have univ_eq_singleton : Finset.univ = {q_vertex} := by
-        apply Finset.eq_singleton_iff_unique_mem.mpr
-        refine' ⟨Finset.mem_univ q_vertex, ?_⟩
-        intro x _;
-        by_cases hx_eq_q : x = q_vertex
-        · exact hx_eq_q
-        · exact (Finset.not_mem_empty x (h_V'_is_empty ▸ (Finset.mem_filter.mpr ⟨Finset.mem_univ x, hx_eq_q⟩ : x ∈ V'))).elim
-      rw [univ_eq_singleton, Finset.sum_singleton]
-    rw [h_deg_τ_eq_τ_q] at h_deg_τ_zero
-    funext v
-    by_cases hv_eq_q : v = q_vertex
-    · rw [hv_eq_q, h_deg_τ_zero]; rfl
-    · have h_v_in_V' : v ∈ V' := Finset.mem_filter.mpr ⟨Finset.mem_univ v, hv_eq_q⟩
-      rw [h_V'_is_empty] at h_v_in_V'
-      exact absurd h_v_in_V' (Finset.not_mem_empty v)
-
-  have V'_nonempty : V'.Nonempty := by
-    apply Finset.nonempty_iff_ne_empty.mpr
-    intro h_V'_eq_empty_proof
-    apply h_τ_neq_zero
-    exact V'_nonempty_or_τ_is_zero h_V'_eq_empty_proof
-
-  have h_τ_q_lt_zero : τ q_vertex < 0 := by
-    have sum_V'_nonneg : ∑ v in V', τ v ≥ 0 := by
-      apply Finset.sum_nonneg
-      intro v hv_in_V'
-      exact h_τ_q_reduced_cond1 v hv_in_V'
-
-    have h_deg_τ_expanded : τ q_vertex + ∑ v in V', τ v = 0 := by
-      unfold deg at h_deg_τ_zero
-      rw [← Finset.sum_filter_add_sum_filter_not (s := Finset.univ) (p := λ v' => v' ≠ q_vertex)] at h_deg_τ_zero
-      rw [add_comm] at h_deg_τ_zero
-      have h_sum_filter_not : ∑ v in Finset.filter (λ v' => ¬(v' ≠ q_vertex)) Finset.univ, τ v = τ q_vertex := by
-        have h_filter_eq : Finset.filter (λ v' => ¬(v' ≠ q_vertex)) Finset.univ = {q_vertex} := by
-          ext x
-          simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
-          exact ⟨λ h => not_not.mp h, λ h => not_not.mpr h⟩
-        rw [h_filter_eq]
-        simp only [Finset.sum_singleton]
-      rw [h_sum_filter_not] at h_deg_τ_zero
-      have h_sum_filter_eq : ∑ v in Finset.filter (λ v' => v' ≠ q_vertex) Finset.univ, τ v = ∑ v in V', τ v := by rfl
-      rw [h_sum_filter_eq] at h_deg_τ_zero
-      exact h_deg_τ_zero
-
-    have h_τ_q_le_zero : τ q_vertex ≤ 0 := by
-      linarith [h_deg_τ_expanded, sum_V'_nonneg]
-
-    apply lt_of_le_of_ne h_τ_q_le_zero
-    intro h_τ_q_eq_zero
-
-    have sum_V'_eq_zero : ∑ v in V', τ v = 0 := by
-      rw [h_τ_q_eq_zero] at h_deg_τ_expanded
-      simp only [zero_add] at h_deg_τ_expanded
-      exact h_deg_τ_expanded
-
-    have all_V'_zero : ∀ v ∈ V', τ v = 0 := by
-      apply (Finset.sum_eq_zero_iff_of_nonneg (λ v hv => h_τ_q_reduced_cond1 v hv)).mp sum_V'_eq_zero
-
-    have τ_is_zero : τ = 0 := by
-      funext v
-      by_cases h_v_eq_q : v = q_vertex
-      · rw [h_v_eq_q, h_τ_q_eq_zero]; rfl
-      · exact all_V'_zero v (Finset.mem_filter.mpr ⟨Finset.mem_univ v, h_v_eq_q⟩)
-
-    exact h_τ_neq_zero τ_is_zero
-
-  specialize h_τ_q_reduced_cond2 V' (le_refl V') V'_nonempty
-  cases h_τ_q_reduced_cond2 with
-  | intro v₀ h_v₀_in_V'_and_lt_sum =>
-    have h_v₀_in_V' : v₀ ∈ V' := h_v₀_in_V'_and_lt_sum.1
-    have h_τ_v₀_lt_sum : τ v₀ < ∑ w in V'.filter (λ x => x ∉ V'), (num_edges G v₀ w : ℤ) :=
-      h_v₀_in_V'_and_lt_sum.2
-
-    have h_filter_is_empty : V'.filter (λ x => x ∉ V') = ∅ := by
-      rw [Finset.filter_eq_empty_iff]; intro x; simp;
-    rw [h_filter_is_empty, Finset.sum_empty] at h_τ_v₀_lt_sum
-    have h_τ_v₀_ge_zero : τ v₀ ≥ 0 := h_τ_q_reduced_cond1 v₀ h_v₀_in_V'
-    exact absurd h_τ_v₀_lt_sum (not_lt.mpr h_τ_v₀_ge_zero)
+    unfold prin
+    dsimp
+    simp [this]
+  rw [this] at h_D2_eq
+  apply sub_eq_zero.mp at h_D2_eq
+  rw [h_D2_eq]
