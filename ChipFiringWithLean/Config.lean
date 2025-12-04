@@ -14,8 +14,8 @@ set_option linter.unusedSectionVars false
 
 open Multiset Finset
 
--- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+-- Assume V is a finite, nonempty type with decidable equality
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 /-- A configuration on a graph G with respect to a distinguished vertex q.
     Represents an element of ℤ(V\{q}) ⊆ ℤV with non-negativity constraints on V\{q}.
@@ -89,7 +89,7 @@ lemma smul_one_chip (k : ℤ) (v_chip : V) :
   · simp -- Goal is k • 0 = 0
 
 -- Helper lemma: If D₁ ~ D₂, then D₁ + D ~ D₂ + D
-lemma linear_equiv_add_congr_right_local {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (D_add : CFDiv V) {D1 D2 : CFDiv V} (h : linear_equiv G D1 D2) :
+lemma linear_equiv_add_congr_right_local (G : CFGraph V) (D_add : CFDiv V) {D1 D2 : CFDiv V} (h : linear_equiv G D1 D2) :
   linear_equiv G (D1 + D_add) (D2 + D_add) := by
   unfold linear_equiv at h ⊢
   have h_eq : (D2 + D_add) - (D1 + D_add) = D2 - D1 := by abel
@@ -97,8 +97,7 @@ lemma linear_equiv_add_congr_right_local {V : Type} [DecidableEq V] [Fintype V] 
   exact h
 
 -- Helper lemma: Winnability is preserved under linear equivalence
-lemma winnable_congr_local {V : Type} [DecidableEq V] [Fintype V]
-    (G : CFGraph V) {D1 D2 : CFDiv V} (h_equiv : linear_equiv G D1 D2) :
+lemma winnable_congr_local (G : CFGraph V) {D1 D2 : CFDiv V} (h_equiv : linear_equiv G D1 D2) :
   winnable G D1 ↔ winnable G D2 := by
   unfold winnable
   simp only [Div_plus, Set.mem_setOf_eq]

@@ -12,10 +12,10 @@ set_option trace.split.failure true
 open Multiset Finset
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 /-- [Proven] The main Riemann-Roch theorem for graphs -/
-theorem riemann_roch_for_graphs {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (D : CFDiv V) :
+theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
   rank G D - rank G (λ v => canonical_divisor G v - D v) = deg D - genus G + 1 := by
   -- Get rank value for D
   let r := rank G D
@@ -94,7 +94,7 @@ theorem riemann_roch_for_graphs {V : Type} [DecidableEq V] [Fintype V] (G : CFGr
     linarith [h_ineq_sub]
 
 /-- [Proven] Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
-theorem maximal_unwinnable_symmetry {V : Type} [DecidableEq V] [Fintype V]
+theorem maximal_unwinnable_symmetry
     (G : CFGraph V) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (λ v => canonical_divisor G v - D v) := by
   constructor
@@ -221,7 +221,7 @@ theorem maximal_unwinnable_symmetry {V : Type} [DecidableEq V] [Fintype V]
 
 /-- [Proven] Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
              and K-D also having non-negative rank, the rank of D is at most half its degree. -/
-theorem clifford_theorem {V : Type} [DecidableEq V] [Fintype V]
+theorem clifford_theorem
     (G : CFGraph V) (D : CFDiv V)
     (h_D : rank G D ≥ 0)
     (h_KD : rank G (λ v => canonical_divisor G v - D v) ≥ 0) :
@@ -299,7 +299,7 @@ theorem clifford_theorem {V : Type} [DecidableEq V] [Fintype V]
   exact h5
 
 /-- [Proven] RRG's Corollary 4.4.3 establishing divisor degree to rank correspondence  -/
-theorem riemann_roch_deg_to_rank_corollary {V : Type} [DecidableEq V] [Fintype V]
+theorem riemann_roch_deg_to_rank_corollary
   (G : CFGraph V) (D : CFDiv V) :
   -- Part 1
   (deg D < 0 → rank G D = -1) ∧

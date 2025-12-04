@@ -25,12 +25,13 @@ import Mathlib.Order.WellFounded
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
+set_option linter.unusedSectionVars false
 
 open Multiset Finset Classical
 open CF -- Open the CF namespace globally for this file
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 
 /-
@@ -862,8 +863,7 @@ axiom Fintype.exists_elem (V : Type) [Fintype V] : ∃ x : V, True
 -/
 
 /-- [Proven] Helper lemma: Source vertices have equal indegree (zero) when v = q -/
-lemma helper_source_indeg_eq_at_q {V : Type} [DecidableEq V] [Fintype V]
-    (G : CFGraph V) (O₁ O₂ : CFOrientation G) (q v : V)
+lemma helper_source_indeg_eq_at_q (G : CFGraph V) (O₁ O₂ : CFOrientation G) (q v : V)
     (h_src₁ : is_source G O₁ q = true) (h_src₂ : is_source G O₂ q = true)
     (hv : v = q) :
     indeg G O₁ v = indeg G O₂ v := by
@@ -892,7 +892,7 @@ lemma helper_source_indeg_eq_at_q {V : Type} [DecidableEq V] [Fintype V]
     from Dhar (1990) proven in detail in Chapter 3 of Corry & Perkinson's "Divisors and
     Sandpiles" (AMS, 2018)
 -/
-lemma helper_dhar_algorithm {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (q : V) (D : CFDiv V) :
+lemma helper_dhar_algorithm (G : CFGraph V) (q : V) (D : CFDiv V) :
   ∃ (c : Config V q) (k : ℤ),
     linear_equiv G D (λ v => c.vertex_degree v + (if v = q then k else 0)) ∧
     superstable G q c := by
@@ -932,7 +932,7 @@ lemma helper_dhar_algorithm {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph 
     in characterizing unwinnable divisors, proven in chapter 4 of Corry & Perkinson's
     "Divisors and Sandpiles" (AMS, 2018). The negativity of k is essential for
     showing the relationship between unwinnable divisors and q-reduced forms. -/
-axiom helper_dhar_negative_k {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (q : V) (D : CFDiv V) :
+axiom helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   ¬(winnable G D) →
   ∀ (c : Config V q) (k : ℤ),
     linear_equiv G D (λ v => c.vertex_degree v + (if v = q then k else 0)) →
@@ -985,7 +985,7 @@ axiom helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c'
     This captures that when we apply canonical_divisor - D to a maximal unwinnable divisor,
     the rank measure decreases. This is used for termination of maximal_unwinnable_symmetry.
     This was especially hard to SETTLE in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom rank_decreases_for_KD {V : Type} [DecidableEq V] [Fintype V]
+axiom rank_decreases_for_KD
   (G : CFGraph V) (D : CFDiv V) :
   maximal_unwinnable G (λ v => canonical_divisor G v - D v) →
   ((rank G (λ v => canonical_divisor G v - D v) + 1).toNat < (rank G D + 1).toNat)
@@ -999,7 +999,7 @@ axiom rank_decreases_for_KD {V : Type} [DecidableEq V] [Fintype V]
 -/
 
 /-- [Proven] Effective divisors have non-negative degree -/
-lemma effective_nonneg_deg {V : Type} [DecidableEq V] [Fintype V]
+lemma effective_nonneg_deg
   (D : CFDiv V) (h : effective D) : deg D ≥ 0 := by
   -- Definition of effective means all entries are non-negative
   unfold effective at h

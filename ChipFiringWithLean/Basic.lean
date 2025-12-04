@@ -20,7 +20,7 @@ set_option linter.unusedSectionVars false
 open Multiset Finset
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 -- Define a set of edges to be loopless only if it doesn't have loops
 def isLoopless (edges : Multiset (V × V)) : Bool :=
@@ -114,7 +114,7 @@ lemma isUndirected_prop_bool_equiv (edges : Multiset (V × V)) :
 
 
 -- Multigraph with undirected and loopless edges
-structure CFGraph (V : Type) [DecidableEq V] [Fintype V] :=
+structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (edges : Multiset (V × V))
   (loopless : isLoopless edges = true)
   (undirected: isUndirected edges = true)

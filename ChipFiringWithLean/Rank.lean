@@ -17,7 +17,7 @@ set_option linter.unusedSectionVars false
 open Multiset Finset
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 -- Helper lemma: An effective divisor with degree 0 is the zero divisor.
 lemma effective_deg_zero_is_zero_divisor (D : CFDiv V) (h_eff : effective D) (h_deg_zero : deg D = 0) :
@@ -110,13 +110,13 @@ noncomputable def rank (G : CFGraph V) (D : CFDiv V) : ℤ :=
   Classical.choose (rank_exists_unique G D)
 
 /-- Definition: Properties of rank function with respect to effective divisors -/
-def rank_effective_char {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
+def rank_effective_char (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
   rank G D = r ↔
   (∀ E : CFDiv V, effective E → deg E = r + 1 → ¬(winnable G (λ v => D v - E v))) ∧
   (∀ E : CFDiv V, effective E → deg E = r → winnable G (λ v => D v - E v))
 
 /-- Definition (Axiomatic): Helper for rank characterization to get effective divisor -/
-axiom rank_get_effective {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (D : CFDiv V) :
+axiom rank_get_effective (G : CFGraph V) (D : CFDiv V) :
   ∃ E : CFDiv V, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (λ v => D v - E v))
 
 /-- Rank satisfies the defining properties -/
@@ -135,8 +135,7 @@ theorem rank_neg_one_iff_unwinnable (G : CFGraph V) (D : CFDiv V) :
   exact (rank_spec G D).1
 
 /-- Lemma: If rank is not non-negative, then it equals -1 -/
-lemma rank_neg_one_of_not_nonneg {V : Type} [DecidableEq V] [Fintype V]
-  (G : CFGraph V) (D : CFDiv V) (h_not_nonneg : ¬(rank G D ≥ 0)) : rank G D = -1 := by
+lemma rank_neg_one_of_not_nonneg (G : CFGraph V) (D : CFDiv V) (h_not_nonneg : ¬(rank G D ≥ 0)) : rank G D = -1 := by
   -- rank_exists_unique gives ∃! r, P r ∨ Q r
   -- Classical.choose_spec gives (P r ∨ Q r) ∧ ∀ y, (P y ∨ Q y) → y = r, where r = rank G D
   have h_exists_unique_spec := Classical.choose_spec (rank_exists_unique G D)

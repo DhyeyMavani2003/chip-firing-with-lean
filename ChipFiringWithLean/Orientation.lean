@@ -23,7 +23,7 @@ set_option linter.unusedSectionVars false
 open Multiset Finset
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 /-- An orientation of a graph assigns a direction to each edge.
     The consistent field ensures each undirected edge corresponds to exactly

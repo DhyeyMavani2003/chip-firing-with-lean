@@ -10,7 +10,7 @@ import Mathlib.Tactic
 set_option linter.unusedVariables false
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [Fintype V] [DecidableEq V]
+variable {V : Type} [Fintype V] [DecidableEq V] [Nonempty V]
 
 namespace CF
 

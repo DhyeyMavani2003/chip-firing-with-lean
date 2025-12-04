@@ -21,6 +21,7 @@ instance : Fintype Person where
     cases x
     all_goals { simp }
   }
+instance : Nonempty Person := ⟨Person.A⟩
 
 -- Example usage for Person type in a loopless graph
 def exampleEdges : Multiset (Person × Person) :=

@@ -12,7 +12,7 @@ set_option trace.split.failure true
 open Multiset Finset
 
 -- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V]
+variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 -- [Proven] Lemma: effectiveness is preserved under legal firing (Additional)
 lemma legal_firing_preserves_effective (G : CFGraph V) (D : CFDiv V) (S : Finset V) :
@@ -335,7 +335,7 @@ theorem superstable_and_maximal_unwinnable (G : CFGraph V) (q : V)
 
 /-- Theorem: A maximal unwinnable divisor has degree g-1
     This theorem now proven based on the characterizations above. -/
-theorem maximal_unwinnable_deg {V : Type} [DecidableEq V] [Fintype V]
+theorem maximal_unwinnable_deg
   (G : CFGraph V) (D : CFDiv V) :
   maximal_unwinnable G D → deg D = genus G - 1 := by
   intro h_max_unwin
@@ -396,7 +396,7 @@ theorem maximal_unwinnable_deg {V : Type} [DecidableEq V] [Fintype V]
        where an orientation O maps to the divisor D(O) - q where D(O) assigns indegree to each vertex. (Surjection proof deferred)
     2) Any maximal unwinnable divisor has degree equal to genus - 1. -/
 theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
-    {V : Type} [DecidableEq V] [Fintype V] (G : CFGraph V) (q : V) :
+    (G : CFGraph V) (q : V) :
     (Function.Injective (λ (O : {O : CFOrientation G // is_acyclic G O ∧ is_source G O q}) =>
       λ v => (indeg G O.val v) - if v = q then 1 else 0)) ∧
     (∀ D : CFDiv V, maximal_unwinnable G D → deg D = genus G - 1) := by
@@ -506,7 +506,7 @@ theorem degree_of_canonical_divisor (G : CFGraph V) :
   ring
 
 /-- [Proven] Rank Degree Inequality -/
-theorem rank_degree_inequality {V : Type} [DecidableEq V] [Fintype V]
+theorem rank_degree_inequality
     (G : CFGraph V) (D : CFDiv V) :
     deg D - genus G < rank G D - rank G (λ v => canonical_divisor G v - D v) := by
   -- Get rank value for D
