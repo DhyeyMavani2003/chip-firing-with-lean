@@ -19,32 +19,34 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
+-- This can be removed. It is now subsumed by eff_degree_zero in Basic.lean.
 -- Helper lemma: An effective divisor with degree 0 is the zero divisor.
-lemma effective_deg_zero_is_zero_divisor (D : CFDiv V) (h_eff : effective D) (h_deg_zero : deg D = 0) :
-  D = (λ _ => 0) := by
-  apply funext
-  intro v
-  have h_all_nonneg : ∀ x, D x ≥ 0 := h_eff
-  have h_sum_eq_zero : ∑ x in Finset.univ, D x = 0 := by
-    unfold deg at h_deg_zero
-    exact h_deg_zero
-  exact Finset.sum_eq_zero_iff_of_nonneg (λ x _ => h_all_nonneg x) |>.mp h_sum_eq_zero v (Finset.mem_univ v)
+-- lemma effective_deg_zero_is_zero_divisor (D : CFDiv V) (h_eff : effective D) (h_deg_zero : deg D = 0) :
+--   D = (λ _ => 0) := by
+--   apply funext
+--   intro v
+--   have h_all_nonneg : ∀ x, D x ≥ 0 := h_eff
+--   have h_sum_eq_zero : ∑ x in Finset.univ, D x = 0 := by
+--     unfold deg at h_deg_zero
+--     exact h_deg_zero
+--   exact Finset.sum_eq_zero_iff_of_nonneg (λ x _ => h_all_nonneg x) |>.mp h_sum_eq_zero v (Finset.mem_univ v)
 
+-- This can be removed. It is not used elsewhere.
 -- Helper lemma: The zero divisor is winnable.
-lemma winnable_zero_divisor (G : CFGraph V) : winnable G (λ _ => 0) := by
-  let D₀ : CFDiv V := (λ _ => 0)
-  unfold winnable
-  simp only [Div_plus, Set.mem_setOf_eq] -- Use simp to unfold Div_plus and resolve membership
-  use D₀ -- D' = D₀
-  constructor
-  · -- D₀ is effective
-    unfold effective
-    intro v
-    simp [D₀]
-  · -- linear_equiv G D₀ D₀
-    unfold linear_equiv
-    simp only [sub_self, D₀] -- D₀ refers to the local let D₀
-    exact AddSubgroup.zero_mem (principal_divisors G)
+-- lemma winnable_zero_divisor (G : CFGraph V) : winnable G (λ _ => 0) := by
+--   let D₀ : CFDiv V := (λ _ => 0)
+--   unfold winnable
+--   simp only [Div_plus, Set.mem_setOf_eq] -- Use simp to unfold Div_plus and resolve membership
+--   use D₀ -- D' = D₀
+--   constructor
+--   · -- D₀ is effective
+--     unfold effective
+--     intro v
+--     simp [D₀]
+--   · -- linear_equiv G D₀ D₀
+--     unfold linear_equiv
+--     simp only [sub_self, D₀] -- D₀ refers to the local let D₀
+--     exact AddSubgroup.zero_mem (principal_divisors G)
 
 /-- Definition of maximal winnable divisor -/
 def maximal_winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
@@ -64,16 +66,17 @@ def orientation_to_config (G : CFGraph V) (O : CFOrientation G) (q : V)
 def genus (G : CFGraph V) : ℤ :=
   Multiset.card G.edges - Fintype.card V + 1
 
-/-- A divisor has rank -1 if it is not winnable -/
-def rank_eq_neg_one_wrt_winnability (G : CFGraph V) (D : CFDiv V) : Prop :=
-  ¬(winnable G D)
+-- /-- A divisor has rank -1 if it is not winnable -/
+-- def rank_eq_neg_one_wrt_winnability (G : CFGraph V) (D : CFDiv V) : Prop :=
+--   ¬(winnable G D)
 
-/-- A divisor has rank -1 if its complete linear system is empty -/
-def rank_eq_neg_one_wrt_complete_linear_system (G : CFGraph V) (D : CFDiv V) : Prop :=
-  complete_linear_system G D = ∅
+-- /-- A divisor has rank -1 if its complete linear system is empty -/
+-- def rank_eq_neg_one_wrt_complete_linear_system (G : CFGraph V) (D : CFDiv V) : Prop :=
+--   complete_linear_system G D = ∅
 
 /-- Given a divisor D and amount k, returns all possible ways
     to remove k dollars from D (i.e. all divisors E where D-E has degree k) -/
+    -- [TODO]: refactor to give this a more descriptive name, e.g. set_eff_k
 def remove_k_dollars (D : CFDiv V) (k : ℤ) : Set (CFDiv V) :=
   {E | effective E ∧ deg E = k}
 
@@ -95,7 +98,7 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
     have h_card : (Finset.univ.filter (λ x => x = v)).card = 1 := by
       rw [Finset.card_eq_one]
       use v
-      -- Do a double-inclusion proof, I guess?
+      -- Do a double-inclusion proof, I guess? I'm sure there's a better way.
       ext x
       constructor
       · intro h
@@ -129,6 +132,9 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
 /-- A divisor D has rank ≥ k if the game is winnable after removing any k dollars -/
 def rank_geq (G : CFGraph V) (D : CFDiv V) (k : ℤ) : Prop :=
   ∀ E ∈ remove_k_dollars D k, winnable G (D-E)
+
+def rank_eq (G : CFGraph V) (D : CFDiv V) (r : ℤ) : Prop :=
+  rank_geq G D r ∧ ¬(rank_geq G D (r+1))
 
 lemma rank_geq_neg (G : CFGraph V) (D : CFDiv V) (k : ℤ): (k < 0) → rank_geq G D k := by
   intro k_neg E h_E
@@ -164,7 +170,7 @@ lemma winnable_add_winnable (G : CFGraph V) (D1 D2 : CFDiv V)
   use D1' + D2'
   constructor
   · -- Show that D1' + D2' is effective
-    apply eff_of_eff_add_eff D1' D2' h_D1'_eff h_D2'_eff
+    exact eff_of_eff_add_eff D1' D2' h_D1'_eff h_D2'_eff
   · -- Show that D1 + D2 is linearly equivalent to D1' + D2'
     unfold linear_equiv at *
     have : D1' + D2' - (D1 + D2) = (D1' - D1) + (D2' - D2) := by
@@ -233,9 +239,6 @@ def lt_of_rank_geq_not (G : CFGraph V) (D : CFDiv V) (r1 r2 : ℤ) :
   intro h_r1 h_r2
   contrapose! h_r2
   exact rank_geq_trans G D r1 r2 h_r1 h_r2
-
-def rank_eq (G : CFGraph V) (D : CFDiv V) (r : ℤ) : Prop :=
-  rank_geq G D r ∧ ¬(rank_geq G D (r+1))
 
 lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph V) (D : CFDiv V) :
   rank_eq G D (-1) ↔ ¬(winnable G D) := by
@@ -333,13 +336,46 @@ lemma rank_unique (G : CFGraph V) (D : CFDiv V) :
   have ineq2 : r2 < r1 + 1 := lt_of_rank_geq_not G D r2 (r1+1) h_r2_geq h_r1_not_geq
   linarith
 
-/-- Helper to check if a divisor has exactly k chips removed at some vertex -/
-def has_k_chips_removed (D : CFDiv V) (E : CFDiv V) (k : ℕ) : Prop :=
-  ∃ v : V, E = (λ w => D w - if w = v then k else 0)
+/-- The rank function for divisors -/
+noncomputable def rank (G : CFGraph V) (D : CFDiv V) : ℤ :=
+  Classical.choose (rank_exists G D)
 
-/-- Helper to check if all k-chip removals are winnable -/
-def all_k_removals_winnable (G : CFGraph V) (D : CFDiv V) (k : ℕ) : Prop :=
-  ∀ E : CFDiv V, has_k_chips_removed D E k → winnable G E
+/-- Verify that rank_geq an rank_eq work correctly with the now-defined rank -/
+lemma rank_geq_iff (G : CFGraph V) (D : CFDiv V) (k : ℤ) :
+  rank_geq G D k ↔ rank G D ≥ k := by
+  let r := rank G D
+  have h_rank_eq := Classical.choose_spec (rank_exists G D)
+  have h_r : rank_eq G D r := h_rank_eq
+  constructor
+  · -- Forward direction
+    intro h_rank_geq
+    have h_r_geq := h_r.right
+    have := lt_of_rank_geq_not G D k (r+1) h_rank_geq h_r_geq
+    linarith
+  · -- Backward direction
+    intro h_rank_leq
+    have h_r_geq := h_r.left
+    exact rank_geq_trans G D r k h_r_geq h_rank_leq
+
+lemma rank_eq_iff (G : CFGraph V) (D : CFDiv V) (r : ℤ) :
+  rank_eq G D r ↔ rank G D = r := by
+  dsimp [rank_eq]
+  have split_eq x: x = r ↔ (x ≥ r ∧ ¬(x ≥ r + 1)) := by
+    rw [not_le]
+    rw [Int.lt_add_one_iff]
+    have helper := @le_antisymm_iff _ _ x r
+    rw [helper, and_comm]
+  rw [split_eq (rank G D)]
+  rw [rank_geq_iff G D r, rank_geq_iff G D (r+1)]
+
+-- These two definitions can be removed; they are not used elsewhere.
+-- /-- Helper to check if a divisor has exactly k chips removed at some vertex -/
+-- def has_k_chips_removed (D : CFDiv V) (E : CFDiv V) (k : ℕ) : Prop :=
+--   ∃ v : V, E = (λ w => D w - if w = v then k else 0)
+
+-- /-- Helper to check if all k-chip removals are winnable -/
+-- def all_k_removals_winnable (G : CFGraph V) (D : CFDiv V) (k : ℕ) : Prop :=
+--   ∀ E : CFDiv V, has_k_chips_removed D E k → winnable G E
 
 /-- Helper to check if there exists an unwinnable configuration after removing k+1 chips -/
 def exists_unwinnable_removal (G : CFGraph V) (D : CFDiv V) (k : ℕ) : Prop :=
@@ -351,42 +387,68 @@ lemma winnable_iff_exists_effective (G : CFGraph V) (D : CFDiv V) :
   unfold winnable Div_plus
   simp only [Set.mem_setOf_eq]
 
-/-- The rank function for divisors -/
-noncomputable def rank (G : CFGraph V) (D : CFDiv V) : ℤ :=
-  Classical.choose (rank_exists G D)
-
 /-- Definition: Properties of rank function with respect to effective divisors -/
 def rank_effective_char (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
   rank G D = r ↔
   (∀ E : CFDiv V, effective E → deg E = r + 1 → ¬(winnable G (λ v => D v - E v))) ∧
   (∀ E : CFDiv V, effective E → deg E = r → winnable G (λ v => D v - E v))
 
-/-- Definition (Axiomatic): Helper for rank characterization to get effective divisor -/
+/-- Lemma: Helper for rank characterization to get effective divisor -/
 lemma rank_get_effective (G : CFGraph V) (D : CFDiv V) :
-  ∃ E : CFDiv V, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (λ v => D v - E v)) := by
-  let r := rank G D
-  have h_rank_eq := Classical.choose_spec (rank_exists G D)
-  have h_r : rank_eq G D r := h_rank_eq
-  have ex_E := h_r.right
-  dsimp [rank_geq] at ex_E
-  push_neg at ex_E
-  rcases ex_E with ⟨E, ⟨⟨h_E_eff, h_E_deg⟩, h_E_not_winnable⟩⟩
+  ∃ E : CFDiv V, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (D-E)) := by
+  have h : rank_eq G D (rank G D) := by rw [rank_eq_iff]
+  rcases h with ⟨_, h_r_not_geq⟩
+  dsimp [rank_geq] at h_r_not_geq
+  push_neg at h_r_not_geq
+  rcases h_r_not_geq with ⟨E, ⟨h_E_eff, h_E_deg⟩, h_E_not_winnable⟩
   exact ⟨E, h_E_eff, h_E_deg, h_E_not_winnable⟩
 
-/-- Rank satisfies the defining properties -/
-axiom rank_spec (G : CFGraph V) (D : CFDiv V) :
-  let r := rank G D
-  (r = -1 ↔ ¬(winnable G D)) ∧
-  (∀ k : ℕ, r ≥ k ↔ rank_geq G D k) ∧
-  (∀ k : ℤ, k ≥ 0 → r = k ↔
-    rank_geq G D k.toNat ∧
-    exists_unwinnable_removal G D k.toNat ∧
-    ∀ k' : ℕ, k' > k.toNat → ¬(rank_geq G D k'))
+-- Rank satisfies the defining properties -/
+-- This statement is now subsumed by other lemmas, so it can be removed, and we will not try to resolve all "sorry"s.
+-- lemma rank_spec (G : CFGraph V) (D : CFDiv V) :
+--   let r := rank G D
+--   (r = -1 ↔ ¬(winnable G D)) ∧
+--   (∀ k : ℕ, r ≥ k ↔ rank_geq G D k) ∧
+--   (∀ k : ℤ, k ≥ 0 → r = k ↔
+--     rank_geq G D k.toNat ∧
+--     exists_unwinnable_removal G D k.toNat ∧
+--     ∀ k' : ℕ, k' > k.toNat → ¬(rank_geq G D k')) := by
+--   let r := rank G D
+--   have h_rank_eq := Classical.choose_spec (rank_exists G D)
+--   have h_r : rank_eq G D r := h_rank_eq
+--   rcases h_r with ⟨r_geq, r_le⟩
+--   constructor
+--   · -- First part: r = -1 ↔ ¬(winnable G D)
+--     have h := rank_eq_neg_one_iff_unwinnable G D
+--     simp [← h]
+--     sorry
+--   · -- Second part: ∀ k : ℕ, r ≥ k ↔ rank_geq G D k
+--     constructor
+--     sorry
+--     · -- Third part: ∀ k : ℤ, k ≥ 0 → r = k ↔ ...
+--       sorry
+
+
 
 /-- Helpful corollary: rank = -1 exactly when divisor is not winnable -/
-theorem rank_neg_one_iff_unwinnable (G : CFGraph V) (D : CFDiv V) :
+lemma rank_neg_one_iff_unwinnable (G : CFGraph V) (D : CFDiv V) :
   rank G D = -1 ↔ ¬(winnable G D) := by
-  exact (rank_spec G D).1
+  have h := rank_eq_neg_one_iff_unwinnable  G D
+  simp [← h]
+  have h_spec := Classical.choose_spec (rank_exists G D)
+  let r := rank G D
+  have h_r : rank_eq G D r := h_spec
+  constructor
+  -- Primal direction
+  intro h
+  have h₁ : r = -1 := h
+  rw [h₁] at h_r
+  exact h_r
+  -- Converse direction
+  intro h
+  apply rank_unique G D r (-1) at h
+  exact h
+  exact h_r
 
 /-- Lemma: If rank is not non-negative, then it equals -1 -/
 lemma rank_neg_one_of_not_nonneg (G : CFGraph V) (D : CFDiv V) (h_not_nonneg : ¬(rank G D ≥ 0)) : rank G D = -1 := by

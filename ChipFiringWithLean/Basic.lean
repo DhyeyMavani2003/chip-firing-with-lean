@@ -185,7 +185,7 @@ instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
 /-- Lemma: Lambda form of divisor subtraction equals standard form -/
 lemma divisor_sub_eq_lambda (G : CFGraph V) (D₁ D₂ : CFDiv V) :
-  (λ v => D₁ v - D₂ v) = D₁ - D₂ := by
+  (D₁ - D₂) = D₁ - D₂ := by
   funext v
   simp [sub_apply]
 

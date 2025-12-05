@@ -16,7 +16,7 @@ variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 /-- [Proven] The main Riemann-Roch theorem for graphs -/
 theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
-  rank G D - rank G (λ v => canonical_divisor G v - D v) = deg D - genus G + 1 := by
+  rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   -- Get rank value for D
   let r := rank G D
 
@@ -96,7 +96,7 @@ theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
 /-- [Proven] Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
 theorem maximal_unwinnable_symmetry
     (G : CFGraph V) (D : CFDiv V) :
-  maximal_unwinnable G D ↔ maximal_unwinnable G (λ v => canonical_divisor G v - D v) := by
+  maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
   constructor
   -- Forward direction
   { intro h_max_unwin
@@ -114,7 +114,7 @@ theorem maximal_unwinnable_symmetry
 
     -- Get degree of K-D
     have h_deg_K := degree_of_canonical_divisor G
-    have h_deg_KD : deg (λ v => canonical_divisor G v - D v) = genus G - 1 := by
+    have h_deg_KD : deg (canonical_divisor G - D) = genus G - 1 := by
       -- Get general distributive property for deg over subtraction
       have h_deg_sub : ∀ D₁ D₂ : CFDiv V, deg (D₁ - D₂) = deg D₁ - deg D₂ := by
         intro D₁ D₂
@@ -143,36 +143,38 @@ theorem maximal_unwinnable_symmetry
       by_contra h_KD_plus_chip_not_winnable
 
       -- If not winnable, its rank is -1
-      have h_rank_KD_plus_chip_is_neg_one : rank G (λ w => (canonical_divisor G w - D w) + (if w = v then 1 else 0)) = -1 := by
+      have h_rank_KD_plus_chip_is_neg_one : rank G ((canonical_divisor G - D) + one_chip v) = -1 := by
         rw [rank_neg_one_iff_unwinnable]
         exact h_KD_plus_chip_not_winnable
 
       -- Let E = (K-D) + δᵥ
-      let E : CFDiv V := λ w => (canonical_divisor G w - D w) + (if w = v then 1 else 0)
+      let E : CFDiv V := (canonical_divisor G - D) + one_chip v
       -- have h_rank_E_is_neg_one : rank G E = -1 := h_rank_KD_plus_chip_is_neg_one -- This is just a restatement
 
       -- Calculate deg E
       have h_deg_E : deg E = genus G := by
         -- E is defined as (λ w => A w + B w). We want to show deg E = genus G.
         -- Explicitly change the goal to unfold E to see the sum structure.
-        change deg ( (λ w => canonical_divisor G w - D w) + (λ w => if w = v then 1 else 0) ) = genus G
+        change deg ( (canonical_divisor G - D) + one_chip v ) = genus G
         -- Now the goal is deg (A + B) = genus G, where A = (K-D) and B = δᵥ.
         rw [deg_add] -- Applies to deg (A + B), changing goal to deg A + deg B = genus G.
         -- Goal: deg (λ w => canonical_divisor G w - D w) + deg (λ w => if w = v then 1 else 0) = genus G
         rw [h_deg_KD] -- Substitutes deg(K-D) with (genus G - 1).
         -- Goal: (genus G - 1) + deg (λ w => if w = v then 1 else 0) = genus G
         -- This simplifies to showing: deg (λ w => if w = v then 1 else 0) = 1
-        have h_deg_delta_v : deg (λ w => if w = v then 1 else 0) = 1 := by
+        have h_deg_delta_v : deg (one_chip v) = 1 := by
           unfold deg
           -- Goal: ∑ x in Finset.univ, (if x = v then 1 else 0) = 1
           -- This sum is 1 when x=v and 0 for all other x.
           rw [Finset.sum_eq_single_of_mem v (Finset.mem_univ v)]
           · -- Case 1: Prove the term for x = v is indeed 1.
             -- The term is (if v = v then 1 else 0).
+            dsimp [one_chip]
             simp only [eq_self_iff_true, if_true]
           · -- Case 2: Prove for all x ≠ v, the term (if x = v then 1 else 0) is 0.
             intros x _ hx_ne_v -- x is an element of Finset.univ, and x ≠ v.
             -- The term is (if x = v then 1 else 0).
+            dsimp[one_chip]
             simp only [hx_ne_v, if_false] -- Since x ≠ v, (if x=v ...) becomes (if false ...), which is 0.
         rw [h_deg_delta_v] -- Substitute deg(δᵥ) = 1.
         -- Goal is now (genus G - 1) + 1 = genus G
@@ -187,22 +189,20 @@ theorem maximal_unwinnable_symmetry
       -- This implies rank G (K-E) = -2
 
       -- Simplify K-E
-      have h_K_minus_E_eq_D_minus_chip : (λ w => canonical_divisor G w - E w) = (λ w => D w - (if w = v then 1 else 0)) := by
-        funext w
+      have h_K_minus_E_eq_D_minus_chip : (canonical_divisor G - E) = (D - one_chip v) := by
         simp only [E]
-        ring -- ring should be able to solve this pointwise equality
-
+        simp
       -- Substitute K-E into the Riemann-Roch equation for E
       rw [h_K_minus_E_eq_D_minus_chip] at h_RR_E
       -- Now h_RR_E is: -1 - rank G (D - δᵥ) = 1, which means rank G (D - δᵥ) = -2
 
       -- This is a contradiction because rank must be ≥ -1.
-      have h_rank_D_minus_chip_ge_neg_one : rank G (λ w => D w - (if w = v then 1 else 0)) ≥ -1 := by
+      have h_rank_D_minus_chip_ge_neg_one : rank G (D - one_chip v) ≥ -1 := by
         -- The rank is either -1 or non-negative.
-        by_cases h_nonneg: rank G (λ w => D w - (if w = v then 1 else 0)) ≥ 0
+        by_cases h_nonneg: rank G (D - one_chip v) ≥ 0
         · linarith -- if non-negative, then it is ≥ -1
         · -- If not non-negative, then it must be -1 by rank_neg_one_of_not_nonneg
-          have rank_is_neg_one := rank_neg_one_of_not_nonneg G (λ w => D w - (if w = v then 1 else 0)) h_nonneg
+          have rank_is_neg_one := rank_neg_one_of_not_nonneg G (D - one_chip v) h_nonneg
           linarith [rank_is_neg_one] -- if it's -1, then it is ≥ -1
 
       -- The contradiction comes from h_RR_E (which implies rank = -2) and h_rank_D_minus_chip_ge_neg_one (rank ≥ -1)
@@ -224,22 +224,19 @@ theorem maximal_unwinnable_symmetry
 theorem clifford_theorem
     (G : CFGraph V) (D : CFDiv V)
     (h_D : rank G D ≥ 0)
-    (h_KD : rank G (λ v => canonical_divisor G v - D v) ≥ 0) :
+    (h_KD : rank G (canonical_divisor G - D) ≥ 0) :
     (rank G D : ℚ) ≤ (deg D : ℚ) / 2 := by
   -- Get canonical divisor K's rank using Riemann-Roch
   have h_K_rank : rank G (canonical_divisor G) = genus G - 1 := by
     -- Apply Riemann-Roch with D = K
     have h_rr := riemann_roch_for_graphs G (canonical_divisor G)
     -- For K-K = 0, rank is 0
-    have h_K_minus_K : rank G (λ v => canonical_divisor G v - canonical_divisor G v) = 0 := by
+    have h_K_minus_K : rank G (canonical_divisor G - canonical_divisor G) = 0 := by
       -- Show that this divisor is the zero divisor
-      have h1 : (λ v => canonical_divisor G v - canonical_divisor G v) = (λ _ => 0) := by
-        funext v
-        simp [sub_self]
-
+      have h1 : (canonical_divisor G - canonical_divisor G) = 0 := by
+        simp
       -- Show that the zero divisor has rank 0
-      have h2 : rank G (λ _ => 0) = 0 := zero_divisor_rank G
-
+      have h2 : rank G 0 = 0 := zero_divisor_rank G
       -- Substitute back
       rw [h1, h2]
     -- Substitute into Riemann-Roch
@@ -250,9 +247,9 @@ theorem clifford_theorem
     linarith
 
   -- Apply rank subadditivity
-  have h_subadd := rank_subadditive G D (λ v => canonical_divisor G v - D v) h_D h_KD
+  have h_subadd := rank_subadditive G D (canonical_divisor G - D) h_D h_KD
   -- The sum D + (K-D) = K
-  have h_sum : (λ v => D v + (canonical_divisor G v - D v)) = canonical_divisor G := by
+  have h_sum : (D + (canonical_divisor G - D)) = canonical_divisor G := by
     funext v
     simp
   rw [h_sum] at h_subadd
@@ -262,7 +259,7 @@ theorem clifford_theorem
   have h_rr := riemann_roch_for_graphs G D
 
   -- Explicit algebraic manipulation
-  have h1 : rank G (λ v => canonical_divisor G v - D v) =
+  have h1 : rank G (canonical_divisor G - D) =
            rank G D - (deg D - genus G + 1) := by
     linarith
 
@@ -330,13 +327,13 @@ theorem riemann_roch_deg_to_rank_corollary
     by_cases h_rank : rank G D ≥ 0
     · -- Case where r(D) ≥ 0
       let K := canonical_divisor G
-      by_cases h_rankKD : rank G (λ v => K v - D v) ≥ 0
+      by_cases h_rankKD : rank G (K - D) ≥ 0
       · -- Case where r(K-D) ≥ 0: use Clifford's theorem
         exact clifford_theorem G D h_rank h_rankKD
       · -- Case where r(K-D) = -1: use Riemann-Roch
         have h_rr := riemann_roch_for_graphs G D
-        have h_rankKD_eq : rank G (λ v => K v - D v) = -1 :=
-          rank_neg_one_of_not_nonneg G (λ v => K v - D v) h_rankKD
+        have h_rankKD_eq : rank G (K - D) = -1 :=
+          rank_neg_one_of_not_nonneg G (K - D) h_rankKD
 
         rw [h_rankKD_eq] at h_rr
 
@@ -397,7 +394,7 @@ theorem riemann_roch_deg_to_rank_corollary
         _ < 0 := by linarith
 
     -- Show K-D is unwinnable, so rank = -1
-    have h_rankKD : rank G (λ v => canonical_divisor G v - D v) = -1 := by
+    have h_rankKD : rank G (canonical_divisor G - D) = -1 := by
       rw [rank_neg_one_iff_unwinnable]
       intro h_win
       -- If winnable, would be linearly equivalent to effective divisor

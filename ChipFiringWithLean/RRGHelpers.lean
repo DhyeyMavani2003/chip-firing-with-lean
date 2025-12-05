@@ -421,7 +421,7 @@ theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
 /-- [Proven] Corollary 4.2.2: Rank inequality for divisors -/
 theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
     (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
-    rank G (λ v => D v + D' v) ≥ rank G D + rank G D' := by
+    rank G (D+D') ≥ rank G D + rank G D' := by
   -- Convert ranks to natural numbers
   let k₁ := (rank G D).toNat
   let k₂ := (rank G D').toNat
@@ -436,7 +436,7 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
     have ⟨E₁, E₂, h_E₁_eff, h_E₂_eff, h_E₁_deg, h_E₂_deg, h_sum⟩ :=
       helper_divisor_decomposition G E'' k₁ k₂ h_eff h_deg
 
-    -- Convert our nat-based hypotheses to ℤ-based ones for rank_spec
+    -- Convert our nat-based hypotheses to ℤ-based ones
     have h_D_nat : rank G D ≥ ↑k₁ := by
       have h_conv : ↑((rank G D).toNat) = rank G D := Int.toNat_of_nonneg h_D
       rw [←h_conv]
@@ -445,9 +445,9 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
       have h_conv : ↑((rank G D').toNat) = rank G D' := Int.toNat_of_nonneg h_D'
       rw [←h_conv]
 
-    -- Get rank_geq properties from rank_spec
-    have h_D_rank_geq := ((rank_spec G D).2.1 k₁).mp h_D_nat
-    have h_D'_rank_geq := ((rank_spec G D').2.1 k₂).mp h_D'_nat
+    -- Get rank_geq properties
+    have h_D_rank_geq : rank_geq G D k₁ := (rank_geq_iff G D k₁).mpr h_D_nat
+    have h_D'_rank_geq : rank_geq G D' k₂ := (rank_geq_iff G D' k₂).mpr h_D'_nat
 
     -- Apply rank_geq to get winnability for both parts
     have h_D_win := h_D_rank_geq E₁ (by exact ⟨h_E₁_eff, h_E₁_deg⟩)
@@ -461,9 +461,6 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
     rw [h_arr] at h
     exact h
 
-
-
-
   -- Connect k₁, k₂ back to original ranks
   have h_k₁ : ↑k₁ = rank G D := by
     exact Int.toNat_of_nonneg h_D
@@ -472,14 +469,13 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
     exact Int.toNat_of_nonneg h_D'
 
   -- Show final inequality using transitivity
-  have h_final := ((rank_spec G (λ v => D v + D' v)).2.1 (k₁ + k₂)).mpr h_rank_geq
+  have h_final := (rank_geq_iff G (D+D') (k₁+k₂)).mp h_rank_geq
 
   have h_sum : ↑(k₁ + k₂) = rank G D + rank G D' := by
     simp only [Nat.cast_add]  -- Use Nat.cast_add instead of Int.coe_add
     rw [h_k₁, h_k₂]
 
-  rw [h_sum] at h_final
-  exact h_final
+  linarith
 
 -- [Proven] Corollary 4.2.3: Degree of canonical divisor equals 2g - 2
 theorem degree_of_canonical_divisor (G : CFGraph V) :
