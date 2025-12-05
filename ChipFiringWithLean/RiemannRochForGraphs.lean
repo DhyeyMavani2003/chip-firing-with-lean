@@ -24,7 +24,7 @@ theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
   rcases rank_get_effective G D with ⟨E, h_E_eff, h_E_deg, h_D_E_unwin⟩
 
   -- Fix a vertex q
-  rcases Fintype.exists_elem V with ⟨q, _⟩
+  let q := Classical.arbitrary V
 
   -- Apply Dhar's algorithm to D - E to get q-reduced form
   rcases helper_dhar_algorithm G q (λ v => D v - E v) with ⟨c, k, h_equiv, h_super⟩

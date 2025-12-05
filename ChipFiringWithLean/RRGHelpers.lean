@@ -340,7 +340,7 @@ theorem maximal_unwinnable_deg
   maximal_unwinnable G D → deg D = genus G - 1 := by
   intro h_max_unwin
 
-  rcases Fintype.exists_elem V with ⟨q, _⟩
+  let q := Classical.arbitrary V
 
   have h_equiv_max_unwin := maximal_unwinnable_char G q D
   rcases h_equiv_max_unwin.mp h_max_unwin with ⟨c, h_c_max_super, D', h_D'_qred, h_equiv_D_D', h_D'_eq⟩
@@ -513,7 +513,7 @@ theorem rank_degree_inequality
   rcases rank_get_effective G D with ⟨E, h_E_eff, h_E_deg, h_D_E_unwin⟩
 
   -- Fix a vertex q
-  rcases Fintype.exists_elem V with ⟨q, _⟩
+  let q := Classical.arbitrary V
 
   -- Apply Dhar's algorithm to D - E to get q-reduced form
   rcases helper_dhar_algorithm G q (λ v => D v - E v) with ⟨c, k, h_equiv, h_super⟩

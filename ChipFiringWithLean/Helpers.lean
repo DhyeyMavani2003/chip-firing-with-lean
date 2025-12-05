@@ -961,14 +961,6 @@ theorem helper_linear_equiv_preserves_winnability (G : CFGraph V) (D₁ D₂ : C
     · -- Use transitivity: D₁ ~ D₂ ~ D₂'
       exact linear_equiv_is_equivalence G |>.trans h_equiv h_equiv₂ }
 
-/-- Axiom: Existence of elements in finite types
-    This is a technical axiom used to carry forward existence arguments we frequently use
-    such as the fact that finite graphs have vertices. This axiom
-    captures this in a way that can be used in formal lean4 proofs. -/
-axiom Fintype.exists_elem (V : Type) [Fintype V] : ∃ x : V, True
-
-
-
 /-
 # Helpers for Proposition 4.1.14
 -/
