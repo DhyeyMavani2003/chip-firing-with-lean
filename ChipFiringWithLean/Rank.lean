@@ -387,11 +387,12 @@ lemma winnable_iff_exists_effective (G : CFGraph V) (D : CFDiv V) :
   unfold winnable Div_plus
   simp only [Set.mem_setOf_eq]
 
-/-- Definition: Properties of rank function with respect to effective divisors -/
-def rank_effective_char (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
-  rank G D = r ↔
-  (∀ E : CFDiv V, effective E → deg E = r + 1 → ¬(winnable G (λ v => D v - E v))) ∧
-  (∀ E : CFDiv V, effective E → deg E = r → winnable G (λ v => D v - E v))
+-- Can be removed; not used elsewhere.
+-- /-- Definition: Properties of rank function with respect to effective divisors -/
+-- def rank_effective_char (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
+--   rank G D = r ↔
+--   (∀ E : CFDiv V, effective E → deg E = r + 1 → ¬(winnable G (λ v => D v - E v))) ∧
+--   (∀ E : CFDiv V, effective E → deg E = r → winnable G (λ v => D v - E v))
 
 /-- Lemma: Helper for rank characterization to get effective divisor -/
 lemma rank_get_effective (G : CFGraph V) (D : CFDiv V) :
