@@ -1008,8 +1008,20 @@ lemma effective_nonneg_deg
   -- Non-negative sum of non-negative numbers is non-negative
   exact sum_nonneg (λ v _ ↦ h v)
 
--- Axiom: Rank of zero divisor is zero
-axiom zero_divisor_rank (G : CFGraph V) : rank G (λ _ => 0) = 0
+-- Lemma: Rank of zero divisor is zero
+lemma zero_divisor_rank (G : CFGraph V) : rank G (0:CFDiv V) = 0 := by
+  rw [← rank_eq_iff]
+  constructor
+  -- Forward direction: rank G 0 ≥ 0
+  have h_eff : effective (0:CFDiv V) := by
+    intro v
+    simp
+  rw [rank_nonneg_iff_winnable G (0:CFDiv V)]
+  exact winnable_of_effective G (0:CFDiv V) h_eff
+  -- Reverse direction: rank G 0 < 1
+  have ineq := rank_le_degree G (0:CFDiv V) 1 (by norm_num)
+  simp [deg_hom] at ineq
+  exact ineq
 
 -- Lemma: Firing a set of vertices results in a linearly equivalent divisor.
 lemma fireSet_linear_equiv (G : CFGraph V) (D_initial_acc : CFDiv V) (S : Finset V) :
