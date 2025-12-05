@@ -122,6 +122,10 @@ structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
 -- Divisor as a function from vertices to integers
 def CFDiv (V : Type) := V → ℤ
 
+/-- A divisor with one chip at a specified vertex `v_chip` and zero chips elsewhere. -/
+def one_chip (v_chip : V) : CFDiv V :=
+  fun v => if v = v_chip then 1 else 0
+
 -- Make CFDiv an Additive Commutative Group
 instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
@@ -355,6 +359,8 @@ lemma eff_of_eff_add_eff (D₁ D₂ : CFDiv V) :
   simp [add_apply]
   linarith
 
+
+
 lemma eff_of_smul_eff (n : ℕ) (D : CFDiv V) :
   effective D → effective (n • D) := by
   intro h_eff v
@@ -405,6 +411,53 @@ lemma deg_of_eff_nonneg (D : CFDiv V) :
   specialize h_eff v
   exact h_eff
 
+-- [TODO]: this proof can probably be simplified
+lemma eff_degree_zero (D : CFDiv V) : effective D → deg_hom D =0 → D = 0 := by
+  intro h_eff h_deg_
+  funext v; simp
+  by_contra h_chip
+  have h_chip_pos : D v ≥ 1 := by
+    have trich := lt_trichotomy (D v) 0
+    rcases trich with h_neg | h_zero | h_pos
+    · -- Case D v < 0
+      exfalso
+      linarith [h_eff v]
+    · -- Case D v = 0
+      exfalso
+      exact h_chip h_zero
+    · -- Case D v > 0
+      exact Int.pos_iff_one_le.mp h_pos
+  let D' := D - one_chip v
+  have D'_eff : effective D' := by
+    intro w
+    by_cases h_eq : w = v
+    · -- Case w = v
+      rw [h_eq]
+      dsimp [D']
+      simp [one_chip]
+      exact h_chip_pos
+    · -- Case w ≠ v
+      dsimp [D']
+      simp [one_chip, h_eq]
+      exact h_eff w
+  have h_deg_D' : deg_hom D' = -1 := by
+    dsimp [D']
+    simp
+    rw [h_deg_]
+    have h_one_chip_deg : deg_hom (one_chip v) = 1 := by
+      dsimp [deg_hom, one_chip]
+      rw [Finset.sum_ite]
+      have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
+        ext x; simp [eq_comm]
+      rw [h_filter_eq_single, Finset.sum_singleton]
+      have h_filter_eq_erase : Finset.filter (fun x => ¬x = v) Finset.univ = Finset.univ.erase v := by
+        ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
+      rw [h_filter_eq_erase]
+      simp
+    rw [h_one_chip_deg]
+    linarith
+  have h_nonneg := deg_of_eff_nonneg D' D'_eff
+  linarith
 
 lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   deg (firing_vector G v_fire) = 0 := by

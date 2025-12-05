@@ -76,9 +76,7 @@ def superstable (G : CFGraph V) (q : V) (c : Config V q) : Prop :=
 def maximal_superstable {q : V} (G : CFGraph V) (c : Config V q) : Prop :=
   superstable G q c ∧ ∀ c' : Config V q, superstable G q c' → config_ge c' c
 
-/-- A divisor with one chip at a specified vertex `v_chip` and zero chips elsewhere. -/
-def one_chip (v_chip : V) : CFDiv V :=
-  fun v => if v = v_chip then 1 else 0
+
 
 lemma smul_one_chip (k : ℤ) (v_chip : V) :
   (k • one_chip v_chip) = (fun v => if v = v_chip then k else 0) := by
