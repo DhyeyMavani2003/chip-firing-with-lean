@@ -346,9 +346,42 @@ def divisor_class (G : CFGraph V) (D : CFDiv V) : Set (CFDiv V) :=
 def effective_bool (D : CFDiv V) : Bool :=
   ↑((Finset.univ.filter (fun v => D v < 0)).card = 0)
 
+-- Give CFDiv V the structure of a poset
+instance : PartialOrder (CFDiv V) :=
+  {
+    le := λ D₁ D₂ => ∀ v : V, D₁ v ≤ D₂ v,
+    le_refl := by
+      intro D v
+      exact le_refl <| D v,
+    le_trans := by
+      intro D₁ D₂ D₃ h₁₂ h₂₃ v
+      exact le_trans (h₁₂ v) (h₂₃ v),
+    le_antisymm := by
+      intro D₁ D₂ h₁₂ h₂₁
+      funext v
+      exact le_antisymm (h₁₂ v) (h₂₁ v)
+  }
+
+
 -- Define effective divisors (in terms of equivalent Prop)
 def effective (D : CFDiv V) : Prop :=
   ∀ v : V, D v ≥ 0
+  -- alternative: just say D ≥ 0. Requires changes elsewhere,
+
+lemma eff_iff_geq_zero (D : CFDiv V) : effective D ↔ D ≥ 0:= by
+  rfl
+
+lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ := by
+  rw [eff_iff_geq_zero]
+  constructor
+  intro h v
+  specialize h v
+  simp at h
+  linarith
+  intro h v
+  specialize h v
+  simp
+  linarith
 
 lemma eff_of_eff_add_eff (D₁ D₂ : CFDiv V) :
   effective D₁ → effective D₂ → effective (D₁ + D₂) := by
