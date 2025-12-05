@@ -77,7 +77,7 @@ theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
     rw [h_sub_simplify] at h_swap
 
     have h_deg_sub : deg (λ v => canonical_divisor G v - D v) = deg (canonical_divisor G) - deg D := by
-      unfold deg
+      dsimp [deg]
       -- Split the sum over subtraction
       rw [Finset.sum_sub_distrib]
 
@@ -157,13 +157,13 @@ theorem maximal_unwinnable_symmetry
         -- Explicitly change the goal to unfold E to see the sum structure.
         change deg ( (canonical_divisor G - D) + one_chip v ) = genus G
         -- Now the goal is deg (A + B) = genus G, where A = (K-D) and B = δᵥ.
-        rw [deg_add] -- Applies to deg (A + B), changing goal to deg A + deg B = genus G.
+        rw [deg.map_add] -- Applies to deg (A + B), changing goal to deg A + deg B = genus G.
         -- Goal: deg (λ w => canonical_divisor G w - D w) + deg (λ w => if w = v then 1 else 0) = genus G
         rw [h_deg_KD] -- Substitutes deg(K-D) with (genus G - 1).
         -- Goal: (genus G - 1) + deg (λ w => if w = v then 1 else 0) = genus G
         -- This simplifies to showing: deg (λ w => if w = v then 1 else 0) = 1
         have h_deg_delta_v : deg (one_chip v) = 1 := by
-          unfold deg
+          dsimp [deg]
           -- Goal: ∑ x in Finset.univ, (if x = v then 1 else 0) = 1
           -- This sum is 1 when x=v and 0 for all other x.
           rw [Finset.sum_eq_single_of_mem v (Finset.mem_univ v)]

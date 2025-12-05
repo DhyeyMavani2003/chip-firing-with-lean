@@ -419,7 +419,7 @@ def complete_linear_system (G: CFGraph V) (D: CFDiv V) : Set (CFDiv V) :=
   {D' : CFDiv V | linear_equiv G D D' ∧ effective D'}
 
 -- Degree of a divisor
-def deg_hom : CFDiv V →+ ℤ := {
+def deg : CFDiv V →+ ℤ := {
   toFun := λ D => ∑ v, D v,
   map_zero' := by
     simp [Finset.sum_const_zero],
@@ -428,16 +428,8 @@ def deg_hom : CFDiv V →+ ℤ := {
     simp [Finset.sum_add_distrib],
 }
 
--- For legacy reasons, we also define deg as a function (not a homomorphism). Eventually should phase out this definition.
--- [TODO]: replace all use of "deg" with "deg_hom", and perhaps rename deg_hom to deg.
-def deg (D : CFDiv V) : ℤ := ∑ v, D v
-
-
-@[simp] lemma deg_eq_deg_hom (D : CFDiv V) : deg D = deg_hom D := by
-  dsimp [deg, deg_hom]
-
-lemma deg_one_chip (v : V) : deg_hom (one_chip v) = 1 := by
-  dsimp [deg_hom, one_chip]
+lemma deg_one_chip (v : V) : deg (one_chip v) = 1 := by
+  dsimp [deg, one_chip]
   rw [Finset.sum_ite]
   have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
     ext x; simp [eq_comm]
@@ -448,7 +440,7 @@ lemma deg_one_chip (v : V) : deg_hom (one_chip v) = 1 := by
   simp
 
 lemma deg_of_eff_nonneg (D : CFDiv V) :
-  effective D → deg_hom D ≥ 0 := by
+  effective D → deg D ≥ 0 := by
   intro h_eff
   refine Finset.sum_nonneg ?_
   intro v _
@@ -456,7 +448,7 @@ lemma deg_of_eff_nonneg (D : CFDiv V) :
   exact h_eff
 
 -- [TODO]: this proof can probably be simplified
-lemma eff_degree_zero (D : CFDiv V) : effective D → deg_hom D =0 → D = 0 := by
+lemma eff_degree_zero (D : CFDiv V) : effective D → deg D = 0 → D = 0 := by
   intro h_eff h_deg_
   funext v; simp
   by_contra h_chip
@@ -484,7 +476,7 @@ lemma eff_degree_zero (D : CFDiv V) : effective D → deg_hom D =0 → D = 0 := 
       dsimp [D']
       simp [one_chip, h_eq]
       exact h_eff w
-  have h_deg_D' : deg_hom D' = -1 := by
+  have h_deg_D' : deg D' = -1 := by
     dsimp [D']
     simp
     rw [h_deg_]
@@ -495,7 +487,7 @@ lemma eff_degree_zero (D : CFDiv V) : effective D → deg_hom D =0 → D = 0 := 
 
 lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   deg (firing_vector G v_fire) = 0 := by
-  unfold deg firing_vector
+  dsimp [deg, firing_vector]
   rw [Finset.sum_ite]
   have h_filter_eq_single : Finset.filter (fun x => x = v_fire) univ = {v_fire} := by
     ext x; simp [eq_comm]
@@ -505,13 +497,6 @@ lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   rw [h_filter_eq_erase]
   rw [← vertex_degree_eq_sum_incident_edges G v_fire]
   simp
-
--- These lemmas are now unnecessary since they are homomorphism facts, but they are included for now since the rest of the package currently still refers to them.
--- [TODO]: Remove these lemmas and update references later.
-lemma deg_add (D₁ D₂ : CFDiv V) : deg (D₁ + D₂) = deg D₁ + deg D₂ := deg_hom.map_add D₁ D₂
-lemma deg_zero : deg (0 : CFDiv V) = 0 := deg_hom.map_zero
-lemma deg_neg (D : CFDiv V) : deg (-D) = - deg D := deg_hom.map_neg D
-
 
 theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
   deg D = deg D' := by
@@ -525,18 +510,18 @@ theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : l
       exact deg_firing_vector_eq_zero G v
     · -- Case 2: The zero element
       -- Goal: deg 0 = 0
-      exact deg_zero
+      simp
     · -- Case 3: Sum of two elements satisfying the property
       intro x y hx_deg_zero hy_deg_zero -- hx_deg_zero: deg x = 0, hy_deg_zero: deg y = 0
       -- Goal: deg (x + y) = 0
-      rw [deg_add, hx_deg_zero, hy_deg_zero, add_zero]
+      rw [deg.map_add, hx_deg_zero, hy_deg_zero, add_zero]
     · -- Case 4: Negative of an element satisfying the property
       intro x hx_deg_zero -- hx_deg_zero: deg x = 0
       -- Goal: deg (-x) = 0
-      rw [deg_neg, hx_deg_zero, neg_zero]
+      rw [deg.map_neg, hx_deg_zero, neg_zero]
 
   have h_deg_sub_eq_sub_deg : deg (D' - D) = deg D' - deg D := by
-    simp [sub_eq_add_neg, deg_add, deg_neg]
+    simp [sub_eq_add_neg, deg.map_add, deg.map_neg]
 
   rw [h_deg_sub_eq_sub_deg] at h_deg_diff_zero
   linarith [h_deg_diff_zero]
@@ -698,7 +683,8 @@ def legal_set_firing (G : CFGraph V) (D : CFDiv V) (S : Finset V) : Prop :=
 
 lemma degree_of_firing_vector_is_zero (G : CFGraph V) (v_node : V) :
   deg (firing_vector G v_node) = 0 := by
-  unfold deg firing_vector
+  unfold deg; simp
+  unfold firing_vector
   simp only [Finset.sum_ite]
   rw [vertex_degree_eq_sum_incident_edges G v_node]
   have h_filter_eq_diff : Finset.filter (fun x => ¬x = v_node) Finset.univ = Finset.univ \ {v_node} := by
@@ -724,10 +710,10 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
     simp [deg]
   · -- Case 3: h = x + y where deg x = 0 and deg y = 0
     intros x y h_deg_x_zero h_deg_y_zero
-    rw [deg_add, h_deg_x_zero, h_deg_y_zero, add_zero]
+    rw [deg.map_add, h_deg_x_zero, h_deg_y_zero, add_zero]
   · -- Case 4: h = -x where deg x = 0
     intros x h_deg_x_zero
-    rw [deg_neg, h_deg_x_zero, neg_zero]
+    rw [deg.map_neg, h_deg_x_zero, neg_zero]
 
 def q_effective (q : V) (D : CFDiv V) : Prop :=
   ∀ v : V, v ≠ q → D v ≥ 0

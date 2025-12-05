@@ -354,7 +354,7 @@ theorem maximal_unwinnable_deg
 
   have h_deg_D' : deg D' = genus G - 1 := calc
     deg D' = deg (λ v => c.vertex_degree v - if v = q then 1 else 0) := by rw [h_D'_eq]
-    _ = (∑ v, c.vertex_degree v) - (∑ v, if v = q then 1 else 0) := by {unfold deg; rw [Finset.sum_sub_distrib]}
+    _ = (∑ v, c.vertex_degree v) - (∑ v, if v = q then 1 else 0) := by {dsimp [deg]; rw [Finset.sum_sub_distrib]}
     _ = (∑ v, c.vertex_degree v) - 1 := by {rw [Finset.sum_ite_eq']; simp}
     _ = (config_degree c + c.vertex_degree q) - 1 := by
         have h_sum_c : ∑ v : V, c.vertex_degree v = config_degree c + c.vertex_degree q := by
@@ -480,16 +480,14 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
 -- [Proven] Corollary 4.2.3: Degree of canonical divisor equals 2g - 2
 theorem degree_of_canonical_divisor (G : CFGraph V) :
     deg (canonical_divisor G) = 2 * genus G - 2 := by
-  -- First unfold definitions
-  unfold deg canonical_divisor
-
   -- Use sum_sub_distrib to split the sum
-  have h1 : ∑ v, (vertex_degree G v - 2) =
+  have h1 : ∑ v, (canonical_divisor G v) =
             ∑ v, vertex_degree G v - 2 * Fintype.card V := by
+    unfold canonical_divisor
     rw [sum_sub_distrib]
     simp [sum_const, nsmul_eq_mul]
     ring
-
+  dsimp [deg]
   rw [h1]
 
   -- Use the fact that sum of vertex degrees = 2|E|

@@ -90,8 +90,8 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
     split_ifs with h
     norm_num
     norm_num
-  have deg_E: deg_hom E₁ = 1 := by
-    dsimp [deg_hom, E₁, one_chip]
+  have deg_E: deg E₁ = 1 := by
+    dsimp [deg, E₁, one_chip]
     rw [Finset.sum_ite, Finset.sum_const, Finset.sum_eq_zero]
     -- Now evaluate that cardinality as 1
     -- rewrite that set as {v}
@@ -116,10 +116,10 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
   have eff : effective E := eff_of_smul_eff k E₁ eff
   have deg_E : deg E = k := by
     dsimp [E]
-    have := AddMonoidHom.map_nsmul deg_hom E₁ k
+    have := AddMonoidHom.map_nsmul deg E₁ k
     rw [deg_E] at this
-    dsimp [deg_hom] at this
-    dsimp [deg_hom]
+    dsimp [deg] at this
+    dsimp [deg]
     rw [this]
     ring
   intro h_nonneg
@@ -141,15 +141,14 @@ lemma rank_geq_neg (G : CFGraph V) (D : CFDiv V) (k : ℤ): (k < 0) → rank_geq
   exfalso
   rcases h_E with ⟨h_eff_E, h_deg_E⟩
   apply deg_of_eff_nonneg at h_eff_E
-  rw [deg_eq_deg_hom] at h_deg_E
   linarith
 
-lemma deg_winnable_nonneg (G : CFGraph V) (D : CFDiv V) (h_winnable : winnable G D) : deg_hom D ≥ 0 := by
+lemma deg_winnable_nonneg (G : CFGraph V) (D : CFDiv V) (h_winnable : winnable G D) : deg D ≥ 0 := by
   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
-  have same_deg: deg_hom D = deg_hom D' := linear_equiv_preserves_deg G D D' h_lequiv
+  have same_deg: deg D = deg D' := linear_equiv_preserves_deg G D D' h_lequiv
   rw [same_deg]
   dsimp [Div_plus] at h_D'_eff
-  dsimp [deg_hom]
+  dsimp [deg]
   refine Finset.sum_nonneg ?_
   intro v h_v
   exact h_D'_eff v
@@ -178,7 +177,7 @@ lemma winnable_add_winnable (G : CFGraph V) (D1 D2 : CFDiv V)
     rw [this]
     exact AddSubgroup.add_mem (principal_divisors G) h_lequiv1 h_lequiv2
 
-lemma rank_le_degree (G : CFGraph V) (D : CFDiv V) : ∀ (r : ℤ), r ≥ 0 → rank_geq G D r → r ≤ deg_hom D := by
+lemma rank_le_degree (G : CFGraph V) (D : CFDiv V) : ∀ (r : ℤ), r ≥ 0 → rank_geq G D r → r ≤ deg D := by
   intro r r_nonneg h_rank
   contrapose! h_rank
   unfold rank_geq; push_neg
@@ -197,7 +196,6 @@ lemma rank_le_degree (G : CFGraph V) (D : CFDiv V) : ∀ (r : ℤ), r ≥ 0 → 
   contrapose! h_rank
   have deg_nonneg := deg_winnable_nonneg G (D-E) h_rank
   simp at deg_nonneg
-  rw [deg_eq_deg_hom] at h_E_deg
   rw [h_E_deg] at deg_nonneg
   exact deg_nonneg
 
@@ -315,11 +313,11 @@ lemma rank_exists_helper (G : CFGraph V) (D : CFDiv V) (m : ℕ):  ¬ (rank_geq 
 
 lemma rank_exists (G : CFGraph V) (D : CFDiv V) :
   ∃ r : ℤ, rank_eq G D r := by
-  let m := (deg_hom D).toNat + 1
+  let m := (deg D).toNat + 1
   have h_not_geq : ¬(rank_geq G D m) := by
     intro h_rank_geq
     have h_le := rank_le_degree G D m (by linarith) h_rank_geq
-    have m_ge : m ≥ deg_hom D + 1:= by
+    have m_ge : m ≥ deg D + 1:= by
       dsimp [m]
       simp
     linarith

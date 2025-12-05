@@ -335,7 +335,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
         by_contra h_contra
         push_neg at h_contra
         have h_sum : deg E = 0 := by
-          dsimp [deg_hom, deg]
+          dsimp [deg, deg]
           refine Finset.sum_eq_zero ?_
           intro v hv
           specialize h_contra v
@@ -344,6 +344,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
             assumption
           linarith
         dsimp [deg] at h_sum
+        dsimp [deg] at E_deg
         rw [h_sum] at E_deg
         simp at E_deg
         linarith
@@ -367,7 +368,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
         dsimp [E']
         simp
         rw [E_deg]
-        dsimp [deg_hom]
+        dsimp [deg]
         dsimp [one_chip]
         simp
         linarith
@@ -1123,7 +1124,7 @@ lemma zero_divisor_rank (G : CFGraph V) : rank G (0:CFDiv V) = 0 := by
   exact winnable_of_effective G (0:CFDiv V) h_eff
   -- Reverse direction: rank G 0 < 1
   have ineq := rank_le_degree G (0:CFDiv V) 1 (by norm_num)
-  simp [deg_hom] at ineq
+  simp [deg] at ineq
   exact ineq
 
 -- Lemma: Firing a set of vertices results in a linearly equivalent divisor.
