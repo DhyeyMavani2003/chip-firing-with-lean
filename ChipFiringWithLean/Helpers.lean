@@ -396,9 +396,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
       simp at h_deg_E1 h_deg_E2
       rw [h_deg_E1]
       simp
-      dsimp [deg_hom]
-      dsimp [one_chip]
-      simp
+      exact deg_one_chip v
       -- deg E₂ = b
       constructor
       exact h_deg_E2

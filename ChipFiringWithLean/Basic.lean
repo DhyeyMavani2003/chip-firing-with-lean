@@ -403,6 +403,17 @@ def deg (D : CFDiv V) : ℤ := ∑ v, D v
 @[simp] lemma deg_eq_deg_hom (D : CFDiv V) : deg D = deg_hom D := by
   dsimp [deg, deg_hom]
 
+lemma deg_one_chip (v : V) : deg_hom (one_chip v) = 1 := by
+  dsimp [deg_hom, one_chip]
+  rw [Finset.sum_ite]
+  have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
+    ext x; simp [eq_comm]
+  rw [h_filter_eq_single, Finset.sum_singleton]
+  have h_filter_eq_erase : Finset.filter (fun x => ¬x = v) Finset.univ = Finset.univ.erase v := by
+    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
+  rw [h_filter_eq_erase]
+  simp
+
 lemma deg_of_eff_nonneg (D : CFDiv V) :
   effective D → deg_hom D ≥ 0 := by
   intro h_eff
@@ -444,17 +455,7 @@ lemma eff_degree_zero (D : CFDiv V) : effective D → deg_hom D =0 → D = 0 := 
     dsimp [D']
     simp
     rw [h_deg_]
-    have h_one_chip_deg : deg_hom (one_chip v) = 1 := by
-      dsimp [deg_hom, one_chip]
-      rw [Finset.sum_ite]
-      have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
-        ext x; simp [eq_comm]
-      rw [h_filter_eq_single, Finset.sum_singleton]
-      have h_filter_eq_erase : Finset.filter (fun x => ¬x = v) Finset.univ = Finset.univ.erase v := by
-        ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
-      rw [h_filter_eq_erase]
-      simp
-    rw [h_one_chip_deg]
+    rw [deg_one_chip v]
     linarith
   have h_nonneg := deg_of_eff_nonneg D' D'_eff
   linarith
@@ -477,6 +478,7 @@ lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
 lemma deg_add (D₁ D₂ : CFDiv V) : deg (D₁ + D₂) = deg D₁ + deg D₂ := deg_hom.map_add D₁ D₂
 lemma deg_zero : deg (0 : CFDiv V) = 0 := deg_hom.map_zero
 lemma deg_neg (D : CFDiv V) : deg (-D) = - deg D := deg_hom.map_neg D
+
 
 theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
   deg D = deg D' := by
