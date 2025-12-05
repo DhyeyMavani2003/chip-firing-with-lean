@@ -351,168 +351,6 @@ lemma winnable_iff_exists_effective (G : CFGraph V) (D : CFDiv V) :
   unfold winnable Div_plus
   simp only [Set.mem_setOf_eq]
 
--- Rank existence and uniqueness -
--- [TODO] Reformulate this more succinctly using rank_exists and rank_unique above, and refactor accordingly.
--- lemma rank_exists_unique (G : CFGraph V) (D : CFDiv V) :
---   ∃! r : ℤ, (r = -1 ∧ ¬(winnable G D)) ∨
---     (r ≥ 0 ∧ rank_geq G D r.toNat ∧ exists_unwinnable_removal G D r.toNat ∧
---      ∀ k' : ℕ, k' > r.toNat → ¬(rank_geq G D k')) := by
---   let r_exists := rank_exists G D
---   rcases r_exists with ⟨r, h_rank_eq⟩
---   use r
---   simp
---   by_cases h_win : winnable G D
---   · -- Case 1: D is winnable
---     have r_nonneg : r ≥ 0 := by
---       have := (rank_nonneg_iff_winnable G D).mpr h_win
---       rcases h_rank_eq with ⟨_, h_r_lt⟩
---       have := lt_of_rank_geq_not G D 0 (r+1) this h_r_lt
---       linarith
---     constructor
---     right
---     constructor
---     · exact r_nonneg
---     . constructor
---       simp [r_nonneg]
---       exact h_rank_eq.left
---       rcases h_rank_eq.right with h_not_geq
---       contrapose! h_not_geq
---       have ex_E := h_rank_eq.right
---       dsimp [rank_geq] at ex_E ⊢
---       push_neg at ex_E
---       rcases ex_E with ⟨E, h_E_eff, h_E_deg⟩
---       have : exists_unwinnable_removal G D r.toNat := by
---         use E
---         constructor
---         · exact h_E_eff.left
---         . constructor
---           rw [h_E_eff.right]
---           simp [r_nonneg]
---           exact h_E_deg
---       apply h_not_geq at this
---       rcases this with ⟨k, h_E'_effdeg, h_E'_win⟩
---       exfalso
---       have rNat: r.toNat = r := by simp [r_nonneg]
---       have ineq : r < k := by linarith
-
---       have problem := rank_geq_trans G D k (r+1) h_E'_win ineq
---       exact h_rank_eq.right problem
---     intro y h_y
---     rcases h_y with h_y | h_y
---     · -- Subcase: y = -1 ∧ ¬(winnable G
---       apply absurd h_win h_y.right
---     . -- Subcase: y ≥ 0 ∧ rank_geq G D y.toNat ∧ ...
---       rcases h_y with ⟨y_nonneg, h_rank_geq, h_exists_unwinnable, h_forall⟩
---       sorry
---   · -- Case 2: D is not winnable
---     sorry
-
-
-
-
-  --    lemma rank_exists_unique (G : CFGraph V) (D : CFDiv V) :
-  -- ∃! r : ℤ, (r = -1 ∧ ¬(winnable G D)) ∨
-  --   (r ≥ 0 ∧ rank_geq G D r.toNat ∧ exists_unwinnable_removal G D r.toNat ∧
-  --    ∀ k' : ℕ, k' > r.toNat → ¬(rank_geq G D k')) := by
-    -- dsimp [ExistsUnique]
-    -- by_cases h_winnable : winnable G D
-    -- · -- Case 1: D is winnable
-    --   let R : Set ℤ := { r | rank_geq G D r }
-    --   -- R is bounded above
-    --   have R_bdd : BddAbove R := by
-    --     use (deg_hom D)
-    --     intro r h_r
-
-    --     by_cases h_r_neg : r < 0
-    --     -- Subcase: r < 0
-    --     have : deg_hom D ≥ 0 := by
-    --       -- This can surely be shortened with some reusable lemmas
-    --       rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
-    --       have same_deg: deg_hom D = deg_hom D' := linear_equiv_preserves_deg G D D' h_lequiv
-    --       rw [same_deg]
-    --       dsimp [Div_plus] at h_D'_eff
-    --       dsimp [deg_hom]
-    --       refine Finset.sum_nonneg ?_
-    --       intro v h_v
-    --       exact h_D'_eff v
-    --     linarith
-    --     -- Subcase: r ≥ 0
-    --     have r_nonneg : r ≥ 0 := by
-    --       linarith
-    --     have r_eq_toNat : r = r.toNat := by
-    --       simp
-    --       rw [max_eq_left r_nonneg]
-
-
-    --     dsimp [R] at h_r
-    --     dsimp [rank_geq] at h_r
-    --     have ex_E := (remove_k_dollars_nonempty D r.toNat)
-    --     rw [← r_eq_toNat] at ex_E
-    --     have : r.toNat ≥ 0 := by simp
-    --     let ex_E := ex_E this
-    --     rcases ex_E with ⟨E, h_E_eff, h_E_deg⟩
-    --     specialize h_r E ⟨h_E_eff, h_E_deg⟩
-    --     dsimp [winnable] at h_r
-    --     rcases h_r with ⟨D', h_D'_eff, h_lequiv⟩
-    --     have deg_D'_nonneg : deg_hom D' ≥ 0 := by
-    --       dsimp [Div_plus] at h_D'_eff
-    --       dsimp [deg_hom]
-    --       refine Finset.sum_nonneg ?_
-    --       intro v h_v
-    --       exact h_D'_eff v
-    --     have deg_D'_eq : deg_hom D' = deg_hom D - deg_hom E := by
-    --       have h := AddMonoidHom.map_sub deg_hom D E
-    --       have h' := linear_equiv_preserves_deg G (D-E) D' h_lequiv
-    --       simp at h'
-    --       rw [h']
-    --     rw [deg_D'_eq] at deg_D'_nonneg
-    --     simp at h_E_deg
-    --     rw [h_E_deg] at deg_D'_nonneg
-    --     have : max r 0 ≥ r := by
-    --       apply le_max_left
-    --     linarith
-    --   have R_fin : R.Finite := by
-    --     -- Use that R is bounded
-    --     sorry
-    --   have R_zero : 0 ∈ R := by
-    --     dsimp [R]
-    --     dsimp [rank_geq]
-    --     intro E h_E
-    --     have E_zero : E = 0 := by
-    --       sorry
-    --     rw [E_zero]; simp
-    --     sorry
-    --   sorry
-    -- · -- Case 2: D is not winnable
-    --   use -1
-    --   constructor
-    --   left
-    --   exact ⟨rfl, h_winnable⟩
-    --   intro y h_y
-    --   rcases h_y with h_y | h_y
-    --   exact h_y.left
-    --   rcases h_y with ⟨h_geq, h_rank_geq, h_exists_unwinnable, h_forall⟩
-    --   exfalso
-    --   unfold rank_geq at h_rank_geq
-    --   contrapose! h_rank_geq
-    --   have ex_E := remove_k_dollars_nonempty D y.toNat
-    --   have : y.toNat ≥ 0 := by simp
-    --   let ex_E := ex_E this
-    --   rcases ex_E with ⟨E, h_E_eff, h_E_deg⟩
-    --   use E
-    --   constructor
-    --   exact ⟨h_E_eff,h_E_deg⟩
-    --   contrapose! h_winnable
-    --   dsimp [winnable] at h_winnable
-    --   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
-    --   use D' + E
-    --   constructor
-    --   apply eff_of_eff_add_eff D' E h_D'_eff h_E_eff
-    --   unfold linear_equiv at h_lequiv
-    --   unfold linear_equiv
-    --   rw [sub_sub_eq_add_sub] at h_lequiv
-    --   exact h_lequiv
-
 /-- The rank function for divisors -/
 noncomputable def rank (G : CFGraph V) (D : CFDiv V) : ℤ :=
   Classical.choose (rank_exists G D)
@@ -524,8 +362,16 @@ def rank_effective_char (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
   (∀ E : CFDiv V, effective E → deg E = r → winnable G (λ v => D v - E v))
 
 /-- Definition (Axiomatic): Helper for rank characterization to get effective divisor -/
-axiom rank_get_effective (G : CFGraph V) (D : CFDiv V) :
-  ∃ E : CFDiv V, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (λ v => D v - E v))
+lemma rank_get_effective (G : CFGraph V) (D : CFDiv V) :
+  ∃ E : CFDiv V, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (λ v => D v - E v)) := by
+  let r := rank G D
+  have h_rank_eq := Classical.choose_spec (rank_exists G D)
+  have h_r : rank_eq G D r := h_rank_eq
+  have ex_E := h_r.right
+  dsimp [rank_geq] at ex_E
+  push_neg at ex_E
+  rcases ex_E with ⟨E, ⟨⟨h_E_eff, h_E_deg⟩, h_E_not_winnable⟩⟩
+  exact ⟨E, h_E_eff, h_E_deg, h_E_not_winnable⟩
 
 /-- Rank satisfies the defining properties -/
 axiom rank_spec (G : CFGraph V) (D : CFDiv V) :
