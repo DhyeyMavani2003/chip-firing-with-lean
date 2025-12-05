@@ -351,32 +351,61 @@ lemma winnable_iff_exists_effective (G : CFGraph V) (D : CFDiv V) :
   unfold winnable Div_plus
   simp only [Set.mem_setOf_eq]
 
-/-- Rank existence and uniqueness -/
+-- Rank existence and uniqueness -
 -- [TODO] Reformulate this more succinctly using rank_exists and rank_unique above, and refactor accordingly.
-lemma rank_exists_unique (G : CFGraph V) (D : CFDiv V) :
-  ∃! r : ℤ, (r = -1 ∧ ¬(winnable G D)) ∨
-    (r ≥ 0 ∧ rank_geq G D r.toNat ∧ exists_unwinnable_removal G D r.toNat ∧
-     ∀ k' : ℕ, k' > r.toNat → ¬(rank_geq G D k')) := by
-  let r_exists := rank_exists G D
-  rcases r_exists with ⟨r, h_rank_eq⟩
-  use r
-  simp
-  by_cases h_win : winnable G D
-  · -- Case 1: D is winnable
-    have r_nonneg : r ≥ 0 := by
-      have := (rank_nonneg_iff_winnable G D).mpr h_win
-      rcases h_rank_eq with ⟨_, h_r_lt⟩
-      have := lt_of_rank_geq_not G D 0 (r+1) this h_r_lt
-      linarith
-    constructor
-    right
-    constructor
-    · exact r_nonneg
+-- lemma rank_exists_unique (G : CFGraph V) (D : CFDiv V) :
+--   ∃! r : ℤ, (r = -1 ∧ ¬(winnable G D)) ∨
+--     (r ≥ 0 ∧ rank_geq G D r.toNat ∧ exists_unwinnable_removal G D r.toNat ∧
+--      ∀ k' : ℕ, k' > r.toNat → ¬(rank_geq G D k')) := by
+--   let r_exists := rank_exists G D
+--   rcases r_exists with ⟨r, h_rank_eq⟩
+--   use r
+--   simp
+--   by_cases h_win : winnable G D
+--   · -- Case 1: D is winnable
+--     have r_nonneg : r ≥ 0 := by
+--       have := (rank_nonneg_iff_winnable G D).mpr h_win
+--       rcases h_rank_eq with ⟨_, h_r_lt⟩
+--       have := lt_of_rank_geq_not G D 0 (r+1) this h_r_lt
+--       linarith
+--     constructor
+--     right
+--     constructor
+--     · exact r_nonneg
+--     . constructor
+--       simp [r_nonneg]
+--       exact h_rank_eq.left
+--       rcases h_rank_eq.right with h_not_geq
+--       contrapose! h_not_geq
+--       have ex_E := h_rank_eq.right
+--       dsimp [rank_geq] at ex_E ⊢
+--       push_neg at ex_E
+--       rcases ex_E with ⟨E, h_E_eff, h_E_deg⟩
+--       have : exists_unwinnable_removal G D r.toNat := by
+--         use E
+--         constructor
+--         · exact h_E_eff.left
+--         . constructor
+--           rw [h_E_eff.right]
+--           simp [r_nonneg]
+--           exact h_E_deg
+--       apply h_not_geq at this
+--       rcases this with ⟨k, h_E'_effdeg, h_E'_win⟩
+--       exfalso
+--       have rNat: r.toNat = r := by simp [r_nonneg]
+--       have ineq : r < k := by linarith
 
-    sorry
-    sorry
-  · -- Case 2: D is not winnable
-    sorry
+--       have problem := rank_geq_trans G D k (r+1) h_E'_win ineq
+--       exact h_rank_eq.right problem
+--     intro y h_y
+--     rcases h_y with h_y | h_y
+--     · -- Subcase: y = -1 ∧ ¬(winnable G
+--       apply absurd h_win h_y.right
+--     . -- Subcase: y ≥ 0 ∧ rank_geq G D y.toNat ∧ ...
+--       rcases h_y with ⟨y_nonneg, h_rank_geq, h_exists_unwinnable, h_forall⟩
+--       sorry
+--   · -- Case 2: D is not winnable
+--     sorry
 
 
 
@@ -486,7 +515,7 @@ lemma rank_exists_unique (G : CFGraph V) (D : CFDiv V) :
 
 /-- The rank function for divisors -/
 noncomputable def rank (G : CFGraph V) (D : CFDiv V) : ℤ :=
-  Classical.choose (rank_exists_unique G D)
+  Classical.choose (rank_exists G D)
 
 /-- Definition: Properties of rank function with respect to effective divisors -/
 def rank_effective_char (G : CFGraph V) (D : CFDiv V) (r : ℤ) :=
@@ -515,20 +544,13 @@ theorem rank_neg_one_iff_unwinnable (G : CFGraph V) (D : CFDiv V) :
 
 /-- Lemma: If rank is not non-negative, then it equals -1 -/
 lemma rank_neg_one_of_not_nonneg (G : CFGraph V) (D : CFDiv V) (h_not_nonneg : ¬(rank G D ≥ 0)) : rank G D = -1 := by
-  -- rank_exists_unique gives ∃! r, P r ∨ Q r
-  -- Classical.choose_spec gives (P r ∨ Q r) ∧ ∀ y, (P y ∨ Q y) → y = r, where r = rank G D
-  have h_exists_unique_spec := Classical.choose_spec (rank_exists_unique G D)
-  -- We only need the existence part: P r ∨ Q r
-  have h_disjunction := h_exists_unique_spec.1
-  -- Now use Or.elim on the disjunction
-  apply Or.elim h_disjunction
-  · -- Case 1: rank G D = -1 ∧ ¬(winnable G D)
-    intro h_case1
-    -- The goal is rank G D = -1, which is the first part of h_case1
-    exact h_case1.1
-  · -- Case 2: rank G D ≥ 0 ∧ rank_geq G D (rank G D).toNat ∧ ...
-    intro h_case2
-    -- This case contradicts the hypothesis h_not_nonneg
-    have h_nonneg : rank G D ≥ 0 := h_case2.1
-    -- Derive contradiction using h_not_nonneg
-    exact False.elim (h_not_nonneg h_nonneg)
+  have h_spec := Classical.choose_spec (rank_exists G D)
+  let r := rank G D
+  have h_r : rank_eq G D r := h_spec
+  rcases h_r with ⟨h_r_geq, h_r_not_geq⟩
+  have nwin : ¬(winnable G D) := by
+    contrapose! h_not_nonneg
+    apply (rank_nonneg_iff_winnable G D).mpr at h_not_nonneg
+    have := lt_of_rank_geq_not G D 0 (r+1) h_not_nonneg h_r_not_geq
+    linarith
+  exact (rank_neg_one_iff_unwinnable G D).mpr nwin
