@@ -288,14 +288,127 @@ axiom helper_maximal_superstable_orientation (G : CFGraph V) (q : V) (c : Config
 # Helpers for Corollary 4.2.2
 -/
 
-/-- Axiom: A divisor can be decomposed into parts of specific degrees
+/-- Lemma: A divisor can be decomposed into parts of specific degrees
     This was especially hard to prove in Lean4, so we are leaving it as an axiom for now. -/
-axiom helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : ℕ)
+lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : ℕ)
   (h_effective : effective E'') (h_deg : deg E'' = k₁ + k₂) :
   ∃ (E₁ E₂ : CFDiv V),
     effective E₁ ∧ effective E₂ ∧
     deg E₁ = k₁ ∧ deg E₂ = k₂ ∧
-    E'' = E₁ + E₂
+    E'' = E₁ + E₂ := by
+
+  let can_split (E : CFDiv V) (a b : ℕ): Prop :=
+    ∃ (E₁ E₂ : CFDiv V),
+      effective E₁ ∧ effective E₂ ∧
+      deg E₁ = a ∧ deg E₂ = b ∧
+      E = E₁ + E₂
+
+  let P (a b : ℕ) : Prop := ∀ (E : CFDiv V),
+    effective E → deg E = a + b → can_split E a b
+
+  have h_ind (a b : ℕ): P a b := by
+    induction' a with a ha
+    . -- Base case: a = 0
+      intro E h_eff h_deg
+      use (0 : CFDiv V), E
+      constructor
+      -- E₁ is effective
+      dsimp [effective]
+      intro v
+      linarith
+      -- E₂ is effective
+      constructor
+      exact h_eff
+      -- deg E₁ = 0
+      constructor
+      simp
+      -- deg E₂ = b
+      constructor
+      rw[h_deg]
+      simp
+      -- E = 0 + E
+      simp
+    . -- Inductive step: assume P a b holds, prove P (a+1) b
+      dsimp [P] at *
+      intro E E_effective E_deg
+      have ex_v : ∃ (v : V), E v ≥ 1 := by
+        by_contra h_contra
+        push_neg at h_contra
+        have h_sum : deg E = 0 := by
+          dsimp [deg_hom, deg]
+          refine Finset.sum_eq_zero ?_
+          intro v hv
+          specialize h_contra v
+          have h_nonneg : E v ≥ 0 := by
+            specialize E_effective v
+            assumption
+          linarith
+        dsimp [deg] at h_sum
+        rw [h_sum] at E_deg
+        simp at E_deg
+        linarith
+      rcases ex_v with ⟨v, hv_ge_one⟩
+      let E' := E - one_chip v
+      have h_E'_effective : effective E' := by
+        intro w
+        dsimp [E']
+        by_cases hw : w = v
+        · rw [hw]
+          specialize hv_ge_one
+          dsimp [one_chip]
+          simp
+          linarith
+        · specialize E_effective w
+          dsimp [one_chip]
+          simp [hw]
+          linarith
+      specialize ha E' h_E'_effective
+      have h_deg_E' : deg E' = a + b := by
+        dsimp [E']
+        simp
+        rw [E_deg]
+        dsimp [deg_hom]
+        dsimp [one_chip]
+        simp
+        linarith
+      apply ha at h_deg_E'
+      rcases h_deg_E' with ⟨E₁, E₂, h_E1_eff, h_E2_eff, h_deg_E1, h_deg_E2, h_eq_split⟩
+      use E₁ + one_chip v, E₂
+      -- Check E₁ + one_chip v is effective
+      constructor
+      apply eff_of_eff_add_eff
+      -- E₁ is effective
+      exact h_E1_eff
+      -- one_chip v is effective
+      intro w
+      dsimp [one_chip]
+      simp
+      by_cases hw : w = v
+      rw [hw]
+      simp
+      simp [hw]
+      -- E₂ is effective
+      constructor
+      exact h_E2_eff
+      -- deg (E₁ + one_chip v) = a + 1
+      constructor
+      simp
+      simp at h_deg_E1 h_deg_E2
+      rw [h_deg_E1]
+      simp
+      dsimp [deg_hom]
+      dsimp [one_chip]
+      simp
+      -- deg E₂ = b
+      constructor
+      exact h_deg_E2
+      -- E = (E₁ + one_chip v) + E₂
+      dsimp [E'] at h_eq_split
+      rw [add_assoc, add_comm (one_chip v), ← add_assoc, ← h_eq_split]
+      abel
+
+  exact h_ind k₁ k₂ E'' h_effective h_deg
+
 
 /- [Proven] Helper theorem: Winnability is preserved under addition -/
 theorem helper_winnable_add (G : CFGraph V) (D₁ D₂ : CFDiv V) :
