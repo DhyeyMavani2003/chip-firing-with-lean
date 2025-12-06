@@ -29,20 +29,51 @@ structure Config (V : Type) (q : V) :=
   /-- Proof that all vertices except q have non-negative values -/
   (non_negative_except_q : ∀ v : V, v ≠ q → vertex_degree v ≥ 0)
 
+def toDiv {q : V} (c : Config V q) : CFDiv V :=
+  c.vertex_degree
+
+instance : CoeTC (Config V q) (CFDiv V) where
+  coe := toDiv
+
+lemma config_q_eff {q : V} (c : Config V q) : q_effective q (c : CFDiv V) := by
+  dsimp [q_effective, toDiv]
+  exact c.non_negative_except_q
+
 /-- The degree of a configuration is the sum of all values except at q.
     deg(c) = ∑_{v ∈ V\{q}} c(v) -/
 def config_degree {q : V} (c : Config V q) : ℤ :=
   ∑ v in (univ.filter (λ v => v ≠ q)), c.vertex_degree v
+
+lemma config_degree_eq_div_degree {q : V} (c : Config V q) : config_degree c = deg (c : CFDiv V) - (c : CFDiv V) q := by
+  dsimp [config_degree, deg, toDiv]
+  -- Split the right sum into the sum over v ≠ q and the term at v = q
+  have h_split (f : V → ℤ): ∑ v :V , f v = ∑ v in (univ.filter (λ v => v ≠ q)), f v + f q := by
+    have h: q ∈ univ := by simp
+    rw [Finset.sum_eq_sum_diff_singleton_add h f]
+    apply (add_left_inj (f q)).mpr
+    have same_domain: univ \ {q} = univ.filter (λ v => v ≠ q) := by
+      ext v
+      simp
+    rw [same_domain]
+  rw [h_split c.vertex_degree]
+  abel
 
 /-- Ordering on configurations: c ≥ c' if c(v) ≥ c'(v) for all v ∈ V.
     This is a pointwise comparison of the number of chips at each vertex. -/
 def config_ge {q : V} (c c' : Config V q) : Prop :=
   ∀ v : V, c.vertex_degree v ≥ c'.vertex_degree v
 
+lemma config_ge_iff_div_ge {q : V} (c c' : Config V q) :
+  config_ge c c' ↔ (c : CFDiv V)  ≥ (c' : CFDiv V) := by
+  dsimp [config_ge, toDiv]
+  rfl
+
 /-- A configuration is non-negative if all vertices (including q) have non-negative values.
     This is stronger than the basic Config constraint which only requires non-negativity on V\{q}. -/
 def config_nonnegative {q : V} (c : Config V q) : Prop :=
   ∀ v : V, c.vertex_degree v ≥ 0
+
+
 
 /-- Linear equivalence of configurations: c ∼ c' if they can be transformed into one another
     through a sequence of lending and borrowing operations. The difference between configurations
@@ -51,18 +82,17 @@ def config_linear_equiv {q : V} (G : CFGraph V) (c c' : Config V q) : Prop :=
   let diff := λ v => c'.vertex_degree v - c.vertex_degree v
   diff ∈ AddSubgroup.closure (Set.range (λ v => λ w => if w = v then -vertex_degree G v else num_edges G v w))
 
+lemma config_linear_equiv_iff_div_linear_equiv {q : V} (G : CFGraph V) (c c' : Config V q) :
+  config_linear_equiv G c c' ↔ linear_equiv G (c : CFDiv V) (c' : CFDiv V) := by
+  dsimp [config_linear_equiv, toDiv, linear_equiv]
+  rfl
+
 -- Definition of the out-degree of a vertex v ∈ S with respect to a subset S ⊆ V \ {q}
 -- This counts edges from v to vertices *outside* S.
 -- outdeg_S(v) = |{ (v, w) ∈ E | w ∈ V \ S }|
 def outdeg_S (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
   -- Sum num_edges from v to w, where w is not in S and not q.
   ∑ w in (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ)
-
--- Old definition of outdeg_S incorrectly excluding the effect of chips fired into q.
--- Retained for now, but should be deleted later.
-def outdeg_S_old (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
-  -- Sum num_edges from v to w, where w is not in S and not q.
-  ∑ w in (univ.filter (λ x => x ≠ q)).filter (λ x => x ∉ S), (num_edges G v w : ℤ)
 
 -- Standard definition of Superstability:
 -- A configuration c is superstable w.r.t. q if for every non-empty subset S of V \ {q},
@@ -72,11 +102,33 @@ def superstable (G : CFGraph V) (q : V) (c : Config V q) : Prop :=
   ∀ S : Finset V, S ⊆ univ.filter (λ x => x ≠ q) → S.Nonempty →
     ∃ v ∈ S, c.vertex_degree v < outdeg_S G q S v
 
+lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (c : Config V q) :
+  superstable G q c ↔ q_reduced G q (c : CFDiv V) := by
+  dsimp [superstable, q_reduced]
+  constructor
+  -- Forward direction
+  intro h_superstable
+  constructor
+  -- Show c is nonnegative away from v
+  exact config_q_eff c
+  -- Show the outdegree condition
+  intro S hS_subset hS_nonempty
+  specialize h_superstable S hS_subset hS_nonempty
+  rcases h_superstable with ⟨v, hv_in_S, hv_outdeg⟩
+  use v
+  exact ⟨hv_in_S, hv_outdeg⟩
+  -- Reverse direction
+  intro h_q_reduced
+  rcases h_q_reduced with ⟨h_nonneg, h_outdeg⟩
+  intro S hS_subset hS_nonempty
+  specialize h_outdeg S hS_subset hS_nonempty
+  rcases h_outdeg with ⟨v, hv_in_S, hv_outdeg⟩
+  use v
+  exact ⟨hv_in_S, hv_outdeg⟩
+
 /-- A maximal superstable configuration has no legal firings and dominates all other superstable configs -/
 def maximal_superstable {q : V} (G : CFGraph V) (c : Config V q) : Prop :=
   superstable G q c ∧ ∀ c' : Config V q, superstable G q c' → config_ge c' c
-
-
 
 lemma smul_one_chip (k : ℤ) (v_chip : V) :
   (k • one_chip v_chip) = (fun v => if v = v_chip then k else 0) := by
