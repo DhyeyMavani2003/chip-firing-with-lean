@@ -106,14 +106,32 @@ lemma helper_unique_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :
     This follows from the fact that the reduction process (like Dhar's algorithm or repeated
     legal firings) preserves effectiveness when starting with an effective divisor.
     This was especially hard to prove in Lean4, so we are leaving it as an axiom for the time being. -/
-axiom helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' : CFDiv V) :
-  effective E → linear_equiv G E E' → q_reduced G q E' → effective E'
-
-
-
-
-
-
+lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' : CFDiv V) :
+  effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
+  intro h_eff h_equiv h_qred
+  dsimp [linear_equiv] at h_equiv
+  have  := (principal_iff_eq_prin G (E'-E)).mp h_equiv
+  rcases this with ⟨σ, h_prin_eq⟩
+  have eq_E' : E' = E + prin G σ := by
+    rw [← sub_add_cancel E' E, h_prin_eq,add_comm]
+  have h_σ : q_reducer G q σ := by
+    apply q_reducer_of_add_princ_reduced G q E σ
+    rw [← eq_E']
+    exact h_qred
+    intro v _
+    exact h_eff v
+  have h_σ_toward_q : (prin G σ) q ≥ 0 := by
+    dsimp [prin]
+    apply Finset.sum_nonneg
+    intro e _
+    apply mul_nonneg
+    linarith [h_σ e]
+    exact Int.ofNat_nonneg _
+  intro v
+  by_cases hvq : v = q
+  rw [hvq,eq_E', add_apply]
+  exact add_nonneg (h_eff q) h_σ_toward_q
+  exact h_qred.1 v hvq
 
 
 /-
