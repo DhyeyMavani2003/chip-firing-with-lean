@@ -792,6 +792,7 @@ lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V)
     Attempts to prove it here encounter difficulties due to interactions
     between `config_degree` and the value at `q`, or potential definition mismatches.
     Therefore, it remains an axiom for now. -/
+-- [TODO] This is incorret as stated, since adding chips at q can increase degree arbitrarily but doens't affecte q-reducedness. E.g. one could add the assumption that D(q) < 0.
 axiom lemma_q_reduced_degree_bound (G : CFGraph V) (q : V) (D : CFDiv V) :
   q_reduced G q D → deg D ≤ genus G - 1
 

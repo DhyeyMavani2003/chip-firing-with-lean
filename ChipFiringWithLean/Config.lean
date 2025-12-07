@@ -159,9 +159,9 @@ lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (c : Config V q) :
   dsimp [outdeg_S]
   exact hv_outdeg
 
-/-- A maximal superstable configuration has no legal firings and dominates all other superstable configs -/
+/-- A maximal superstable configuration has no legal firings and is not ≤ any other superstable configuration.-/
 def maximal_superstable {q : V} (G : CFGraph V) (c : Config V q) : Prop :=
-  superstable G q c ∧ ∀ c' : Config V q, superstable G q c' → config_ge c' c
+  superstable G q c ∧ ∀ c' : Config V q, superstable G q c' → config_ge c' c → c' = c
 
 lemma smul_one_chip (k : ℤ) (v_chip : V) :
   (k • one_chip v_chip) = (fun v => if v = v_chip then k else 0) := by
