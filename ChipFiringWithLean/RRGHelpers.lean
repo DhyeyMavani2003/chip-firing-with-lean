@@ -555,7 +555,7 @@ theorem rank_degree_inequality
       simp [H, h_v]
       -- h_ge shows c' ≥ c for maximal superstable c'
       have h_ge_at_v : c'.vertex_degree v ≥ c.vertex_degree v := by
-        exact h_ge v
+        exact h_ge v h_v
       -- Therefore difference is non-negative
       linarith
 
