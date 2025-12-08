@@ -65,6 +65,21 @@ def is_directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Bool :=
 def directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
   (u, v) ∈ O.directed_edges
 
+lemma nonsource_has_parent {G : CFGraph V} (O : CFOrientation G) (v : V) :
+  ¬ is_source G O v → ∃ u : V, directed_edge G O u v := by
+  intro h_not_source
+  contrapose! h_not_source with h_no_parents
+  dsimp [is_source]
+  dsimp [indeg]
+  simp
+  apply Multiset.eq_zero_iff_forall_not_mem.mpr
+  intro ⟨u,w⟩ h_uv_in_edges
+  simp at h_uv_in_edges
+  obtain ⟨h_mem, h_eq_wv⟩ := h_uv_in_edges
+  rw [h_eq_wv] at h_mem
+  specialize h_no_parents u
+  contradiction
+
 /-- Helper function for safe list access -/
 def list_get_safe {α : Type} (l : List α) (i : Nat) : Option α :=
   l.get? i

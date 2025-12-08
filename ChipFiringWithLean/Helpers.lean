@@ -141,30 +141,68 @@ lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' :
 /-- Axiom: A non-empty graph with an acyclic orientation must have at least one source.
     Proving this inductively is a bit tricky at the moment, and we ran into infinite recursive loop,
     thus we are declaring this as an axiom for now. -/
-axiom helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
-  is_acyclic G O → ∃ v : V, is_source G O v
-  -- := by
-  -- intro h_acyclic
-  -- by_contra! h_acyclic
-  -- let v := Classical.arbitrary V
-  -- have arb_path (n : ℕ) : ∃ (p : DirectedPath G O), p.vertices.length = n + 1:= by
-  --   induction' n with n ih
-  --   · -- Base case: n = 0
-  --     -- Create a list consisting of v only
-  --     use {
-  --       vertices := [v],
-  --       non_empty := by
-  --         simp,
-  --       valid_edges := by
-  --         simp
-  --     }
-  --     simp
-
-  --   · -- Inductive step: assume true for n, prove for n + 1
-  --     rcases ih with ⟨p, h_len⟩
-  --     -- let v be the first element of the list
-  --     sorry
-  -- sorry
+lemma helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
+  is_acyclic G O → ∃ v : V, is_source G O v := by
+  intro h_acyclic
+  by_contra! no_sourceless
+  have arb_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 1:= by
+    induction' n with n ih
+    · -- Base case: n = 0
+      -- Create a list consisting of v only
+      let v := Classical.arbitrary V
+      use {
+        vertices := [v],
+        non_empty := by
+          simp,
+        valid_edges := by
+          simp
+      }
+      simp
+    · -- Inductive step: assume true for n, prove for n + 1
+      rcases ih with ⟨p, h_len⟩
+      cases hp: p.vertices with
+      | nil =>
+        -- This case should not happen since p.vertices has length n + 1 ≥ 1
+        exfalso
+        rw [hp] at h_len
+        simp at h_len
+      | cons v p' =>
+        specialize no_sourceless v
+        have h_parent := nonsource_has_parent O v no_sourceless
+        rcases h_parent with ⟨u,h_uv⟩
+        let new_path : List V := u :: p.vertices
+        use {
+          vertices := new_path,
+          non_empty := by
+            rw [List.length_cons]
+            exact Nat.succ_pos _,
+          valid_edges := by
+            dsimp [new_path, List.Chain']
+            cases h_case : p.vertices with
+            | nil =>
+              -- Path was just [v], so new path is [u, v]
+              simp [h_uv]
+            | cons v' vs =>
+              have eq_vv': v = v' := by
+                rw [h_case] at hp
+                simp at hp
+                obtain ⟨h,_⟩ := hp
+                rw [h]
+              rw [← eq_vv']
+              constructor
+              exact h_uv
+              have h_rec := p.valid_edges
+              rw [h_case] at h_rec
+              rw [← eq_vv'] at h_rec
+              exact h_rec
+        }
+        simp
+        rw [List.length_cons]
+        rw [h_len]
+  specialize arb_path (Fintype.card V)
+  rcases arb_path with ⟨p, h_len⟩
+  have ineq := path_length_bound p (h_acyclic p)
+  linarith
 
 
   -- specialize arb_path (Fintype.card V + 1)
