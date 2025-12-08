@@ -112,12 +112,12 @@ lemma isUndirected_prop_bool_equiv (edges : Multiset (V × V)) :
     -- Contradiction
     linarith -- h_card_pos contradicts h_card_zero
 
-
 -- Multigraph with undirected and loopless edges
 structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (edges : Multiset (V × V))
   (loopless : isLoopless edges = true)
   (undirected: isUndirected edges = true)
+
 
 -- Divisor as a function from vertices to integers
 def CFDiv (V : Type) := V → ℤ

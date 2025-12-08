@@ -503,7 +503,7 @@ theorem degree_of_canonical_divisor (G : CFGraph V) :
 /-- [Proven] Rank Degree Inequality -/
 theorem rank_degree_inequality
     (G : CFGraph V) (D : CFDiv V) :
-    deg D - genus G < rank G D - rank G (λ v => canonical_divisor G v - D v) := by
+    deg D - genus G < rank G D - rank G (canonical_divisor G - D) := by
   -- Get rank value for D
   let r := rank G D
 

@@ -17,207 +17,89 @@ variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 /-- [Proven] The main Riemann-Roch theorem for graphs -/
 theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
-  -- Get rank value for D
-  let r := rank G D
-
-  -- Get effective divisor E using rank characterization
-  rcases rank_get_effective G D with ⟨E, h_E_eff, h_E_deg, h_D_E_unwin⟩
-
-  -- Fix a vertex q
-  let q := Classical.arbitrary V
-
-  -- Apply Dhar's algorithm to D - E to get q-reduced form
-  rcases helper_dhar_algorithm G q (λ v => D v - E v) with ⟨c, k, h_equiv, h_super⟩
-
-  -- k must be negative since D - E is unwinnable
-  have h_k_neg := helper_dhar_negative_k G q (λ v => D v - E v) h_D_E_unwin c k h_equiv h_super
-
-  -- Get maximal superstable c' ≥ c
-  rcases helper_maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
-
-  -- Let O be corresponding acyclic orientation with unique source q (from bijection)
-  rcases stable_bijection G q with ⟨_, h_surj⟩
-  -- O_subtype has type {O // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}
-  rcases h_surj ⟨c', h_max'⟩ with ⟨O_subtype, h_f_eq_c'⟩
-
-  -- From h_f_eq_c' : f O_subtype = ⟨c', h_max'⟩, we get that the configuration part is equal
-  have h_orient_config_eq_c' : orientation_to_config G O_subtype.val q O_subtype.prop.1 O_subtype.prop.2 = c' := by
-    exact Subtype.mk.inj h_f_eq_c'
-
-  -- Define H := (c' - c) - (k + 1)q as a divisor
-  let H : CFDiv V := λ v =>
-    if v = q then -(k + 1)
-    else c'.vertex_degree v - c.vertex_degree v
+  let K := canonical_divisor G
 
   -- Get key inequality from axiom
   have h_ineq := rank_degree_inequality G D
 
   -- Get reverse inequality by applying to K-D
-  have h_ineq_rev := rank_degree_inequality G (λ v => canonical_divisor G v - D v)
+  have h_ineq_rev := rank_degree_inequality G (K-D)
 
   -- Get degree of canonical divisor
   have h_deg_K : deg (canonical_divisor G) = 2 * genus G - 2 :=
     degree_of_canonical_divisor G
 
   -- Since rank is an integer and we have bounds, equality must hold
-  suffices rank G D - rank G (λ v => canonical_divisor G v - D v) ≥ deg D - genus G + 1 ∧
-           rank G D - rank G (λ v => canonical_divisor G v - D v) ≤ deg D - genus G + 1 from
+  suffices rank G D - rank G (K-D) ≥ deg D - genus G + 1 ∧
+           rank G D - rank G (K-D) ≤ deg D - genus G + 1 from
     le_antisymm (this.2) (this.1)
 
   constructor
   · -- Lower bound
-    linarith [h_ineq]
+    linarith
   · -- Upper bound
-    have h_swap := rank_degree_inequality G (λ v => canonical_divisor G v - D v)
-    -- Simplify double subtraction in h_swap
-    have h_sub_simplify : (λ (v : V) => canonical_divisor G v - (canonical_divisor G v - D v)) = D := by
-      funext v
-      ring
-
-    rw [h_sub_simplify] at h_swap
-
-    have h_deg_sub : deg (λ v => canonical_divisor G v - D v) = deg (canonical_divisor G) - deg D := by
-      dsimp [deg]
-      -- Split the sum over subtraction
-      rw [Finset.sum_sub_distrib]
-
-    -- Substitute the degree of canonical divisor
-    rw [h_deg_K] at h_deg_sub
-
-    -- Simplify inequality
-    have h_ineq_sub : deg (λ v => canonical_divisor G v - D v) - genus G <
-      rank G (λ v => canonical_divisor G v - D v) - rank G D := h_swap
-
-    rw [h_deg_sub] at h_ineq_sub
-
-    -- Final inequality using linarith
-    linarith [h_ineq_sub]
+    rw [deg.map_sub, h_deg_K] at h_ineq_rev
+    have : canonical_divisor G - (K-D) = D := by
+      rw [sub_sub_self]
+    rw [this] at h_ineq_rev
+    linarith
 
 /-- [Proven] Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
 theorem maximal_unwinnable_symmetry
     (G : CFGraph V) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
+  set K := canonical_divisor G with K_def
+  suffices : ∀ (D : CFDiv V), maximal_unwinnable G D → maximal_unwinnable G (canonical_divisor G - D)
+  . constructor
+    exact this D
+    intro h
+    apply this (K-D) at h
+    rw [sub_sub_self] at h
+    exact h
+  -- Now we can just prove the forward direction
+  intro D
+  intro h_max_unwin
+  -- Get rank = -1 from maximal unwinnable
+  have h_rank_neg : rank G D = -1 := by
+    rw [rank_neg_one_iff_unwinnable]
+    exact h_max_unwin.1
+
+  -- Get degree = g-1 from maximal unwinnable
+  have h_deg : deg D = genus G - 1 := maximal_unwinnable_deg G D h_max_unwin
+
+  -- Use Riemann-Roch
+  have h_RR := riemann_roch_for_graphs G D
+  rw [h_rank_neg] at h_RR
+
+  -- Get degree of K-D
+  have h_deg_K := degree_of_canonical_divisor G
+  have h_deg_KD : deg (canonical_divisor G - D) = genus G - 1 := by
+    rw [deg.map_sub]
+    rw [h_deg_K, h_deg]
+    linarith
+
   constructor
-  -- Forward direction
-  { intro h_max_unwin
-    -- Get rank = -1 from maximal unwinnable
-    have h_rank_neg : rank G D = -1 := by
-      rw [rank_neg_one_iff_unwinnable]
-      exact h_max_unwin.1
-
-    -- Get degree = g-1 from maximal unwinnable
-    have h_deg : deg D = genus G - 1 := maximal_unwinnable_deg G D h_max_unwin
-
-    -- Use Riemann-Roch
-    have h_RR := riemann_roch_for_graphs G D
-    rw [h_rank_neg] at h_RR
-
-    -- Get degree of K-D
-    have h_deg_K := degree_of_canonical_divisor G
-    have h_deg_KD : deg (canonical_divisor G - D) = genus G - 1 := by
-      -- Get general distributive property for deg over subtraction
-      have h_deg_sub : ∀ D₁ D₂ : CFDiv V, deg (D₁ - D₂) = deg D₁ - deg D₂ := by
-        intro D₁ D₂
-        unfold deg
-        simp [sub_apply]
-
-      -- Convert lambda form to standard subtraction
-      rw [divisor_sub_eq_lambda G (canonical_divisor G) D]
-
-      -- Apply distributive property
-      rw [h_deg_sub (canonical_divisor G) D]
-
-      -- Use known values
-      rw [h_deg_K, h_deg]
-
-      -- Arithmetic: (2g-2) - (g-1) = g-1
-      ring
-
-    constructor
-    · -- K-D is unwinnable
-      rw [←rank_neg_one_iff_unwinnable]
+  · -- K-D is unwinnable
+    rw [←rank_neg_one_iff_unwinnable]
+    linarith
+  · -- Adding chip makes K-D winnable
+    intro v -- Goal: winnable G ((K-D) + δᵥ)
+    -- Let E = (K-D) + δᵥ
+    set E : CFDiv V := (canonical_divisor G - D) + one_chip v with E_def
+    suffices : winnable G E
+    . exact this
+    -- To show E is winnable, we will use Riemann-Roch on E
+    have h_deg_E : deg E = genus G := by
+      rw [E_def, deg.map_add, deg_one_chip, h_deg_KD]
       linarith
-    · -- Adding chip makes K-D winnable
-      intro v -- Goal: winnable G ((K-D) + δᵥ)
-      -- Assume for contradiction that (K-D) + δᵥ is not winnable
-      by_contra h_KD_plus_chip_not_winnable
-
-      -- If not winnable, its rank is -1
-      have h_rank_KD_plus_chip_is_neg_one : rank G ((canonical_divisor G - D) + one_chip v) = -1 := by
-        rw [rank_neg_one_iff_unwinnable]
-        exact h_KD_plus_chip_not_winnable
-
-      -- Let E = (K-D) + δᵥ
-      let E : CFDiv V := (canonical_divisor G - D) + one_chip v
-      -- have h_rank_E_is_neg_one : rank G E = -1 := h_rank_KD_plus_chip_is_neg_one -- This is just a restatement
-
-      -- Calculate deg E
-      have h_deg_E : deg E = genus G := by
-        -- E is defined as (λ w => A w + B w). We want to show deg E = genus G.
-        -- Explicitly change the goal to unfold E to see the sum structure.
-        change deg ( (canonical_divisor G - D) + one_chip v ) = genus G
-        -- Now the goal is deg (A + B) = genus G, where A = (K-D) and B = δᵥ.
-        rw [deg.map_add] -- Applies to deg (A + B), changing goal to deg A + deg B = genus G.
-        -- Goal: deg (λ w => canonical_divisor G w - D w) + deg (λ w => if w = v then 1 else 0) = genus G
-        rw [h_deg_KD] -- Substitutes deg(K-D) with (genus G - 1).
-        -- Goal: (genus G - 1) + deg (λ w => if w = v then 1 else 0) = genus G
-        -- This simplifies to showing: deg (λ w => if w = v then 1 else 0) = 1
-        have h_deg_delta_v : deg (one_chip v) = 1 := by
-          dsimp [deg]
-          -- Goal: ∑ x in Finset.univ, (if x = v then 1 else 0) = 1
-          -- This sum is 1 when x=v and 0 for all other x.
-          rw [Finset.sum_eq_single_of_mem v (Finset.mem_univ v)]
-          · -- Case 1: Prove the term for x = v is indeed 1.
-            -- The term is (if v = v then 1 else 0).
-            dsimp [one_chip]
-            simp only [eq_self_iff_true, if_true]
-          · -- Case 2: Prove for all x ≠ v, the term (if x = v then 1 else 0) is 0.
-            intros x _ hx_ne_v -- x is an element of Finset.univ, and x ≠ v.
-            -- The term is (if x = v then 1 else 0).
-            dsimp[one_chip]
-            simp only [hx_ne_v, if_false] -- Since x ≠ v, (if x=v ...) becomes (if false ...), which is 0.
-        rw [h_deg_delta_v] -- Substitute deg(δᵥ) = 1.
-        -- Goal is now (genus G - 1) + 1 = genus G
-        ring
-
-      -- Apply Riemann-Roch to E
-      -- rank G E - rank G (K-E) = deg E - (g-1)
-      have h_RR_E := riemann_roch_for_graphs G E
-      -- Substitute rank G E = -1 and deg E = g
-      rw [h_rank_KD_plus_chip_is_neg_one, h_deg_E] at h_RR_E
-      -- So, -1 - rank G (K-E) = g - (g-1) = 1
-      -- This implies rank G (K-E) = -2
-
-      -- Simplify K-E
-      have h_K_minus_E_eq_D_minus_chip : (canonical_divisor G - E) = (D - one_chip v) := by
-        simp only [E]
-        simp
-      -- Substitute K-E into the Riemann-Roch equation for E
-      rw [h_K_minus_E_eq_D_minus_chip] at h_RR_E
-      -- Now h_RR_E is: -1 - rank G (D - δᵥ) = 1, which means rank G (D - δᵥ) = -2
-
-      -- This is a contradiction because rank must be ≥ -1.
-      have h_rank_D_minus_chip_ge_neg_one : rank G (D - one_chip v) ≥ -1 := by
-        -- The rank is either -1 or non-negative.
-        by_cases h_nonneg: rank G (D - one_chip v) ≥ 0
-        · linarith -- if non-negative, then it is ≥ -1
-        · -- If not non-negative, then it must be -1 by rank_neg_one_of_not_nonneg
-          have rank_is_neg_one := rank_neg_one_of_not_nonneg G (D - one_chip v) h_nonneg
-          linarith [rank_is_neg_one] -- if it's -1, then it is ≥ -1
-
-      -- The contradiction comes from h_RR_E (which implies rank = -2) and h_rank_D_minus_chip_ge_neg_one (rank ≥ -1)
-      linarith [h_RR_E, h_rank_D_minus_chip_ge_neg_one]
-  }
-  -- Reverse direction
-  { intro h_max_unwin_K
-    -- Apply canonical double difference
-    rw [←canonical_double_diff G D]
-    -- Mirror forward direction's proof
-    exact maximal_unwinnable_symmetry G (λ v => canonical_divisor G v - D v) |>.mp h_max_unwin_K
-  }
-  termination_by (rank G D + 1).toNat
-  decreasing_by { exact rank_decreases_for_KD G D h_max_unwin_K }
-
+    apply (rank_nonneg_iff_winnable G E).mp
+    rw [rank_geq_iff G E]
+    calc
+      rank G E = rank G (K-E) + deg E +1 - genus G := by
+        linarith [riemann_roch_for_graphs G E]
+      _ ≥ deg E - genus G := by
+        linarith [rank_geq_neg_one G (K - E)]
+      _ = 0 := by linarith[h_deg_E]
 
 /-- [Proven] Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
              and K-D also having non-negative rank, the rank of D is at most half its degree. -/

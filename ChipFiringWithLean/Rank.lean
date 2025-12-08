@@ -461,3 +461,12 @@ lemma rank_neg_one_of_not_nonneg (G : CFGraph V) (D : CFDiv V) (h_not_nonneg : �
     have := lt_of_rank_geq_not G D 0 (r+1) h_not_nonneg h_r_not_geq
     linarith
   exact (rank_neg_one_iff_unwinnable G D).mpr nwin
+
+/-- Lemma: rank ≥ -1 -/
+lemma rank_geq_neg_one (G : CFGraph V) (D : CFDiv V) : rank G D ≥ -1 := by
+  by_contra h
+  have h_not_nonneg : ¬(rank G D ≥ 0) := by
+    intro h_contra
+    linarith
+  have h_rank_neg_one := rank_neg_one_of_not_nonneg G D h_not_nonneg
+  linarith
