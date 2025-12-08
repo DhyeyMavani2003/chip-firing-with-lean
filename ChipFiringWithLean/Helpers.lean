@@ -143,6 +143,36 @@ lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' :
     thus we are declaring this as an axiom for now. -/
 axiom helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
   is_acyclic G O → ∃ v : V, is_source G O v
+  -- := by
+  -- intro h_acyclic
+  -- by_contra! h_acyclic
+  -- let v := Classical.arbitrary V
+  -- have arb_path (n : ℕ) : ∃ (p : DirectedPath G O), p.vertices.length = n + 1:= by
+  --   induction' n with n ih
+  --   · -- Base case: n = 0
+  --     -- Create a list consisting of v only
+  --     use {
+  --       vertices := [v],
+  --       non_empty := by
+  --         simp,
+  --       valid_edges := by
+  --         simp
+  --     }
+  --     simp
+
+  --   · -- Inductive step: assume true for n, prove for n + 1
+  --     rcases ih with ⟨p, h_len⟩
+  --     -- let v be the first element of the list
+  --     sorry
+  -- sorry
+
+
+  -- specialize arb_path (Fintype.card V + 1)
+  -- rcases arb_path with ⟨p, h_len⟩
+  -- have bound_len := path_length_bound p
+  -- linarith
+
+
 
 lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
     ∀ v : V, (v,v) ∉ O.directed_edges := by

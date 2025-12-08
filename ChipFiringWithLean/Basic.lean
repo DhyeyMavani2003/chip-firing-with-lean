@@ -118,7 +118,6 @@ structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (loopless : isLoopless edges = true)
   (undirected: isUndirected edges = true)
 
-
 -- Divisor as a function from vertices to integers
 def CFDiv (V : Type) := V → ℤ
 

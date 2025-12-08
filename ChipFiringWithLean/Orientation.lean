@@ -11,6 +11,7 @@ import Mathlib.Order.WellFounded
 import Mathlib.Data.List.Basic
 import Mathlib.Data.List.Lemmas
 import Mathlib.Data.List.Cycle
+import Mathlib.Data.List.Nodup
 import ChipFiringWithLean.Basic
 import ChipFiringWithLean.Config
 import Paperproof
@@ -60,66 +61,38 @@ def is_sink (G : CFGraph V) (O : CFOrientation G) (v : V) : Bool :=
 def is_directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Bool :=
   (u, v) ∈ O.directed_edges
 
+-- Proposition verson of is_directed_edge
+def directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
+  (u, v) ∈ O.directed_edges
+
 /-- Helper function for safe list access -/
 def list_get_safe {α : Type} (l : List α) (i : Nat) : Option α :=
   l.get? i
 
 /-- A directed path in a graph under an orientation -/
-structure DirectedPath (G : CFGraph V) (O : CFOrientation G) where
+structure DirectedPath {G : CFGraph V} (O : CFOrientation G) where
   /-- The sequence of vertices in the path -/
   vertices : List V
   /-- Path must not be empty (at least one vertex) -/
   non_empty : vertices.length > 0
   /-- Every consecutive pair forms a directed edge -/
-  valid_edges : ∀ (i : Nat), i + 1 < vertices.length →
-    match (vertices.get? i, vertices.get? (i + 1)) with
-    | (some u, some v) => is_directed_edge G O u v = true
-    | _ => False
-  /-- All vertices in the path are distinct -/
-  distinct_vertices : ∀ (i j : Nat), i < vertices.length → j < vertices.length → i ≠ j →
-    match (vertices.get? i, vertices.get? j) with
-    | (some u, some v) => u ≠ v
-    | _ => True
+  valid_edges : List.Chain' (directed_edge G O) vertices
 
-/-- A directed cycle is a directed path whose first and last vertices coincide.
-    Apart from the repetition of the first/last vertex, all other vertices in the cycle are distinct. -/
-structure DirectedCycle (G : CFGraph V) (O : CFOrientation G) :=
-  (vertices : List V)
-  /-- Every consecutive pair of vertices forms a directed edge in the orientation. -/
-  (valid_edges : ∀ (i : Nat), i + 1 < vertices.length →
-    match (vertices.get? i, vertices.get? (i + 1)) with
-    | (some u, some v) => is_directed_edge G O u v = true
-    | _ => False)
-  /-- The cycle condition: first vertex equals last, and at least one edge.
-      Length > 1 means at least 2 vertices, e.g., [v, v] for a self-loop (1 edge). -/
-  (cycle_condition : vertices.length > 1 ∧
-    match (vertices.get? 0, vertices.get? (vertices.length - 1)) with
-    | (some start_node, some end_node) => start_node = end_node
-    | _ => False) -- Should not be hit if vertices.length > 1
-  /-- All internal vertices (ignoring the last vertex which is the same as the first)
-      are distinct from each other. This ensures there are no other repeated vertices
-      besides the repetition at the end forming the cycle. -/
-  (distinct_internal_vertices : ∀ (i j : Nat),
-    i < vertices.length - 1 →
-    j < vertices.length - 1 →
-    i ≠ j →
-    match (vertices.get? i, vertices.get? j) with
-    | (some u, some v) => u ≠ v
-    | _ => True)
+def non_repeating {G: CFGraph V} {O : CFOrientation G} (p : DirectedPath O) : Prop :=
+  p.vertices.Nodup
 
-/-- Check if there are edges in both directions between two vertices -/
-def has_bidirectional_edges (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
-  ∃ e₁ e₂, e₁ ∈ O.directed_edges ∧ e₂ ∈ O.directed_edges ∧ e₁ = (u, v) ∧ e₂ = (v, u)
-
-/-- All multiple edges between same vertices point in same direction -/
-def consistent_edge_directions (G : CFGraph V) (O : CFOrientation G) : Prop :=
-  ∀ u v : V, ¬has_bidirectional_edges G O u v
+lemma path_length_bound {G : CFGraph V} {O : CFOrientation G} (p : DirectedPath O) :
+  non_repeating p → p.vertices.length ≤ Fintype.card V := by
+  intro h_distinct
+  have h_injective := List.nodup_iff_injective_get.mp h_distinct
+  have h_card := Fintype.card_le_of_injective p.vertices.get h_injective
+  refine le_trans ?_ h_card
+  simp
 
 /-- An orientation is acyclic if it has no directed cycles and
     maintains consistent edge directions between vertices -/
 def is_acyclic (G : CFGraph V) (O : CFOrientation G) : Prop :=
-  consistent_edge_directions G O ∧
-  ¬∃ (c : DirectedCycle G O), True
+  ∀ (p : DirectedPath O), non_repeating p
 
 /-- The set of ancestors of a vertex v (nodes x such that there is a path x -> ... -> v) -/
 noncomputable def ancestors (G : CFGraph V) (O : CFOrientation G) (v : V) : Finset V :=
@@ -432,252 +405,35 @@ lemma indeg_reverse_eq_outdeg (G : CFGraph V) (O : CFOrientation G) (v : V) :
 lemma is_acyclic_reverse_of_is_acyclic (G : CFGraph V) (O : CFOrientation G)
     (h_acyclic : is_acyclic G O) :
   is_acyclic G (O.reverse G) := by
-  constructor
-  · -- consistent_edge_directions for O.reverse
-    intro u v h_bidir_rev -- h_bidir_rev : has_bidirectional_edges G (O.reverse G) u v
-    let O_rev := O.reverse G;
-    obtain ⟨e₁, e₂, he₁_mem_rev, he₂_mem_rev, he₁_eq_uv, he₂_eq_vu⟩ := h_bidir_rev;
-
-    have h_uv_mem_rev : (u,v) ∈ O_rev.directed_edges := by { rw [← he₁_eq_uv]; exact he₁_mem_rev };
-    have h_vu_mem_rev : (v,u) ∈ O_rev.directed_edges := by { rw [← he₂_eq_vu]; exact he₂_mem_rev };
-
-    have count_uv_rev_pos : Multiset.count (u,v) O_rev.directed_edges > 0 :=
-      Multiset.count_pos.mpr h_uv_mem_rev;
-    have count_vu_rev_pos : Multiset.count (v,u) O_rev.directed_edges > 0 :=
-      Multiset.count_pos.mpr h_vu_mem_rev;
-
-    cases O_rev.no_bidirectional u v with
-    | inl h_uv_rev_zero => -- Multiset.count (u,v) O_rev.directed_edges = 0
-      exact Nat.ne_of_gt count_uv_rev_pos h_uv_rev_zero;
-    | inr h_vu_rev_zero => -- Multiset.count (v,u) O_rev.directed_edges = 0
-      exact Nat.ne_of_gt count_vu_rev_pos h_vu_rev_zero;
-
-  · -- No directed cycles in O.reverse
-    rintro ⟨c_rev_inst, _⟩ -- c_rev_inst : DirectedCycle G (O.reverse G)
-    apply h_acyclic.2; -- Need to show ∃ (c : DirectedCycle G O), True
-    let O_rev := O.reverse G;
-    let c_rev_verts := c_rev_inst.vertices;
-    let c_orig_verts := c_rev_verts.reverse;
-
-    use {
-      vertices := c_orig_verts,
-      valid_edges := by {
-        intro i hi_idx_bound_orig;
-        let L_orig := c_orig_verts.length;
-        have h_L_orig_gt_one : L_orig > 1 := by { dsimp [L_orig, c_orig_verts]; rw [List.length_reverse]; exact c_rev_inst.cycle_condition.1 };
-        have h_i_lt_L : i < L_orig := Nat.lt_of_succ_lt hi_idx_bound_orig;
-        have h_i_succ_lt_L : i + 1 < L_orig := hi_idx_bound_orig;
-
-        simp only [List.get?_eq_get h_i_lt_L, List.get?_eq_get h_i_succ_lt_L];
-        -- Goal is now: is_directed_edge G O (c_orig_verts[i]) (c_orig_verts[i+1])
-
-        let u_orig := c_orig_verts[i];
-        let v_orig := c_orig_verts[i+1];
-
-        let L_rev := c_rev_verts.length;
-        have h_L_rev_eq_L_orig : L_rev = L_orig := by { simp [L_orig, c_orig_verts, List.length_reverse] };
-        rw [←h_L_rev_eq_L_orig] at h_i_lt_L h_i_succ_lt_L h_L_orig_gt_one;
-
-        let k_rev := L_rev - 1 - (i+1); -- This is index in c_rev_verts for v_orig
-        let k_rev_plus_1 := L_rev - 1 - i; -- This is index in c_rev_verts for u_orig
-
-        have h_k_rev_plus_1_lt_L_rev : k_rev_plus_1 < L_rev := by {
-          dsimp [k_rev_plus_1]; -- Goal: (L_rev - 1) - i < L_rev
-          apply Nat.lt_of_le_of_lt (Nat.sub_le (L_rev-1) i);
-          exact (Nat.pred_lt_self (Nat.zero_lt_one.trans h_L_orig_gt_one)); -- L_rev-1 < L_rev because L_rev > 0
-        };
-        have h_k_rev_lt_k_rev_plus_1 : k_rev < k_rev_plus_1 := by {
-          dsimp [k_rev, k_rev_plus_1]; -- Goal: L_rev - 1 - (i + 1) < L_rev - 1 - i
-          let X_minus_i := (L_rev - 1) - i;
-          have h_X_minus_i_pos : 0 < X_minus_i := by {
-            apply Nat.sub_pos_of_lt;
-            exact (Nat.lt_pred_iff_succ_lt.mpr h_i_succ_lt_L); -- i.succ < L_rev implies i < L_rev.pred
-          };
-          rw [Nat.sub_succ (L_rev-1) i]; -- LHS (L_rev-1)-(i+1) becomes (L_rev-1-i)-1
-                                        -- Goal is (L_rev-1-i)-1 < (L_rev-1-i)
-          exact Nat.pred_lt_self h_X_minus_i_pos;
-        };
-        have h_k_rev_lt_L_rev : k_rev < L_rev := Nat.lt_trans h_k_rev_lt_k_rev_plus_1 h_k_rev_plus_1_lt_L_rev;
-
-        have h_bound_for_c_rev_valid_edges : k_rev + 1 < L_rev := by {
-          dsimp [k_rev]; -- Goal is (L_rev - 1 - (i+1)) + 1 < L_rev
-          linarith [h_i_succ_lt_L, h_L_orig_gt_one];
-        };
-
-        have h_val_edge_proof_term := c_rev_inst.valid_edges k_rev h_bound_for_c_rev_valid_edges;
-        simp only [List.get?_eq_get h_k_rev_lt_L_rev, List.get?_eq_get h_bound_for_c_rev_valid_edges] at h_val_edge_proof_term;
-        have h_krev_succ_eq_krev_plus_1 : k_rev + 1 = k_rev_plus_1 := by {
-          dsimp [k_rev, k_rev_plus_1]; -- (L_rev - 1 - (i+1)) + 1 = L_rev - 1 - i
-          let X_minus_i := (L_rev - 1) - i;
-          have h_X_minus_i_pos : 0 < X_minus_i := by {
-            apply Nat.sub_pos_of_lt;
-            exact (Nat.lt_pred_iff_succ_lt.mpr h_i_succ_lt_L);
-          };
-          rw [Nat.sub_succ (L_rev-1) i]; -- LHS's (L_rev-1)-(i+1) part becomes (L_rev-1-i)-1. So LHS is ((L_rev-1-i)-1) + 1
-                                        -- Goal is ((L_rev-1-i)-1) + 1 = (L_rev-1-i)
-          exact Nat.succ_pred_eq_of_pos h_X_minus_i_pos;
-        };
-        simp only [h_krev_succ_eq_krev_plus_1] at h_val_edge_proof_term;
-        have h_val_edge_rev : is_directed_edge G O_rev (c_rev_verts[k_rev]) (c_rev_verts[k_rev_plus_1]) = true := h_val_edge_proof_term;
-
-        have h_target_edge_mem : (c_rev_verts[k_rev], c_rev_verts[k_rev_plus_1]) ∈ O_rev.directed_edges :=
-          of_decide_eq_true h_val_edge_rev;
-        obtain ⟨edge_in_O, h_edge_in_O_mem, h_swap_eq⟩ := Multiset.mem_map.mp h_target_edge_mem;
-
-        have h_u_orig_maps : u_orig = c_rev_verts[L_rev - 1 - i] := by {
-          simp only [u_orig, c_orig_verts, List.getElem_reverse];
-        };
-        have h_v_orig_maps : v_orig = c_rev_verts[L_rev - 1 - (i+1)] := by {
-           simp only [v_orig, c_orig_verts, List.getElem_reverse];
-        };
-
-        have h_pair_eq : (c_rev_verts[k_rev], c_rev_verts[k_rev_plus_1]) = (v_orig, u_orig) := by {
-          apply Prod.ext_iff.mpr;
-          constructor;
-          · -- Goal: c_rev_verts[k_rev] = v_orig
-            -- k_rev is L_rev - 1 - (i+1)
-            -- h_v_orig_maps is v_orig = c_rev_verts[L_rev - 1 - (i+1)]
-            exact (Eq.symm h_v_orig_maps);
-          · -- Goal: c_rev_verts[k_rev_plus_1] = u_orig
-            -- k_rev_plus_1 is L_rev - 1 - i
-            -- h_u_orig_maps is u_orig = c_rev_verts[L_rev - 1 - i]
-            exact (Eq.symm h_u_orig_maps);
-        };
-        rw [h_pair_eq] at h_swap_eq;
-        have h_edge_eq_orig_pair : edge_in_O = (u_orig, v_orig) := Prod.swap_inj.mp h_swap_eq;
-        rw [h_edge_eq_orig_pair] at h_edge_in_O_mem;
-        simp [is_directed_edge, h_edge_in_O_mem];
-      },
-      cycle_condition := by {
-        constructor;
-        · -- Length part
-          dsimp [c_orig_verts]; rw [List.length_reverse];
-          exact c_rev_inst.cycle_condition.1;
-        · -- Endpoints part
-          let L_orig := c_orig_verts.length;
-          have h_L_orig_gt_one : L_orig > 1 := by { dsimp [L_orig, c_orig_verts]; rw [List.length_reverse]; exact c_rev_inst.cycle_condition.1; };
-          have h_L_orig_pos : L_orig > 0 := by linarith [h_L_orig_gt_one];
-          have h_idx0_lt_L_orig_get : 0 < L_orig := h_L_orig_pos;
-          have h_idxL_1_lt_L_orig_get : L_orig - 1 < L_orig := Nat.sub_lt h_L_orig_pos Nat.one_pos;
-
-          simp only [List.get?_eq_get h_idx0_lt_L_orig_get, List.get?_eq_get h_idxL_1_lt_L_orig_get];
-          -- Goal is now: c_orig_verts[0] = c_orig_verts[L_orig - 1]
-
-          let hc_cond_rev := c_rev_inst.cycle_condition;
-          let h_L_rev_gt_1 := hc_cond_rev.1; -- This is c_rev_verts.length > 1
-          let L_rev := c_rev_verts.length;
-          have h0_lt_Lrev : 0 < L_rev := Nat.lt_trans Nat.zero_lt_one h_L_rev_gt_1;
-          have hLrev_minus_1_lt_Lrev : L_rev - 1 < L_rev := Nat.pred_lt_of_lt h_L_rev_gt_1;
-
-          have h_eq_rev_direct : (c_rev_verts.get ⟨0, h0_lt_Lrev⟩) = (c_rev_verts.get ⟨L_rev - 1, hLrev_minus_1_lt_Lrev⟩) := by {
-            rcases hc_cond_rev with ⟨_, h_match_prop⟩; -- _ is h_L_rev_gt_1, already captured
-            simp only [List.get?_eq_get h0_lt_Lrev, List.get?_eq_get hLrev_minus_1_lt_Lrev] at h_match_prop;
-            exact h_match_prop;
-          };
-          have h_L_rev_eq_L_orig : c_rev_verts.length = c_orig_verts.length := (List.length_reverse c_rev_verts).symm;
-          dsimp only [c_orig_verts]; simp only [List.get_eq_getElem, List.getElem_reverse, List.length_reverse, L_orig, L_rev, Nat.sub_zero, Nat.sub_sub, Nat.sub_self, Nat.add_one_sub_one, h_L_rev_eq_L_orig] at h_idx0_lt_L_orig_get h_idxL_1_lt_L_orig_get h_eq_rev_direct ⊢;
-          rw [eq_comm]; exact h_eq_rev_direct;
-      },
-      distinct_internal_vertices := by {
-        intro i j hi_bound_orig hj_bound_orig h_i_ne_j;
-        let L_orig := c_orig_verts.length;
-        have h_L_orig_gt_one : L_orig > 1 := by { dsimp [L_orig, c_orig_verts]; rw [List.length_reverse]; exact c_rev_inst.cycle_condition.1 };
-        have h_i_lt_L_minus_1 : i < L_orig - 1 := hi_bound_orig;
-        have h_j_lt_L_minus_1 : j < L_orig - 1 := hj_bound_orig;
-        have h_i_lt_L_orig : i < L_orig := Nat.lt_of_lt_pred h_i_lt_L_minus_1;
-        have h_j_lt_L_orig : j < L_orig := Nat.lt_of_lt_pred h_j_lt_L_minus_1;
-
-        simp only [List.get?_eq_get h_i_lt_L_orig, List.get?_eq_get h_j_lt_L_orig];
-        -- Goal is now: c_orig_verts[i] ≠ c_orig_verts[j]
-
-        let L_rev := c_rev_verts.length;
-        have h_L_rev_eq_L_orig : L_rev = L_orig := by { simp [L_orig, c_orig_verts, List.length_reverse] };
-        rw [←h_L_rev_eq_L_orig] at h_L_orig_gt_one h_i_lt_L_minus_1 h_j_lt_L_minus_1 h_i_lt_L_orig h_j_lt_L_orig;
-
-        let k_i := L_rev - 1 - i; -- Corresponds to c_orig_verts[i]
-        let k_j := L_rev - 1 - j; -- Corresponds to c_orig_verts[j]
-
-        have h_k_i_ne_k_j : k_i ≠ k_j := by {
-          intro h_eq_k; apply h_i_ne_j;
-          let X := L_rev - 1;
-          have h_eq_X_sub : X - i = X - j := h_eq_k;
-          have h_i_le_X : i ≤ X := Nat.le_of_lt h_i_lt_L_minus_1;
-          have h_j_le_X : j ≤ X := Nat.le_of_lt h_j_lt_L_minus_1;
-          apply Nat.add_left_cancel; -- prove i = j from X-i = X-j
-          rw [Nat.sub_add_cancel h_i_le_X];     -- LHS becomes X. Goal is X = (X-i) + j
-          rw [h_eq_X_sub];                     -- Goal is X = (X-j) + j
-          rw [Nat.sub_add_cancel h_j_le_X];    -- Goal is X = X
-        };
-
-        have h_cycle_rev_endpoints_eq : c_rev_verts[0] = c_rev_verts[L_rev - 1] := by {
-          obtain ⟨hc_len_rev, hc_match_rev_get?⟩ := c_rev_inst.cycle_condition;
-          have h_L_rev_pos_get : L_rev > 0 := by linarith [hc_len_rev];
-          have h_idx0_lt_L_rev_get : 0 < L_rev := h_L_rev_pos_get;
-          have h_idxL_1_lt_L_rev_get : L_rev - 1 < L_rev := Nat.sub_lt h_L_rev_pos_get Nat.one_pos;
-          simp only [List.get?_eq_get h_idx0_lt_L_rev_get, List.get?_eq_get h_idxL_1_lt_L_rev_get] at hc_match_rev_get?;
-          exact hc_match_rev_get?;
-        };
-
-        suffices h_target_rev: c_rev_verts[k_i] ≠ c_rev_verts[k_j] by {
-           simp [c_orig_verts, List.getElem_reverse, h_i_lt_L_orig, h_j_lt_L_orig, h_L_rev_eq_L_orig];
-           exact h_target_rev;
-        };
-
-        by_cases hi_zero : i = 0;
-        · -- Then k_i = L_rev - 1.
-          have hj_pos : j > 0 := Nat.pos_of_ne_zero (by { intro hj_eq_zero; apply h_i_ne_j; rw [hj_eq_zero, hi_zero]; });
-          have hk_j_lt_L_rev_minus_1 : k_j < L_rev - 1 := by {
-            dsimp [k_j]; -- Goal: L_rev - 1 - j < L_rev - 1
-            let X := L_rev - 1;
-            have hXpos : 0 < X := Nat.sub_pos_of_lt h_L_orig_gt_one;
-            apply Nat.sub_lt_of_pos_le hj_pos (Nat.le_of_lt h_j_lt_L_minus_1);
-          };
-          have hk_j_ne_zero : k_j ≠ 0 := by {
-            dsimp[k_j]; intro h_kj_is_0; -- h_kj_is_0 is L_rev - 1 - j = 0
-            have h_Lrev_minus_1_le_j : L_rev - 1 ≤ j := Nat.sub_eq_zero_iff_le.mp h_kj_is_0;
-            exact Nat.not_lt_of_le h_Lrev_minus_1_le_j h_j_lt_L_minus_1;
-          };
-          simp only [k_i, k_j, hi_zero, Nat.sub_zero] at *;
-          rw [←h_cycle_rev_endpoints_eq]; -- Modifies goal further
-          have bound_0_lt_L_rev_sub_1 : 0 < L_rev - 1 := Nat.sub_pos_of_lt h_L_orig_gt_one;
-          convert c_rev_inst.distinct_internal_vertices 0 k_j bound_0_lt_L_rev_sub_1 hk_j_lt_L_rev_minus_1 (Ne.symm hk_j_ne_zero);
-          { have h_idx0_lt_len : 0 < (c_rev_inst.vertices).length := Nat.lt_of_lt_pred h_i_lt_L_minus_1;
-            have h_idxkj_lt_len : k_j < (c_rev_inst.vertices).length := Nat.lt_of_lt_pred hk_j_lt_L_rev_minus_1;
-            simp only [List.get?_eq_get, List.get_eq_getElem, L_rev, c_rev_verts, h_idx0_lt_len, h_idxkj_lt_len, k_j]; }
-        · -- i > 0, so k_i < L_rev - 1
-          have hk_i_lt_L_rev_minus_1 : k_i < L_rev - 1 := by {
-            dsimp [k_i]; -- Goal: L_rev - 1 - i < L_rev - 1
-            let X := L_rev - 1;
-            have hXpos : 0 < X := Nat.sub_pos_of_lt h_L_orig_gt_one;
-            have hi_pos : 0 < i := Nat.pos_of_ne_zero hi_zero;
-            apply Nat.sub_lt_of_pos_le hi_pos (Nat.le_of_lt h_i_lt_L_minus_1);
-          };
-          by_cases hj_zero : j = 0;
-          · -- Then k_j = L_rev - 1.
-            have hk_i_ne_zero : k_i ≠ 0 := by {
-              dsimp[k_i]; intro h_ki_is_0; -- h_ki_is_0 is L_rev - 1 - i = 0
-              have h_Lrev_minus_1_le_i : L_rev - 1 ≤ i := Nat.sub_eq_zero_iff_le.mp h_ki_is_0;
-              exact Nat.not_lt_of_le h_Lrev_minus_1_le_i h_i_lt_L_minus_1;
-            };
-            simp only [k_i, k_j, hj_zero, Nat.sub_zero] at *;
-            rw [←h_cycle_rev_endpoints_eq]; -- Modifies goal
-            have bound_0_lt_L_rev_sub_1 : 0 < L_rev - 1 := Nat.sub_pos_of_lt h_L_orig_gt_one;
-            convert c_rev_inst.distinct_internal_vertices k_i 0 hk_i_lt_L_rev_minus_1 bound_0_lt_L_rev_sub_1 hk_i_ne_zero;
-            { have h_idxki_lt_len : k_i < (c_rev_inst.vertices).length := Nat.lt_of_lt_pred hk_i_lt_L_rev_minus_1;
-              have h_idx0_lt_len : 0 < (c_rev_inst.vertices).length := (Nat.zero_lt_one.trans h_L_orig_gt_one);
-              simp only [List.get?_eq_get, List.get_eq_getElem, L_rev, c_rev_verts, h_idxki_lt_len, h_idx0_lt_len, k_i, k_j]; }
-          · -- Both i > 0 and j > 0.
-            have hk_j_lt_L_rev_minus_1 : k_j < L_rev - 1 := by {
-              dsimp [k_j]; -- Goal: L_rev - 1 - j < L_rev - 1
-              let X := L_rev - 1;
-              have hXpos : 0 < X := Nat.sub_pos_of_lt h_L_orig_gt_one;
-              have hj_pos_local : 0 < j := Nat.pos_of_ne_zero hj_zero;
-              apply Nat.sub_lt_of_pos_le hj_pos_local (Nat.le_of_lt h_j_lt_L_minus_1);
-            };
-            have hk_i_lt_L_rev : k_i < L_rev := Nat.lt_of_lt_pred hk_i_lt_L_rev_minus_1;
-            have hk_j_lt_L_rev : k_j < L_rev := Nat.lt_of_lt_pred hk_j_lt_L_rev_minus_1;
-            have h_distinct_prop := c_rev_inst.distinct_internal_vertices k_i k_j hk_i_lt_L_rev_minus_1 hk_j_lt_L_rev_minus_1 h_k_i_ne_k_j;
-            simp only [List.get?_eq_get hk_i_lt_L_rev, List.get?_eq_get hk_j_lt_L_rev] at h_distinct_prop;
-            exact h_distinct_prop;
-      }
-    };
+  intro p
+  let q : DirectedPath O := {
+    vertices := p.vertices.reverse,
+    non_empty := by
+      rw [List.length_reverse p.vertices]
+      exact p.non_empty,
+    valid_edges := by
+      have p_valid := p.valid_edges
+      have hyp := List.chain'_reverse.mpr p_valid
+      have repl: (directed_edge G O) = (λ a b => (b,a) ∈ (CFOrientation.reverse G O).directed_edges) := by
+        funext a b
+        simp
+        constructor
+        -- Forward direction
+        intro h_a_b
+        dsimp [CFOrientation.reverse]
+        simp
+        use a, b
+        exact ⟨h_a_b, rfl, rfl⟩
+        -- Backward direction
+        intro h_b_a_rev
+        dsimp [CFOrientation.reverse] at h_b_a_rev
+        simp at h_b_a_rev
+        rcases h_b_a_rev with ⟨a1,b1, h⟩
+        obtain ⟨h_ba_in_O, swap_b, swap_a⟩ := h
+        rw [← swap_a, ← swap_b]
+        exact h_ba_in_O
+      rw [← repl] at hyp
+      exact hyp
+  }
+  have h_non_repeating_q : non_repeating q := h_acyclic q
+  exact List.nodup_reverse.mp h_non_repeating_q
