@@ -1172,18 +1172,6 @@ axiom helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c'
 # Helpers for RRG's Corollary 4.4.1
 -/
 
-/-- Axiom: Rank decreases in K-D recursion for maximal unwinnable divisors
-    This captures that when we apply canonical_divisor - D to a maximal unwinnable divisor,
-    the rank measure decreases. This is used for termination of maximal_unwinnable_symmetry.
-    This was especially hard to SETTLE in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom rank_decreases_for_KD
-  (G : CFGraph V) (D : CFDiv V) :
-  maximal_unwinnable G (λ v => canonical_divisor G v - D v) →
-  ((rank G (λ v => canonical_divisor G v - D v) + 1).toNat < (rank G D + 1).toNat)
-
-
-
-
 
 /-
 # Helpers for RRG's Corollary 4.4.3
