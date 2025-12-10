@@ -455,7 +455,7 @@ theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
 
     -- Show winnability of sum using helper_winnable_add and rearrangement
     rw [h_sum]
-    have h := helper_winnable_add G (D-E₁) (D'-E₂) h_D_win h_D'_win
+    have h := winnable_add_winnable G (D-E₁) (D'-E₂) h_D_win h_D'_win
     have h_arr : D - E₁ + (D' - E₂) = (D + D') - (E₁ + E₂) := by
       abel
     rw [h_arr] at h

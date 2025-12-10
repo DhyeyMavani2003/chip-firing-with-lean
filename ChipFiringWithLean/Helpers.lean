@@ -64,7 +64,7 @@ noncomputable def sum_negativity_outside_q_list (q : V) (D : CFDiv V) : List ℕ
 axiom exists_q_reduced_representative (G : CFGraph V) (q : V) (D_initial : CFDiv V) :
   ∃ D' : CFDiv V, linear_equiv G D_initial D' ∧ q_reduced G q D'
 
-/- [Proven] Helper lemma: Uniqueness of the q-reduced representative within a divisor class -/
+/- Lemma: Uniqueness of the q-reduced representative within a divisor class -/
 lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv V)
   (D₁ D₂ : CFDiv V) (h₁ : linear_equiv G D D₁ ∧ q_reduced G q D₁)
   (h₂ : linear_equiv G D D₂ ∧ q_reduced G q D₂) : D₁ = D₂ := by
@@ -84,7 +84,7 @@ lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv 
   -- Needs: q_reduced G q D₁, q_reduced G q D₂, linear_equiv G D₁ D₂
   exact q_reduced_unique G q D₁ D₂ ⟨h_qred_D1, h_qred_D2, h_equiv_D1_D2⟩
 
-/- [Proven] Helper lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
+/- Lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
 lemma helper_unique_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :
   ∃! D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
   -- Prove existence and uniqueness separately
@@ -102,10 +102,9 @@ lemma helper_unique_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :
   -- Combine existence and uniqueness using the standard constructor
   exact exists_unique_of_exists_of_unique h_exists h_unique
 
-/-- Axiom: The q-reduced representative of an effective divisor is effective.
+/-- Lemma: The q-reduced representative of an effective divisor is effective.
     This follows from the fact that the reduction process (like Dhar's algorithm or repeated
-    legal firings) preserves effectiveness when starting with an effective divisor.
-    This was especially hard to prove in Lean4, so we are leaving it as an axiom for the time being. -/
+    legal firings) preserves effectiveness when starting with an effective divisor. -/
 lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' : CFDiv V) :
   effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
   intro h_eff h_equiv h_qred
@@ -138,9 +137,7 @@ lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' :
 # Helpers for Lemma 4.1.10
 -/
 
-/-- Axiom: A non-empty graph with an acyclic orientation must have at least one source.
-    Proving this inductively is a bit tricky at the moment, and we ran into infinite recursive loop,
-    thus we are declaring this as an axiom for now. -/
+/-- Lemma: A non-empty graph with an acyclic orientation must have at least one source. -/
 lemma helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
   is_acyclic G O → ∃ v : V, is_source G O v := by
   intro h_acyclic
@@ -204,14 +201,6 @@ lemma helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
   have ineq := path_length_bound p (h_acyclic p)
   linarith
 
-
-  -- specialize arb_path (Fintype.card V + 1)
-  -- rcases arb_path with ⟨p, h_len⟩
-  -- have bound_len := path_length_bound p
-  -- linarith
-
-
-
 lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
     ∀ v : V, (v,v) ∉ O.directed_edges := by
   intro v
@@ -236,8 +225,8 @@ lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
 
   exact (Multiset.count_eq_zero).mp h_o_count_loop_eq_zero
 
-/-- [Proven] Helper theorem: Two orientations are equal if they have the same directed edges -/
-theorem helper_orientation_eq_of_directed_edges {G : CFGraph V}
+/-- Helper lemma: Two orientations are equal if they have the same directed edges -/
+lemma helper_orientation_eq_of_directed_edges {G : CFGraph V}
   (O O' : CFOrientation G) :
   O.directed_edges = O'.directed_edges → O = O' := by
   intro h
@@ -248,10 +237,8 @@ theorem helper_orientation_eq_of_directed_edges {G : CFGraph V}
   congr
 
 /-- Lemma: Given a list of disjoint vertex sets that form a partition of V,
-    this axiom states that an acyclic orientation is uniquely determined
-    by this partition where each set contains vertices with same indegree.
-    Proving this inductively is a bit tricky at the moment, and we ran into infinite recursive loop,
-    thus we are declaring this as an axiom for now. -/
+    an acyclic orientation is uniquely determined by this partition where
+    each set contains vertices with same indegree. -/
 lemma helper_orientation_determined_by_levels {G : CFGraph V}
   (O O' : CFOrientation G) :
   is_acyclic G O → is_acyclic G O' →
@@ -423,7 +410,7 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
 # Helpers for Proposition 4.1.11
 -/
 
-/-- [Proven] Helper lemma: CFOrientation to config preserves indegrees -/
+/-- Lemma: CFOrientation to config preserves indegrees -/
 lemma orientation_to_config_indeg (G : CFGraph V) (O : CFOrientation G) (q : V)
     (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) (v : V) :
     (orientation_to_config G O q h_acyclic h_unique_source).vertex_degree v =
@@ -445,14 +432,14 @@ axiom helper_orientation_config_maximal (G : CFGraph V) (O : CFOrientation G) (q
     (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
     maximal_superstable G (orientation_to_config G O q h_acyc h_unique_source)
 
-/-- [Proven] Helper lemma: Two acyclic orientations with same indegrees are equal -/
+/-- Lemma: Two acyclic orientations with same indegrees are equal -/
 lemma orientation_unique_by_indeg {G : CFGraph V} (O₁ O₂ : CFOrientation G)
     (h_acyc₁ : is_acyclic G O₁) (h_acyc₂ : is_acyclic G O₂)
     (h_indeg : ∀ v : V, indeg G O₁ v = indeg G O₂ v) : O₁ = O₂ := by
   -- Apply the helper statement directly since we have exactly matching hypotheses
   exact helper_orientation_determined_by_levels O₁ O₂ h_acyc₁ h_acyc₂ h_indeg
 
-/-- [Proven] Helper lemma to show indegree of source is 0 -/
+/-- Lemma to show indegree of source is 0 -/
 lemma source_indeg_zero {G : CFGraph V} (O : CFOrientation G) (v : V)
     (h_src : is_source G O v) : indeg G O v = 0 := by
   -- By definition of is_source in terms of indeg
@@ -460,7 +447,7 @@ lemma source_indeg_zero {G : CFGraph V} (O : CFOrientation G) (v : V)
   -- Convert from boolean equality to proposition
   exact of_decide_eq_true h_src
 
-/-- [Proven] Helper theorem proving uniqueness of orientations giving same config -/
+/-- Lemma proving uniqueness of orientations giving same config -/
 theorem helper_config_to_orientation_unique (G : CFGraph V) (q : V)
     (c : Config V q)
     (h_super : superstable G q c)
@@ -501,7 +488,7 @@ theorem helper_config_to_orientation_unique (G : CFGraph V) (q : V)
     -- Use nat cast injection
     exact (Nat.cast_inj.mp h)
 
-/-- [Proven] Helper lemma to convert between configuration equality forms -/
+/-- Lemma to convert between configuration equality forms -/
 lemma helper_config_eq_of_subtype_eq {G : CFGraph V} {q : V}
     {O₁ O₂ : {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}}
     (h : orientation_to_config G O₁.val q O₁.prop.1 O₁.prop.2 =
@@ -531,8 +518,7 @@ axiom helper_maximal_superstable_orientation (G : CFGraph V) (q : V) (c : Config
 # Helpers for Corollary 4.2.2
 -/
 
-/-- Lemma: A divisor can be decomposed into parts of specific degrees
-    This was especially hard to prove in Lean4, so we are leaving it as an axiom for now. -/
+/-- Lemma: A divisor can be decomposed into parts of specific degrees. -/
 lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : ℕ)
   (h_effective : effective E'') (h_deg : deg E'' = k₁ + k₂) :
   ∃ (E₁ E₂ : CFDiv V),
@@ -652,89 +638,90 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
   exact h_ind k₁ k₂ E'' h_effective h_deg
 
 
-/- [Proven] Helper theorem: Winnability is preserved under addition -/
-theorem helper_winnable_add (G : CFGraph V) (D₁ D₂ : CFDiv V) :
-  winnable G D₁ → winnable G D₂ → winnable G (D₁ + D₂) := by
-  -- Assume D₁ and D₂ are winnable
-  intro h1 h2
+-- Redundent with winnable_add_winnable from Rank.lean
+-- /- Helper lemma: Winnability is preserved under addition -/
+-- theorem helper_winnable_add (G : CFGraph V) (D₁ D₂ : CFDiv V) :
+--   winnable G D₁ → winnable G D₂ → winnable G (D₁ + D₂) := by
+--   -- Assume D₁ and D₂ are winnable
+--   intro h1 h2
 
-  -- Get the effective divisors that D₁ and D₂ are equivalent to
-  rcases h1 with ⟨E₁, hE₁_eff, hE₁_equiv⟩
-  rcases h2 with ⟨E₂, hE₂_eff, hE₂_equiv⟩
+--   -- Get the effective divisors that D₁ and D₂ are equivalent to
+--   rcases h1 with ⟨E₁, hE₁_eff, hE₁_equiv⟩
+--   rcases h2 with ⟨E₂, hE₂_eff, hE₂_equiv⟩
 
-  -- Our goal is to show that D₁ + D₂ is winnable
-  -- We'll show E₁ + E₂ is effective and linearly equivalent to D₁ + D₂
+--   -- Our goal is to show that D₁ + D₂ is winnable
+--   -- We'll show E₁ + E₂ is effective and linearly equivalent to D₁ + D₂
 
-  -- Define our candidate effective divisor
-  let E := E₁ + E₂
+--   -- Define our candidate effective divisor
+--   let E := E₁ + E₂
 
-  -- Show E is effective
-  have hE_eff : effective E := by
-    intro v
-    simp [effective] at hE₁_eff hE₂_eff ⊢
-    have h1 := hE₁_eff v
-    have h2 := hE₂_eff v
-    exact add_nonneg h1 h2
+--   -- Show E is effective
+--   have hE_eff : effective E := by
+--     intro v
+--     simp [effective] at hE₁_eff hE₂_eff ⊢
+--     have h1 := hE₁_eff v
+--     have h2 := hE₂_eff v
+--     exact add_nonneg h1 h2
 
-  -- Show E is linearly equivalent to D₁ + D₂
-  have hE_equiv : linear_equiv G (D₁ + D₂) E := by
-    unfold linear_equiv
-    -- Show (E₁ + E₂) - (D₁ + D₂) = (E₁ - D₁) + (E₂ - D₂)
-    have h : E - (D₁ + D₂) = (E₁ - D₁) + (E₂ - D₂) := by
-      funext w
-      simp [sub_apply, add_apply]
-      -- Expand E = E₁ + E₂
-      have h1 : E w = E₁ w + E₂ w := rfl
-      rw [h1]
-      -- Use ring arithmetic to complete the proof
-      ring
+--   -- Show E is linearly equivalent to D₁ + D₂
+--   have hE_equiv : linear_equiv G (D₁ + D₂) E := by
+--     unfold linear_equiv
+--     -- Show (E₁ + E₂) - (D₁ + D₂) = (E₁ - D₁) + (E₂ - D₂)
+--     have h : E - (D₁ + D₂) = (E₁ - D₁) + (E₂ - D₂) := by
+--       funext w
+--       simp [sub_apply, add_apply]
+--       -- Expand E = E₁ + E₂
+--       have h1 : E w = E₁ w + E₂ w := rfl
+--       rw [h1]
+--       -- Use ring arithmetic to complete the proof
+--       ring
 
-    rw [h]
-    -- Use the fact that principal divisors form an additive subgroup
-    exact AddSubgroup.add_mem _ hE₁_equiv hE₂_equiv
+--     rw [h]
+--     -- Use the fact that principal divisors form an additive subgroup
+--     exact AddSubgroup.add_mem _ hE₁_equiv hE₂_equiv
 
-  -- Construct the witness for winnability
-  exists E
+--   -- Construct the witness for winnability
+--   exists E
 
-/- [Alternative-Proof] Helper theorem: Winnability is preserved under addition -/
-theorem helper_winnable_add_alternative (G : CFGraph V) (D₁ D₂ : CFDiv V) :
-  winnable G D₁ → winnable G D₂ → winnable G (λ v => D₁ v + D₂ v) := by
-  -- Introduce the winnability hypotheses
-  intros h1 h2
+-- /- [Alternative-Proof] Helper theorem: Winnability is preserved under addition -/
+-- theorem helper_winnable_add_alternative (G : CFGraph V) (D₁ D₂ : CFDiv V) :
+--   winnable G D₁ → winnable G D₂ → winnable G (λ v => D₁ v + D₂ v) := by
+--   -- Introduce the winnability hypotheses
+--   intros h1 h2
 
-  -- Unfold winnability definition for D₁ and D₂
-  rcases h1 with ⟨E₁, hE₁_eff, hE₁_equiv⟩
-  rcases h2 with ⟨E₂, hE₂_eff, hE₂_equiv⟩
+--   -- Unfold winnability definition for D₁ and D₂
+--   rcases h1 with ⟨E₁, hE₁_eff, hE₁_equiv⟩
+--   rcases h2 with ⟨E₂, hE₂_eff, hE₂_equiv⟩
 
-  -- Our goal is to find an effective divisor linearly equivalent to D₁ + D₂
-  use (E₁ + E₂)
+--   -- Our goal is to find an effective divisor linearly equivalent to D₁ + D₂
+--   use (E₁ + E₂)
 
-  constructor
-  -- Show E₁ + E₂ is effective
-  {
-    unfold Div_plus -- Note: Div_plus is defined using effective
-    unfold effective at *
-    intro v
-    have h1 := hE₁_eff v
-    have h2 := hE₂_eff v
-    exact add_nonneg h1 h2
-  }
+--   constructor
+--   -- Show E₁ + E₂ is effective
+--   {
+--     unfold Div_plus -- Note: Div_plus is defined using effective
+--     unfold effective at *
+--     intro v
+--     have h1 := hE₁_eff v
+--     have h2 := hE₂_eff v
+--     exact add_nonneg h1 h2
+--   }
 
-  -- Show E₁ + E₂ is linearly equivalent to D₁ + D₂
-  {
-    unfold linear_equiv at *
+--   -- Show E₁ + E₂ is linearly equivalent to D₁ + D₂
+--   {
+--     unfold linear_equiv at *
 
-    -- First convert the function to a CFDiv
-    let D₁₂ : CFDiv V := (λ v => D₁ v + D₂ v)
+--     -- First convert the function to a CFDiv
+--     let D₁₂ : CFDiv V := (λ v => D₁ v + D₂ v)
 
-    have h : (E₁ + E₂ - D₁₂) = (E₁ - D₁) + (E₂ - D₂) := by
-      funext v
-      simp [Pi.add_apply, sub_apply]
-      ring
+--     have h : (E₁ + E₂ - D₁₂) = (E₁ - D₁) + (E₂ - D₂) := by
+--       funext v
+--       simp [Pi.add_apply, sub_apply]
+--       ring
 
-    rw [h]
-    exact AddSubgroup.add_mem (principal_divisors G) hE₁_equiv hE₂_equiv
-  }
+--     rw [h]
+--     exact AddSubgroup.add_mem (principal_divisors G) hE₁_equiv hE₂_equiv
+--   }
 
 
 
@@ -744,7 +731,7 @@ theorem helper_winnable_add_alternative (G : CFGraph V) (D₁ D₂ : CFDiv V) :
 # Helpers for Corollary 4.2.3 + Handshaking Theorem
 -/
 
-/-- [Proved] Helper lemma: Every divisor can be decomposed into a principal divisor and an effective divisor -/
+/-- Helper lemma: Every divisor can be decomposed into a principal divisor and an effective divisor -/
 lemma eq_nil_of_card_eq_zero {α : Type _} {m : Multiset α}
     (h : Multiset.card m = 0) : m = ∅ := by
   induction m using Multiset.induction_on with
@@ -755,7 +742,7 @@ lemma eq_nil_of_card_eq_zero {α : Type _} {m : Multiset α}
     have : ¬(Multiset.card s + 1 = 0) := Nat.succ_ne_zero (Multiset.card s)
     contradiction
 
-/-- [Proven] Helper lemma: In a loopless graph, each edge has distinct endpoints -/
+/-- Helper lemma: In a loopless graph, each edge has distinct endpoints -/
 lemma edge_endpoints_distinct (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
     e.1 ≠ e.2 := by
   by_contra eq_endpoints
@@ -772,7 +759,7 @@ lemma edge_endpoints_distinct (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) 
   rw [this] at e_loop_mem
   cases e_loop_mem
 
-/-- [Proven] Helper lemma: Each edge is incident to exactly two vertices -/
+/-- Helper lemma: Each edge is incident to exactly two vertices -/
 lemma edge_incident_vertices_count (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
     (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card = 2 := by
   rw [Finset.card_eq_two]
@@ -794,7 +781,7 @@ lemma edge_incident_vertices_count (G : CFGraph V) (e : V × V) (he : e ∈ G.ed
       | inl h => exact Or.inl (Eq.symm h)
       | inr h => exact Or.inr (Eq.symm h)
 
-/-- [Proven] Helper lemma: Swapping sum order for incidence checking (Nat version). -/
+/-- Helper lemma: Swapping sum order for incidence checking (Nat version). -/
 lemma sum_filter_eq_map_inc_nat (G : CFGraph V) :
   ∑ v : V, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))
     = Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card)) := by
@@ -828,7 +815,7 @@ lemma sum_filter_eq_map_inc_nat (G : CFGraph V) :
     simp_rw [Multiset.countP_eq_card_filter]
     rw [add_comm, ih_s_tail]
 
-/-- [Proven] Helper lemma: Summing mapped incidence counts equals summing constant 2 (Nat version). -/
+/-- Helper lemma: Summing mapped incidence counts equals summing constant 2 (Nat version). -/
 lemma map_inc_eq_map_two_nat (G : CFGraph V) :
   Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))
     = 2 * (Multiset.card G.edges) := by
@@ -856,7 +843,7 @@ lemma sum_num_edges_eq_filter_count (G : CFGraph V) (v : V) :
   exact degree_eq_total_flow G.edges v (h_loopless)
 
 /--
-**Handshaking Theorem:** [Proven] In a loopless multigraph \(G\),
+**Handshaking Theorem:** In a loopless multigraph \(G\),
 the sum of the degrees of all vertices is twice the number of edges:
 
 \[
@@ -885,7 +872,7 @@ theorem helper_sum_vertex_degrees (G : CFGraph V) :
 -/
 
 
-/-- [Proven] Helper Lemma: Equivalence between q-reduced divisors and superstable configurations.
+/-- Helper Lemma: Equivalence between q-reduced divisors and superstable configurations.
     A divisor D is q-reduced iff it can be written as c - δ_q for some superstable config c.
     Relies on the updated definition of q_reduced in Basic.lean matching outdeg_S. -/
 lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V) :
@@ -1113,7 +1100,7 @@ axiom superstable_dominance_implies_principal (G : CFGraph V) (q : V) (c c' : Co
   superstable G q c → superstable G q c' → config_ge c' c →
   (λ v => c'.vertex_degree v - c.vertex_degree v) ∈ principal_divisors G
 
-/-- [Proven] Helper lemma: Difference between dominated configurations
+/-- Helper lemma: Difference between dominated configurations
     implies linear equivalence of corresponding q-reduced divisors.
 
     This proof relies on the standard definition of superstability (`superstable`)
@@ -1153,7 +1140,7 @@ lemma helper_q_reduced_linear_equiv_dominates (G : CFGraph V) (q : V) (c c' : Co
   -- then their difference (c' - c) is indeed a principal divisor.
   exact superstable_dominance_implies_principal G q c c' h_std_super_c h_std_super_c' h_ge
 
-/-- [Proven] Helper theorem: Linear equivalence preserves winnability -/
+/-- Helper theorem: Linear equivalence preserves winnability -/
 theorem helper_linear_equiv_preserves_winnability (G : CFGraph V) (D₁ D₂ : CFDiv V) :
   linear_equiv G D₁ D₂ → (winnable G D₁ ↔ winnable G D₂) := by
   intro h_equiv
@@ -1180,7 +1167,7 @@ theorem helper_linear_equiv_preserves_winnability (G : CFGraph V) (D₁ D₂ : C
 # Helpers for Proposition 4.1.14
 -/
 
-/-- [Proven] Helper lemma: Source vertices have equal indegree (zero) when v = q -/
+/-- Helper lemma: Source vertices have equal indegree (zero) when v = q -/
 lemma helper_source_indeg_eq_at_q (G : CFGraph V) (O₁ O₂ : CFOrientation G) (q v : V)
     (h_src₁ : is_source G O₁ q = true) (h_src₂ : is_source G O₂ q = true)
     (hv : v = q) :
@@ -1304,7 +1291,7 @@ axiom helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c'
 # Helpers for RRG's Corollary 4.4.3
 -/
 
-/-- [Proven] Effective divisors have non-negative degree -/
+/-- Helper lemma: Effective divisors have non-negative degree -/
 lemma effective_nonneg_deg
   (D : CFDiv V) (h : effective D) : deg D ≥ 0 := by
   -- Definition of effective means all entries are non-negative
