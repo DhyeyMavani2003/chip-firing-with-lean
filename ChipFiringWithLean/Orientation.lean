@@ -34,16 +34,78 @@ structure CFOrientation (G : CFGraph V) :=
   (directed_edges : Multiset (V × V))
   /-- Preserves edge counts between vertex pairs -/
   (count_preserving : ∀ v w,
-    Multiset.count (v, w) G.edges + Multiset.count (w, v) G.edges =
+    num_edges G v w =
     Multiset.count (v, w) directed_edges + Multiset.count (w, v) directed_edges)
   /-- No bidirectional edges in the orientation -/
   (no_bidirectional : ∀ v w,
     Multiset.count (v, w) directed_edges = 0 ∨
     Multiset.count (w, v) directed_edges = 0)
 
+abbrev flow {G: CFGraph V} (O : CFOrientation G) (u v : V) : ℕ :=
+  Multiset.count (u,v) O.directed_edges
+
+lemma opp_flow {G : CFGraph V} (O : CFOrientation G) (u v : V) :
+  flow O u v + flow O v u= (num_edges G u v) := by
+  -- dsimp [flow]
+  rw[O.count_preserving u v]
+
+lemma eq_orient {G : CFGraph V} (O1 O2 : CFOrientation G) : O1 = O2 ↔ ∀ (u v : V), flow O1 u v = flow O2 u v := by
+  constructor
+  · intro h_eq u v
+    rw [h_eq]
+  -- Converse
+  · intro h_flow_eq
+    have h_directed_edges_eq : O1.directed_edges = O2.directed_edges := by
+      apply Multiset.ext.mpr
+      intro ⟨u,v⟩
+      specialize h_flow_eq u v
+      exact h_flow_eq
+    cases O1
+    cases O2
+    cases h_directed_edges_eq
+    rfl
+
+
 /-- Number of edges directed into a vertex under an orientation -/
 def indeg (G : CFGraph V) (O : CFOrientation G) (v : V) : ℕ :=
   Multiset.card (O.directed_edges.filter (λ e => e.snd = v))
+
+lemma indeg_eq_sum_flow (G : CFGraph V) (O : CFOrientation G) (v : V) :
+  indeg G O v = ∑ w : V, flow O w v := by
+  dsimp [indeg, flow]
+  suffices h_eq : (∀ S : Multiset (V × V) , ∀ v : V,
+    Multiset.card (S.filter (λ e => e.snd = v)) = ∑ u : V, Multiset.count (u, v) S) by
+    exact h_eq O.directed_edges v
+  -- Prove by induction on the set of directed edges, following the pattern of the proof of
+  -- degree_eq_total_flow in Basic.lean. I suspect the two can be unified.
+  intro S v
+  induction S using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero]
+    simp [Finset.sum_const_zero]
+  | cons e S ih =>
+    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib, Multiset.count_cons]
+    rw [ih]
+    nth_rewrite 1 [add_comm]
+    apply add_left_cancel_iff.mpr
+    obtain ⟨eu,ev⟩ := e
+    by_cases h_ev_eq_v : ev = v
+    · -- Case ev = v
+      rw [h_ev_eq_v]
+      simp
+    · -- Case ev ≠ v
+      rw [if_neg h_ev_eq_v, Multiset.card_zero]
+      -- Flip the sides of the equation in the goal
+      have : ∑ x : V, (if (x, v) = (eu, ev) then 1 else 0) = 0 := by
+        apply Finset.sum_eq_zero
+        intro x hx
+        simp
+        intro _
+        contrapose! h_ev_eq_v
+        rw [h_ev_eq_v]
+      -- refine Finset.sum_eq_zero ?_
+      rw [this]
+
 
 /-- Number of edges directed out of a vertex under an orientation -/
 def outdeg (G : CFGraph V) (O : CFOrientation G) (v : V) : ℕ :=

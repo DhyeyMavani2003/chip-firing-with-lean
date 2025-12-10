@@ -118,6 +118,11 @@ structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (loopless : isLoopless edges = true)
   (undirected: isUndirected edges = true)
 
+lemma CFGraph_loopless_prop (G : CFGraph V) :
+  isLoopless_prop G.edges := by
+  rw [isLoopless_prop_bool_equiv G.edges]
+  exact G.loopless
+
 -- Divisor as a function from vertices to integers
 def CFDiv (V : Type) := V → ℤ
 
@@ -203,7 +208,17 @@ lemma num_edges_symmetric (G : CFGraph V) (v w : V) :
   unfold num_edges
   simp [Or.comm]
 
--- Degree (Valence) of a vertex as an integer (defined as the sum of incident edge multiplicities)
+lemma num_edges_self_zero (G : CFGraph V) (v : V) :
+  num_edges G v v = 0 := by
+  unfold num_edges
+  rw [Multiset.card_eq_zero]
+  apply Multiset.filter_eq_nil.mpr
+  intro a h_inE h_eq_loop
+  rw [or_self] at h_eq_loop
+  rw [h_eq_loop] at h_inE
+  exact CFGraph_loopless_prop G v h_inE
+
+-- degree (valence) of a vertex as an integer (defined as the sum of incident edge multiplicities)
 def vertex_degree (G : CFGraph V) (v : V) : ℤ :=
   ∑ u : V, (num_edges G v u : ℤ)
 
@@ -823,3 +838,82 @@ theorem q_reduced_unique (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   rw [this] at h_D2_eq
   apply sub_eq_zero.mp at h_D2_eq
   rw [h_D2_eq]
+
+
+/-- Helper lemma to rewrite (in-)degree in terms of edge counts from each direction.
+This proof is quite clunky, and I suspect it can be simplified. -/
+lemma degree_eq_total_flow : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, e.1 ≠ e.2) →
+  ∑ u : V, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) = Multiset.card (S.filter (λ e => e.fst = v ∨ e.snd = v)) := by
+  -- Induct on the multiset S
+  intro S v h_loopless
+  induction S using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
+  | cons e_head s_tail ih_s_tail =>
+    -- Rewrite both sides using the head and tail
+    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
+    rw [ih_s_tail]
+    -- Cancel the like terms in a + b = a + c
+    suffices h : ∑ x : V, Multiset.card (if e_head = (v, x) ∨ e_head = (x, v) then {e_head} else 0) = Multiset.card (if e_head.1 = v ∨ e_head.2 = v then {e_head} else 0) by linarith
+
+    by_cases h_head : (e_head.fst = v ∨ e_head.snd = v)
+    · -- Case: e_head is incident to v
+      simp only [if_pos h_head, add_comm, Multiset.card_singleton, Multiset.card_eq_one]
+      obtain ⟨e,f⟩ := e_head
+      rcases h_head with h_left  | h_right
+      -- Subcase: e = v
+      have e_eq_v : e =v  := h_left
+      have f_neq_v : f ≠ v := by
+        contrapose! h_left
+        simp [h_left]
+        rw [← h_left]
+        exact h_loopless ⟨e,f⟩ (by simp)
+      simp [e_eq_v, f_neq_v]
+      -- Now only one term in this sum is nonzero
+      have h (x:V): Multiset.card (if f = x then {(v, f)} else 0) = (if x = f then 1 else 0) := by
+        by_cases h_x : x = f
+        · simp [h_x]
+        · simp [h_x]
+          contrapose! h_x
+          rw [h_x]
+      simp [h]
+      -- Subcase: f = v
+      -- Similar argument
+      have f_eq_v : f = v := h_right
+      have e_neq_v : e ≠ v := by
+        contrapose! h_right
+        simp [h_right]
+        rw [← h_right]
+        have := h_loopless ⟨e,f⟩ (by simp)
+        intro h_bad
+        rw [h_bad] at this
+        apply absurd this
+        simp
+
+      simp [f_eq_v, e_neq_v]
+      -- Now only one term in this sum is nonzero
+      have h (x:V): Multiset.card (if e = x then {(e,v)} else 0) = (if x = e then 1 else 0) := by
+        by_cases h_x : x = e
+        · simp [h_x]
+        · simp [h_x]
+          contrapose! h_x
+          rw [h_x]
+      simp [h]
+    · -- Case: e_head is not incident to v
+      simp only [if_neg h_head]
+      apply Finset.sum_eq_zero
+      intro x _
+      simp [h_head]
+      push_neg at h_head
+      contrapose! h_head
+      intro h'
+      have h'': e_head ≠ ⟨v,x⟩ := by
+        contrapose! h'
+        simp [h']
+      apply h_head at h''
+      simp [h'']
+    intro e
+    specialize h_loopless e
+    intro h_tail
+    apply h_loopless
+    simp [h_tail]

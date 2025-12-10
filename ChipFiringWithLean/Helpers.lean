@@ -224,7 +224,7 @@ lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
   have h_count_preserving := O.count_preserving v v
   rw [show ∀ (m : Multiset (V×V)) (p : V×V), Multiset.count p m + Multiset.count p m = 2 * Multiset.count p m by intros; rw [two_mul]] at h_count_preserving
 
-  rw [h_g_count_loop_eq_zero, mul_zero] at h_count_preserving
+  rw [num_edges_self_zero G v] at h_count_preserving
   -- Now: h_count_preserving is `0 = 2 * Multiset.count (v,v) O.directed_edges`
 
   have h_o_count_loop_eq_zero : Multiset.count (v,v) O.directed_edges = 0 := by
@@ -247,20 +247,177 @@ theorem helper_orientation_eq_of_directed_edges {G : CFGraph V}
   -- Create congr_arg to show fields are equal
   congr
 
-/-- Axiom: Given a list of disjoint vertex sets that form a partition of V,
+/-- Lemma: Given a list of disjoint vertex sets that form a partition of V,
     this axiom states that an acyclic orientation is uniquely determined
     by this partition where each set contains vertices with same indegree.
     Proving this inductively is a bit tricky at the moment, and we ran into infinite recursive loop,
     thus we are declaring this as an axiom for now. -/
-axiom helper_orientation_determined_by_levels {G : CFGraph V}
+lemma helper_orientation_determined_by_levels {G : CFGraph V}
   (O O' : CFOrientation G) :
   is_acyclic G O → is_acyclic G O' →
   (∀ v : V, indeg G O v = indeg G O' v) →
-  O = O'
+  O = O' := by
+  intro h_acyc h_acyc' h_indeg_eq
 
+  let S := { e : V × V | O.directed_edges.count e > O'.directed_edges.count e }
+  have suff_S_empty : S = ∅ → O = O' := by
+    intro h_S_empty
+    have h_ineq (u v : V) : flow O u v ≤ flow O' u v := by
+      have h_nin: ⟨u,v⟩ ∉ S := by
+        rw [h_S_empty]
+        simp
+      dsimp [S] at h_nin
+      linarith
+    simp [eq_orient O O']
+    intro u v
+    by_contra h_neq
+    have h_uv_le := h_ineq u v
+    have h_lt : flow O u v < flow O' u v := lt_of_le_of_ne h_uv_le h_neq
+    have h_indeg_contra : indeg G O v < indeg G O' v := by
+      rw [indeg_eq_sum_flow G O v, indeg_eq_sum_flow G O' v]
+      apply Finset.sum_lt_sum
+      intro x hx
+      exact h_ineq x v
+      use u
+      simp [h_lt]
+    linarith [h_indeg_eq v]
+  apply suff_S_empty
 
+  -- A small helper we'll need a couple time later
+  have directed_edge_of_S (e : V × V) : e ∈ S → directed_edge G O e.1 e.2 :=  by
+    dsimp [directed_edge]
+    intro h
+    dsimp [S] at h
+    have h_pos_count : count e O.directed_edges > 0 := by
+      apply gt_of_gt_of_ge h
+      exact Nat.zero_le _
+    apply Multiset.count_pos.mp
+    linarith [h_pos_count]
 
+  -- We now must show that S is empty.
+  -- Do so buy showing any element in S belongs to an infinite directd path
+  have going_up : ∀ e ∈ S, ∃ f ∈ S, f.2 = e.1 := by
+    intro e h_e_in_S
+    obtain ⟨u,v⟩ := e
+    by_contra! h_no_parent
+    have all_flow_le : ∀ (w : V) , flow O w u ≤ flow O' w u := by
+      intro w
+      by_contra h_flow_gt
+      apply lt_of_not_ge at h_flow_gt
+      specialize h_no_parent ⟨w,u⟩
+      simp at h_no_parent
+      exact h_no_parent h_flow_gt
+    have one_flow_lt : ∃ (w : V), flow O w u < flow O' w u := by
+      contrapose! h_e_in_S
+      dsimp [S]
+      suffices flow O u v ≤ flow O' u v by linarith
+      specialize h_e_in_S v
+      by_contra flow_lt
+      apply lt_of_not_ge at flow_lt
+      have edges_lt := add_lt_add_of_le_of_lt h_e_in_S flow_lt
+      rw [opp_flow O v u, opp_flow O' v u] at edges_lt
+      linarith
 
+    have h: ∑ (w : V), flow O w u < ∑ (w : V), flow O' w u := by
+      apply Finset.sum_lt_sum
+      intro i _
+      exact all_flow_le i
+      rcases one_flow_lt with ⟨w, h_flow_lt⟩
+      use w
+      constructor
+      simp
+      exact h_flow_lt
+
+    repeat rw [← indeg_eq_sum_flow] at h
+    specialize h_indeg_eq u
+    linarith
+
+  -- For contradiction, we can build an infinite directed path in G under O
+  by_contra! h_S_nonempty
+  rcases h_S_nonempty with ⟨e_start, h_e_start_in_S⟩
+  have S_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 2 ∧ List.Chain' (λ ( u v : V) => ⟨u,v⟩ ∈ S) p.vertices := by
+    induction' n with n ih
+    . -- Base case: n = 0, i.e. length 2 path
+      use {
+        vertices := [e_start.1, e_start.2],
+        non_empty := by simp,
+        valid_edges := by
+          dsimp [List.Chain']
+          simp [h_e_start_in_S]
+          exact directed_edge_of_S e_start h_e_start_in_S
+      }
+      simp [h_e_start_in_S]
+    . -- Inductive step
+      rcases ih with ⟨p0, h_len, h_chain⟩
+      -- Write p0 as v :: w :: rest, using the fact that its length is at least 2
+      have : ∃ (v w : V) (rest : List V), p0.vertices = v :: w :: rest := by
+        cases h_p0 : p0.vertices with
+        | nil =>
+          -- This case should not happen since p0.vertices has length n + 2 ≥ 2
+          exfalso
+          rw [h_p0] at h_len
+          simp at h_len
+        | cons v ws =>
+          cases h_ws : ws with
+          | nil =>
+            -- This case should not happen since p0.vertices has length n + 2 ≥ 2
+            exfalso
+            rw [h_p0,h_ws] at h_len
+            simp [h_p0] at h_len
+          | cons w rest =>
+            use v, w, rest
+      rcases this with ⟨v, w, rest, h_p0_eq⟩
+      -- Now, p0.vertices = v :: w :: rest
+      specialize going_up ⟨v,w⟩
+      have h_vw_in_S : ⟨v,w⟩ ∈ S := by
+        -- From h_chain, we know that ⟨v,w⟩ ∈ S
+        dsimp [List.Chain'] at h_chain
+        rw [h_p0_eq] at h_chain
+        simp at h_chain
+        exact h_chain.left
+      specialize going_up h_vw_in_S
+      rcases going_up with ⟨f, h_f_in_S, h_f_to_v⟩
+      let new_path_list : List V := f.1 :: p0.vertices
+      use {
+        vertices := new_path_list,
+        non_empty := by
+          rw [List.length_cons]
+          exact Nat.succ_pos _,
+        valid_edges := by
+          dsimp [new_path_list, List.Chain']
+          -- Check that the first edge is valid
+          rw [h_p0_eq]
+          constructor
+          have : f.2 = v := h_f_to_v
+          rw [← this]
+          exact directed_edge_of_S f h_f_in_S
+          -- The rest of the path is valid from induction
+          have h_ind := p0.valid_edges
+          dsimp [List.Chain'] at h_ind
+          simp only [h_p0_eq] at h_ind
+          exact h_ind
+        }
+      -- Now must verify that this new path has the right length
+      constructor
+      rw [List.length_cons]
+      rw [h_len]
+      -- Verify the chain property
+      dsimp [new_path_list, List.Chain']
+      simp [h_p0_eq]
+      -- Verify the first link is in S
+      constructor
+      have : f.2 = v := h_f_to_v
+      rw [← this]
+      exact h_f_in_S
+      -- The rest of the chain follows from h_chain
+      have h_ind := h_chain
+      dsimp [List.Chain'] at h_ind
+      simp only [h_p0_eq] at h_ind
+      simp at h_ind
+      exact h_ind
+  specialize S_path (Fintype.card V)
+  rcases S_path with ⟨p, h_len, _⟩
+  linarith  [path_length_bound p (h_acyc p)]
 
 /-
 # Helpers for Proposition 4.1.11
@@ -692,117 +849,11 @@ lemma map_inc_eq_map_two_nat (G : CFGraph V) :
 -- Key lemma for handshaking theorem: Sum of edge counts equals incident edge count
 lemma sum_num_edges_eq_filter_count (G : CFGraph V) (v : V) :
   ∑ u, num_edges G v u = Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v)) := by
-    dsimp [num_edges]
-    have h_loopless: ∀ e ∈ G.edges, e.1 ≠ e.2 := by
-      intro e he
-      exact edge_endpoints_distinct G e he
-    suffices h_eq : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, e.1 ≠ e.2) →
-      ∑ u : V, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) = Multiset.card (S.filter (λ e => e.fst = v ∨ e.snd = v)) by
-      exact h_eq G.edges v (h_loopless)
-
-    -- Induct on the multiset S
-    intro S v h_loopless
-    induction S using Multiset.induction_on with
-    | empty =>
-      simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
-    | cons e_head s_tail ih_s_tail =>
-      -- Rewrite both sides using the head and tail
-      simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
-      rw [ih_s_tail]
-      -- Cancel the like terms in a + b = a + c
-      suffices h : ∑ x : V, Multiset.card (if e_head = (v, x) ∨ e_head = (x, v) then {e_head} else 0) = Multiset.card (if e_head.1 = v ∨ e_head.2 = v then {e_head} else 0) by linarith
-
-      by_cases h_head : (e_head.fst = v ∨ e_head.snd = v)
-      · -- Case: e_head is incident to v
-        simp only [if_pos h_head, add_comm, Multiset.card_singleton, Multiset.card_eq_one]
-        obtain ⟨e,f⟩ := e_head
-        rcases h_head with h_left  | h_right
-        -- Subcase: e = v
-        have e_eq_v : e =v  := h_left
-        have f_neq_v : f ≠ v := by
-          contrapose! h_left
-          simp [h_left]
-          rw [← h_left]
-          exact h_loopless ⟨e,f⟩ (by simp)
-        simp [e_eq_v, f_neq_v]
-        -- Now only one term in this sum is nonzero
-        have h (x:V): Multiset.card (if f = x then {(v, f)} else 0) = (if x = f then 1 else 0) := by
-          by_cases h_x : x = f
-          · simp [h_x]
-          · simp [h_x]
-            contrapose! h_x
-            rw [h_x]
-        simp [h]
-        -- Subcase: f = v
-        -- Similar argument
-        have f_eq_v : f = v := h_right
-        have e_neq_v : e ≠ v := by
-          contrapose! h_right
-          simp [h_right]
-          rw [← h_right]
-          have := h_loopless ⟨e,f⟩ (by simp)
-          intro h_bad
-          rw [h_bad] at this
-          apply absurd this
-          simp
-
-        simp [f_eq_v, e_neq_v]
-        -- Now only one term in this sum is nonzero
-        have h (x:V): Multiset.card (if e = x then {(e,v)} else 0) = (if x = e then 1 else 0) := by
-          by_cases h_x : x = e
-          · simp [h_x]
-          · simp [h_x]
-            contrapose! h_x
-            rw [h_x]
-        simp [h]
-      · -- Case: e_head is not incident to v
-        simp only [if_neg h_head]
-        apply Finset.sum_eq_zero
-        intro x _
-        simp [h_head]
-        push_neg at h_head
-        contrapose! h_head
-        intro h'
-        have h'': e_head ≠ ⟨v,x⟩ := by
-          contrapose! h'
-          simp [h']
-        apply h_head at h''
-        simp [h'']
-      intro e
-      specialize h_loopless e
-      intro h_tail
-      apply h_loopless
-      simp [h_tail]
-
-
-
-  -- -- Both sides count edges incident to v
-  -- -- LHS: for each u, counts edges between v and u
-  -- -- RHS: counts all edges with v as an endpoint
-
-  -- -- The key is showing both count each edge exactly once
-  -- -- We use the fact that the filtered multisets partition by endpoint
-
-  -- -- Direct approach using multiset properties
-  -- have h_eq : ∑ u, num_edges G v u = ∑ u, Multiset.card (G.edges.filter (λ e => e = (v, u) ∨ e = (u, v))) := by
-  --   rfl
-
-  -- rw [h_eq]
-
-  -- -- Now we need to show this sum equals the RHS
-  -- -- This follows from the fact that each edge incident to v appears in exactly one of the filters
-  -- -- The proof would proceed by showing the filters partition the incident edges
-  -- -- For now, we'll leave this as the key insight
-
-  -- -- We'll show both sides count the same edges by using multiset bind
-  -- have h_bind : G.edges.filter (λ e => e.fst = v ∨ e.snd = v) =
-  --   Multiset.bind (Finset.univ : Finset V).val (λ u => G.edges.filter (λ e => e = (v, u) ∨ e = (u, v))) := by
-  --   ext e
-  --   exact helper_incident_edge_partition_count_eq G v e
-
-  -- -- Now use card_bind to relate the sum to the cardinality
-  -- rw [h_bind, Multiset.card_bind]
-  -- rfl
+  dsimp [num_edges]
+  have h_loopless: ∀ e ∈ G.edges, e.1 ≠ e.2 := by
+    intro e he
+    exact edge_endpoints_distinct G e he
+  exact degree_eq_total_flow G.edges v (h_loopless)
 
 /--
 **Handshaking Theorem:** [Proven] In a loopless multigraph \(G\),
