@@ -46,7 +46,6 @@ abbrev flow {G: CFGraph V} (O : CFOrientation G) (u v : V) : ℕ :=
 
 lemma opp_flow {G : CFGraph V} (O : CFOrientation G) (u v : V) :
   flow O u v + flow O v u= (num_edges G u v) := by
-  -- dsimp [flow]
   rw[O.count_preserving u v]
 
 lemma eq_orient {G : CFGraph V} (O1 O2 : CFOrientation G) : O1 = O2 ↔ ∀ (u v : V), flow O1 u v = flow O2 u v := by
@@ -391,13 +390,15 @@ lemma indeg_minus_one_nonneg_of_not_source (G : CFGraph V) (O : CFOrientation G)
 def config_of_source {G : CFGraph V} {O : CFOrientation G} {q : V}
     (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : Config V q :=
   { vertex_degree := λ v => if v = q then 0 else (indeg G O v : ℤ) - 1,
-    non_negative_except_q := λ v hv => by
+    q_zero := by simp
+    non_negative := by
+      intro v
       simp [vertex_degree]
       split_ifs with h_eq
-      · contradiction
+      · linarith
       · have h_not_source : ¬ is_source G O v := by
           intro hs_v
-          exact hv (h_unique_source v hs_v)
+          exact h_eq (h_unique_source v hs_v)
         exact indeg_minus_one_nonneg_of_not_source G O v h_not_source
   }
 

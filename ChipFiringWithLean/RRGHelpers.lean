@@ -193,7 +193,7 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
   maximal_unwinnable G D ↔
   ∃ c : Config V q, maximal_superstable G c ∧
   ∃ D' : CFDiv V, q_reduced G q D' ∧ linear_equiv G D D' ∧
-  D' = λ v => c.vertex_degree v - if v = q then 1 else 0 := by
+  D' = c.vertex_degree - one_chip q := by
   constructor
   { -- Forward direction (⇒)
     intro h_max_unwinnable_D -- Assume D is maximal unwinnable
@@ -202,6 +202,12 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
     -- Show D' corresponds to some superstable c
     rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_form_D'_eq_c⟩
 
+    -- Consider extracting this into a lemma for use elsewhere
+    have h_form_D' : D' = c.vertex_degree - one_chip q := by
+      apply maximal_unwinnable_q_reduced_form G q D' c _ h_qred_D' h_form_D'_eq_c
+      -- Verify that D' is also maximal unwinnable
+      apply maximal_unwinnable_preserved G D D' h_max_unwinnable_D h_D_equiv_D'
+
     -- Prove that this c must be maximal superstable
     have h_max_super_c : maximal_superstable G c := by
       -- Prove by contradiction: Assume c is not maximal superstable
@@ -209,16 +215,42 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
       -- If c is superstable but not maximal, there exists a strictly dominating maximal c'
       rcases helper_maximal_superstable_exists G q c h_super_c with ⟨c', h_max_c', h_ge_c'_c⟩
       -- Define D'' based on the maximal superstable c'
-      let D'' := λ v => c'.vertex_degree v - if v = q then (1 : ℤ) else (0 : ℤ)
+      let D'' := c'.vertex_degree - one_chip q
       -- Show D'' is q-reduced (from correspondence with superstable c')
-      have h_qred_D'' := (q_reduced_superstable_correspondence G q D'').mpr ⟨c', h_max_c'.1, rfl⟩
+      have D''_toDiv : D'' = toDiv (deg D'') c' := by
+        dsimp [toDiv,D'']
+        simp [c'.q_zero, config_degree]
+        rw [sub_eq_add_neg]
+      have h_qred_D'' := (q_reduced_superstable_correspondence G q D'').mpr ⟨c', ⟨ h_max_c'.1, D''_toDiv⟩⟩
 
       -- Show D' is linearly equivalent to D''
       have h_D'_equiv_D'' : linear_equiv G D' D'' := by
         -- We know D' = form(c) (h_form_D'_eq_c)
         -- We know form(c) ~ form(c') = D'' (helper_q_reduced_linear_equiv_dominates)
         rw [h_form_D'_eq_c] -- Replace D' with form(c)
-        exact helper_q_reduced_linear_equiv_dominates G q c c' h_super_c h_max_c'.1 h_ge_c'_c
+        have h1 := h_form_D'_eq_c
+        have h2 := helper_q_reduced_linear_equiv_dominates G q c c' h_super_c h_max_c'.1 h_ge_c'_c
+
+
+        rw [← h1]
+        dsimp [D'']
+        suffices linear_equiv G D' (c.vertex_degree - one_chip q) by
+          have is_trans := (linear_equiv_is_equivalence G).transitive
+          exact is_trans this h2
+        rw [h_form_D'_eq_c]
+        dsimp [toDiv]
+        suffices deg D' = -1 + (config_degree c) by
+          rw [this]
+          simp
+          rw [sub_eq_add_neg]
+          exact (linear_equiv_is_equivalence G).refl (c.vertex_degree - one_chip q)
+        -- Need to prove deg D' = config_degree c - 1.
+        -- Perhaps make a lemma: if D' is q-reduced and maximal unwinnable, then D' q = -1. Is that somewhere already?
+
+        rw [h_form_D', map_sub]
+        dsimp [config_degree]
+        rw [deg_one_chip]
+        linarith
 
       -- Since D' and D'' are both q-reduced and linearly equivalent, they must be equal
       have h_D'_eq_D'' : D' = D'' := by
@@ -227,9 +259,8 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
         exact ⟨h_qred_D', h_qred_D'', h_D'_equiv_D''⟩
 
       -- Now relate c and c' using D' = D''
-      have h_lambda_eq : (λ v => c.vertex_degree v - if v = q then 1 else 0) = (λ v => c'.vertex_degree v - if v = q then 1 else 0) := by
-        rw [← h_form_D'_eq_c] -- LHS = D'
-        rw [h_D'_eq_D'']      -- Goal: D'' = RHS
+      have h_lambda_eq : (c.vertex_degree - one_chip q) = (c'.vertex_degree - one_chip q) := by
+        rw [← h_form_D', h_D'_eq_D'']
 
       -- This pointwise equality implies c = c'
       have h_c_eq_c' : c = c' := by
@@ -241,7 +272,9 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
         funext v
         have h_pointwise_eq := congr_fun h_lambda_eq v
         -- Use Int.sub_right_inj to simplify the equality
-        rw [Int.sub_right_inj] at h_pointwise_eq
+        simp [map_sub] at h_pointwise_eq
+
+        -- rw [Int.sub_right_inj] at h_pointwise_eq
         exact h_pointwise_eq -- The hypothesis now matches the goal
 
       -- Contradiction: helper_maximal_superstable_exists implies c' ≠ c if c wasn't maximal
@@ -259,7 +292,8 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
 
     -- Construct the main existential result for the forward direction
     use c, h_max_super_c -- We found the required maximal superstable c
-    use D', h_qred_D', h_D_equiv_D', h_form_D'_eq_c -- Use the q-reduced D' and its properties
+    use D', h_qred_D', h_D_equiv_D'
+    -- Show D' = form(c)
   }
   { -- Reverse direction (⇐)
     intro h_exists -- Assume the existence of c, D' with the given properties
@@ -353,14 +387,21 @@ theorem maximal_unwinnable_deg
     exact prop.mp h_c_max_super -- Use the forward direction of the iff
 
   have h_deg_D' : deg D' = genus G - 1 := calc
-    deg D' = deg (λ v => c.vertex_degree v - if v = q then 1 else 0) := by rw [h_D'_eq]
-    _ = (∑ v, c.vertex_degree v) - (∑ v, if v = q then 1 else 0) := by {dsimp [deg]; rw [Finset.sum_sub_distrib]}
-    _ = (∑ v, c.vertex_degree v) - 1 := by {rw [Finset.sum_ite_eq']; simp}
+    deg D' = deg (c.vertex_degree - one_chip q) := by
+      rw [h_D'_eq]
+    -- _ = (∑ v, c.vertex_degree v) - (∑ v, if v = q then 1 else 0) := by
+
+    --   dsimp [deg]
+    --   rw [Finset.sum_sub_distrib]
+
+    _ = (∑ v, c.vertex_degree v) - 1 := by --{rw [Finset.sum_ite_eq']; simp}
+      rw [map_sub, deg_one_chip]
+      simp [deg]
     _ = (config_degree c + c.vertex_degree q) - 1 := by
         have h_sum_c : ∑ v : V, c.vertex_degree v = config_degree c + c.vertex_degree q := by
           unfold config_degree
-          rw [← Finset.sum_filter_add_sum_filter_not (s := Finset.univ) (p := λ v' => v' ≠ q)] -- Split sum based on v ≠ q
-          simp [Finset.sum_singleton, Finset.filter_eq'] -- Add Finset.filter_eq' hint
+          rw [c.q_zero]
+          simp [deg]
         rw [h_sum_c]
     _ = genus G - 1 := by
         -- Since c is maximal superstable, it corresponds to an orientation
@@ -514,10 +555,19 @@ theorem rank_degree_inequality
   let q := Classical.arbitrary V
 
   -- Apply Dhar's algorithm to D - E to get q-reduced form
-  rcases helper_dhar_algorithm G q (λ v => D v - E v) with ⟨c, k, h_equiv, h_super⟩
+  rcases helper_dhar_algorithm G q (D - E) with ⟨c, k, h_equiv, h_super⟩
 
   -- k must be negative since D - E is unwinnable
-  have h_k_neg := helper_dhar_negative_k G q (λ v => D v - E v) h_D_E_unwin c k h_equiv h_super
+  -- Quick fix for some changes in notation not yet fully propogated
+  have h_equiv' : linear_equiv G (D - E) fun v ↦ c.vertex_degree v + if v = q then k else 0 := by
+    have h := h_equiv
+    suffices c.vertex_degree + k • one_chip q = λ v ↦ c.vertex_degree v + if v = q then k else 0 by
+      rw [this] at h
+      exact h
+    funext v
+    simp [one_chip, smul_apply]
+
+  have h_k_neg := helper_dhar_negative_k G q (D - E) h_D_E_unwin c k h_equiv' h_super
 
   -- Get maximal superstable c' ≥ c
   rcases helper_maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
@@ -555,7 +605,7 @@ theorem rank_degree_inequality
       simp [H, h_v]
       -- h_ge shows c' ≥ c for maximal superstable c'
       have h_ge_at_v : c'.vertex_degree v ≥ c.vertex_degree v := by
-        exact h_ge v h_v
+        exact h_ge v
       -- Therefore difference is non-negative
       linarith
 

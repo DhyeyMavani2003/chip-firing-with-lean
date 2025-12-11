@@ -48,6 +48,19 @@ variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 --     simp only [sub_self, D₀] -- D₀ refers to the local let D₀
 --     exact AddSubgroup.zero_mem (principal_divisors G)
 
+lemma winnable_equiv_winnable (G : CFGraph V) (D1 D2 : CFDiv V) :
+  winnable G D1 → linear_equiv G D1 D2 → winnable G D2 := by
+  intro h_winnable1 h_lequiv
+  rcases h_winnable1 with ⟨D1', h_D1'_eff, h_lequiv1⟩
+  use D1'
+  constructor
+  · -- Show that D1' is effective
+    exact h_D1'_eff
+  · -- Show that D2 is linearly equivalent to D1'
+    have : linear_equiv G D2 D1 := by
+      exact (linear_equiv_is_equivalence G).symm h_lequiv
+    exact (linear_equiv_is_equivalence G).transitive this h_lequiv1
+
 /-- Definition of maximal winnable divisor -/
 def maximal_winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
   winnable G D ∧ ∀ v : V, ¬winnable G (λ w => D w + if w = v then 1 else 0)
@@ -55,7 +68,25 @@ def maximal_winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
 /-- A divisor is maximal unwinnable if it is unwinnable but adding
     a chip to any vertex makes it winnable -/
 def maximal_unwinnable (G : CFGraph V) (D : CFDiv V) : Prop :=
-  ¬winnable G D ∧ ∀ v : V, winnable G (λ w => D w + if w = v then 1 else 0)
+  ¬winnable G D ∧ ∀ v : V, winnable G (D + one_chip v)
+
+lemma maximal_unwinnable_preserved (G : CFGraph V) (D1 D2 : CFDiv V) :
+  maximal_unwinnable G D1 → linear_equiv G D1 D2 → maximal_unwinnable G D2 := by
+  intro h_max_unwin h_lequiv
+  rcases h_max_unwin with ⟨h_unwin_D1, h_winnable_add⟩
+  constructor
+  · -- Show ¬winnable G D2
+    contrapose! h_unwin_D1
+    apply winnable_equiv_winnable G D2 D1 h_unwin_D1
+    exact (linear_equiv_is_equivalence G).symm h_lequiv
+  · -- Show ∀ v, winnable G (D2 + one_chip v)
+    intro v
+    specialize h_winnable_add v
+    apply winnable_equiv_winnable G (D1 + one_chip v) (D2 + one_chip v) h_winnable_add
+    -- Show linear equivalence
+    unfold linear_equiv at *
+    simp
+    exact h_lequiv
 
 /-- Given an acyclic orientation O with a unique source q, returns a configuration c(O) -/
 def orientation_to_config (G : CFGraph V) (O : CFOrientation G) (q : V)

@@ -130,6 +130,19 @@ def CFDiv (V : Type) := V → ℤ
 def one_chip (v_chip : V) : CFDiv V :=
   fun v => if v = v_chip then 1 else 0
 
+@[simp] lemma one_chip_apply_v (v : V) : one_chip v v = 1 := by
+  dsimp [one_chip]
+  rw [if_pos rfl]
+
+@[simp] lemma one_chip_apply_other (v w : V) : v ≠ w → one_chip v w = 0 := by
+  simp [one_chip]
+  intro h
+  contrapose! h
+  rw [h]
+
+@[simp] lemma one_chip_apply_other' (v w : V) : w ≠ v → one_chip v w = 0 := by
+  simp [one_chip]
+
 -- Make CFDiv an Additive Commutative Group
 instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
@@ -442,7 +455,7 @@ def deg : CFDiv V →+ ℤ := {
     simp [Finset.sum_add_distrib],
 }
 
-lemma deg_one_chip (v : V) : deg (one_chip v) = 1 := by
+@[simp] lemma deg_one_chip (v : V) : deg (one_chip v) = 1 := by
   dsimp [deg, one_chip]
   rw [Finset.sum_ite]
   have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
@@ -494,8 +507,6 @@ lemma eff_degree_zero (D : CFDiv V) : effective D → deg D = 0 → D = 0 := by
     dsimp [D']
     simp
     rw [h_deg_]
-    rw [deg_one_chip v]
-    linarith
   have h_nonneg := deg_of_eff_nonneg D' D'_eff
   linarith
 
@@ -731,6 +742,10 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
 
 def q_effective (q : V) (D : CFDiv V) : Prop :=
   ∀ v : V, v ≠ q → D v ≥ 0
+
+structure q_eff_div (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V):=
+  (D : CFDiv V) (h_eff : q_effective q D)
+
 
 def q_reducer (G : CFGraph V) (q : V) (σ : firing_script V) : Prop :=
   ∀ v : V, σ q ≤ σ v
