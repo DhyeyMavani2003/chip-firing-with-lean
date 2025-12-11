@@ -557,17 +557,7 @@ theorem rank_degree_inequality
   -- Apply Dhar's algorithm to D - E to get q-reduced form
   rcases helper_dhar_algorithm G q (D - E) with ⟨c, k, h_equiv, h_super⟩
 
-  -- k must be negative since D - E is unwinnable
-  -- Quick fix for some changes in notation not yet fully propogated
-  have h_equiv' : linear_equiv G (D - E) fun v ↦ c.vertex_degree v + if v = q then k else 0 := by
-    have h := h_equiv
-    suffices c.vertex_degree + k • one_chip q = λ v ↦ c.vertex_degree v + if v = q then k else 0 by
-      rw [this] at h
-      exact h
-    funext v
-    simp [one_chip, smul_apply]
-
-  have h_k_neg := helper_dhar_negative_k G q (D - E) h_D_E_unwin c k h_equiv' h_super
+  have h_k_neg := helper_dhar_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
 
   -- Get maximal superstable c' ≥ c
   rcases helper_maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩

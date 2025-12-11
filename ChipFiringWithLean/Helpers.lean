@@ -1209,12 +1209,30 @@ lemma helper_dhar_algorithm (G : CFGraph V) (q : V) (D : CFDiv V) :
 --     in characterizing unwinnable divisors, proven in chapter 4 of Corry & Perkinson's
 --     "Divisors and Sandpiles" (AMS, 2018). The negativity of k is essential for
 --     showing the relationship between unwinnable divisors and q-reduced forms. -/
-axiom helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
+lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   ¬(winnable G D) →
   ∀ (c : Config V q) (k : ℤ),
-    linear_equiv G D (λ v => c.vertex_degree v + (if v = q then k else 0)) →
+    linear_equiv G D (c.vertex_degree + k • (one_chip q)) →
     superstable G q c →
-    k < 0
+    k < 0 := by
+  intro h_not_winnable c k h_equiv h_super
+  contrapose! h_not_winnable with k_nonneg
+  let D' := c.vertex_degree + k • (one_chip q)
+  have D'_eff : effective D' := by
+    intro v
+    dsimp [D']
+    rw [smul_apply]
+    have c_nonneg: c.vertex_degree v ≥ 0 := c.non_negative v
+    have oc_nonneg : k*one_chip q v ≥ 0 := by
+      dsimp [one_chip]
+      split_ifs
+      · simp [k_nonneg]
+      · simp [k_nonneg]
+    linarith
+  have h_winnable_D' : winnable G D' := winnable_of_effective G D' D'_eff
+  apply winnable_equiv_winnable G D' D h_winnable_D'
+  apply (linear_equiv_is_equivalence G).symm h_equiv
+
 
 /-- Axiom: Given a graph G and a vertex q, there exists a maximal superstable divisor
     c' that is greater than or equal to any superstable divisor c. This is a key

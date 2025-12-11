@@ -403,8 +403,17 @@ def config_of_source {G : CFGraph V} {O : CFOrientation G} {q : V}
   }
 
 /-- The divisor associated with an orientation assigns indegree - 1 to each vertex -/
-def divisor_of_orientation (G : CFGraph V) (O : CFOrientation G) : CFDiv V :=
+def ordiv (G : CFGraph V) (O : CFOrientation G) : CFDiv V :=
   λ v => indeg G O v - 1
+
+lemma degree_ordiv (G : CFGraph V) (O : CFOrientation G) :
+  deg (ordiv G O) = (genus G) - 1 := by
+  sorry
+
+lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
+  ¬ winnable G (ordiv G O) := by
+  sorry
+
 
 /-- The canonical divisor assigns degree - 2 to each vertex.
     This is independent of orientation and equals D(O) + D(reverse(O)) -/

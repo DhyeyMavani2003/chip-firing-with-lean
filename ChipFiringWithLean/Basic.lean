@@ -118,6 +118,10 @@ structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (loopless : isLoopless edges = true)
   (undirected: isUndirected edges = true)
 
+/-- The genus of a graph is its cycle rank: |E| - |V| + 1 -/
+def genus (G : CFGraph V) : ℤ :=
+  Multiset.card G.edges - Fintype.card V + 1
+
 lemma CFGraph_loopless_prop (G : CFGraph V) :
   isLoopless_prop G.edges := by
   rw [isLoopless_prop_bool_equiv G.edges]

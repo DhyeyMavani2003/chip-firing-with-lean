@@ -334,8 +334,7 @@ lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (d : ℤ) (c : Config V 
   rw [comp_eq S]
   exact hv_outdeg
 
-/-- A maximal superstable configuration has no legal firings and is not ≤ any other superstable configuration.
-   [TODO] Fix this definition to be maximal, not maximum. -/
+/-- A maximal superstable configuration has no legal firings and is not ≤ any other superstable configuration. -/
 def maximal_superstable {q : V} (G : CFGraph V) (c : Config V q) : Prop :=
   superstable G q c ∧ ∀ c' : Config V q, superstable G q c' → config_ge c' c → c' = c
 
