@@ -1233,15 +1233,82 @@ lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   apply winnable_equiv_winnable G D' D h_winnable_D'
   apply (linear_equiv_is_equivalence G).symm h_equiv
 
+-- [Proven] Proposition 3.2.4: q-reduced and effective implies winnable
+theorem winnable_iff_q_reduced_effective (G : CFGraph V) (q : V) (D : CFDiv V) :
+  winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
+  constructor
+  { -- Forward direction
+    intro h_win
+    rcases h_win with ⟨E, h_eff, h_equiv⟩
+    rcases helper_unique_q_reduced G q D with ⟨D', h_D'⟩
+    use D'
+    constructor
+    · exact h_D'.1.1  -- D is linearly equivalent to D'
+    constructor
+    · exact h_D'.1.2  -- D' is q-reduced
+    · -- Show D' is effective using:
+      -- First get E ~ D' by transitivity through D
+      have h_equiv_symm : linear_equiv G E D := (linear_equiv_is_equivalence G).symm h_equiv -- E ~ D
+      have h_equiv_E_D' : linear_equiv G E D' := (linear_equiv_is_equivalence G).trans h_equiv_symm h_D'.1.1 -- E ~ D ~ D' => E ~ D'
+      -- Now use the axiom that q-reduced form of an effective divisor is effective
+      exact helper_q_reduced_of_effective_is_effective G q E D' h_eff h_equiv_E_D' h_D'.1.2
+  }
+  { -- Reverse direction
+    intro h
+    rcases h with ⟨D', h_equiv, h_qred, h_eff⟩
+    use D'
+    exact ⟨h_eff, h_equiv⟩
+  }
 
-/-- Axiom: Given a graph G and a vertex q, there exists a maximal superstable divisor
+/-- Lemma: Given a graph G and a vertex q, there exists a maximal superstable divisor
     c' that is greater than or equal to any superstable divisor c. This is a key
     result from Corry & Perkinson's "Divisors and Sandpiles" (AMS, 2018) that is
-    used in proving the Riemann-Roch theorem for graphs.
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) :
+    used in proving the Riemann-Roch theorem for graphs. -/
+lemma helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) :
   maximal_superstable G c →
-  ¬winnable G (λ v => c.vertex_degree v - if v = q then 1 else 0)
+  ¬winnable G (c.vertex_degree - one_chip q) := by
+  intro h_max_superstable
+  let D := c.vertex_degree - one_chip q
+  have h_red : q_reduced G q D := by
+    apply (q_reduced_superstable_correspondence G q D).mpr
+    use c
+    constructor
+    · -- Prove superstable G q c
+      exact h_max_superstable.1
+    · -- Prove D = c - δ_q
+      dsimp [toDiv]
+      have h_deg : deg D = config_degree c - 1 := by
+        dsimp [D]
+        rw [map_sub, deg_one_chip]
+        dsimp [config_degree]
+      rw [h_deg]
+      dsimp [D]
+      funext v
+      rw [sub_apply, add_apply, smul_apply]
+      linarith
+  by_contra! h_winnable
+  have := (winnable_iff_q_reduced_effective G q D).mp
+  dsimp [D] at this
+  apply this at h_winnable
+  rcases h_winnable with ⟨D', h_equiv, h_qred', h_eff⟩
+  -- Use uniqueness of q-reduced forms to conclude D = D'
+  rcases helper_unique_q_reduced G q D with ⟨D'', h_equiv'', h_unique⟩
+  have h_eq : D = D'' := by
+    apply h_unique D
+    constructor
+    · exact (linear_equiv_is_equivalence G).refl D
+    . exact h_red
+  have h_eq' : D' = D'' := by
+    apply h_unique D'
+    constructor
+    · exact h_equiv
+    · exact h_qred'
+  rw [← h_eq'] at h_eq
+  rw [← h_eq] at h_eff
+  -- D is effective, contradicting its definition
+  have h_nonneg_q := h_eff q
+  dsimp [D] at h_nonneg_q
+  simp [c.q_zero] at h_nonneg_q
 
 /-- Axiom: Rank and degree bounds for canonical divisor
     This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/

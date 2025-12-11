@@ -36,32 +36,7 @@ lemma legal_firing_preserves_effective (G : CFGraph V) (D : CFDiv V) (S : Finset
         simp [hveq]
     exact add_nonneg h1 h2
 
--- [Proven] Proposition 3.2.4: q-reduced and effective implies winnable
-theorem winnable_iff_q_reduced_effective (G : CFGraph V) (q : V) (D : CFDiv V) :
-  winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
-  constructor
-  { -- Forward direction
-    intro h_win
-    rcases h_win with ⟨E, h_eff, h_equiv⟩
-    rcases helper_unique_q_reduced G q D with ⟨D', h_D'⟩
-    use D'
-    constructor
-    · exact h_D'.1.1  -- D is linearly equivalent to D'
-    constructor
-    · exact h_D'.1.2  -- D' is q-reduced
-    · -- Show D' is effective using:
-      -- First get E ~ D' by transitivity through D
-      have h_equiv_symm : linear_equiv G E D := (linear_equiv_is_equivalence G).symm h_equiv -- E ~ D
-      have h_equiv_E_D' : linear_equiv G E D' := (linear_equiv_is_equivalence G).trans h_equiv_symm h_D'.1.1 -- E ~ D ~ D' => E ~ D'
-      -- Now use the axiom that q-reduced form of an effective divisor is effective
-      exact helper_q_reduced_of_effective_is_effective G q E D' h_eff h_equiv_E_D' h_D'.1.2
-  }
-  { -- Reverse direction
-    intro h
-    rcases h with ⟨D', h_equiv, h_qred, h_eff⟩
-    use D'
-    exact ⟨h_eff, h_equiv⟩
-  }
+
 
 -- [Proven] Proposition 3.2.4 (Extension): q-reduced and effective implies winnable
 theorem q_reduced_effective_implies_winnable (G : CFGraph V) (q : V) (D : CFDiv V) :
