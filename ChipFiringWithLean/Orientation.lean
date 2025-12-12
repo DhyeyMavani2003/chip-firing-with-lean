@@ -374,10 +374,226 @@ lemma degree_ordiv {G : CFGraph V} (O : CFOrientation G) :
     _ = Multiset.card G.edges := by
       rfl
 
-lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
-  ¬ winnable G (ordiv G O) := by
-  sorry
+lemma subset_source (G : CFGraph V) (O : CFOrientation G) (S : Finset V):
+  S.Nonempty → is_acyclic G O → ∃ v ∈ S, ∀ w ∈ S, flow O w v = 0 := by
+  intro S_nonempty h_acyclic
+  by_contra! no_sourceless
 
+  let S_path (p : DirectedPath O) : Prop :=
+    ∀ v ∈ p.vertices, v ∈ S
+
+  have arb_path (n : ℕ) : ∃ (p : DirectedPath O), S_path p ∧ p.vertices.length = n + 1:= by
+    induction' n with n ih
+    · -- Base case: n = 0
+      -- Create a list consisting of v only
+      rcases S_nonempty with ⟨v, h_v_in_S⟩
+      use {
+        vertices := [v],
+        non_empty := by
+          simp,
+        valid_edges := by
+          simp
+      }
+      simp
+      intro u h_u_in_path
+      rw [List.mem_singleton] at h_u_in_path
+      rw [h_u_in_path]
+      exact h_v_in_S
+    · -- Inductive step: assume true for n, prove for n + 1
+      rcases ih with ⟨p, h_len⟩
+      cases hp: p.vertices with
+      | nil =>
+        -- This case should not happen since p.vertices has length n + 1 ≥ 1
+        exfalso
+        rw [hp] at h_len
+        simp at h_len
+      | cons v p' =>
+        specialize no_sourceless v
+        have v_S : v ∈ S := h_len.1 v (by simp [hp])
+        rcases (no_sourceless v_S) with h_no_parent
+        rcases h_no_parent with ⟨u, h_u⟩
+        let new_path : List V := u :: p.vertices
+        use {
+          vertices := new_path,
+          non_empty := by
+            rw [List.length_cons]
+            exact Nat.succ_pos _,
+          valid_edges := by
+            dsimp [new_path, List.Chain']
+            cases h_case : p.vertices with
+            | nil =>
+              -- Path was just [v], so new path is [u, v]
+              simp [hp]
+            | cons v' vs =>
+              have eq_vv': v = v' := by
+                rw [h_case] at hp
+                simp at hp
+                obtain ⟨h,_⟩ := hp
+                rw [h]
+              rw [← eq_vv']
+              constructor
+              -- Show the new first link is a directed edge
+              have := h_u.2
+              dsimp [flow] at this
+              contrapose! this with h_no_edge
+              simp [h_no_edge]
+              exact h_no_edge
+              -- Now show the rest of the path is valid
+              have h_rec := p.valid_edges
+              rw [h_case] at h_rec
+              rw [← eq_vv'] at h_rec
+              exact h_rec
+        }
+        -- Should that the path lies in S
+        constructor
+        intro v h_v_in_path
+        simp at h_v_in_path
+        dsimp [new_path] at h_v_in_path
+        cases h_v_in_path with
+        | head h_eq_v =>
+          exact h_u.1
+        | tail _ h_v_in_tail =>
+          exact h_len.1 v h_v_in_tail
+        -- Show the length is n + 2
+        rw [List.length_cons]
+        rw [h_len.2]
+  specialize arb_path (Fintype.card V)
+  rcases arb_path with ⟨p, h_len⟩
+  have ineq := path_length_bound p (h_acyclic p)
+  linarith
+
+lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
+  is_acyclic G O → ¬ winnable G (ordiv G O) := by
+  intro h_acyclic
+  by_contra h_win
+  let D := ordiv G O
+  rcases h_win with ⟨E, E_eff, E_equiv⟩
+  dsimp [Div_plus] at E_eff
+  dsimp [linear_equiv] at E_equiv
+  rw [principal_iff_eq_prin] at E_equiv
+  rcases E_equiv with ⟨σ, h_σ⟩
+  apply eq_add_of_sub_eq at h_σ
+
+  let σvals := Finset.univ.image σ
+  have h_nonempty : σvals.Nonempty :=
+    Finset.image_nonempty.mpr Finset.univ_nonempty
+  let v_max := Finset.max' σvals h_nonempty
+
+  have : ∃ v : V, ∀ w : V, σ w ≤ σ v := by
+    have : v_max ∈ σvals := Finset.max'_mem σvals h_nonempty
+    dsimp [σvals] at this
+    have : ∃ v : V, σ v = v_max := by
+      rw [Finset.mem_image] at this
+      rcases this with ⟨v, _, h_eq⟩
+      use v
+    rcases this with ⟨v, h_v⟩
+    use v
+    intro w
+    have : σ w ∈ σvals := Finset.mem_image.mpr ⟨w, Finset.mem_univ w, rfl⟩
+    have := Finset.le_max' σvals (σ w) this
+    rw [h_v]
+    exact this
+
+  rcases this with ⟨v_max, h_max⟩
+  let S := {v : V | σ v = σ v_max}
+  have S_nonempty : S.Nonempty := by
+    use v_max
+    simp [S]
+
+  have h_lt (u : V) (h_u : u ∉ S):  σ u ≤ σ v_max - 1 := by
+    specialize h_max u
+    suffices σ u < σ v_max by linarith
+    apply lt_of_le_of_ne h_max
+    simp [S, Set.mem_toFinset] at h_u
+    exact h_u
+
+  suffices h_v : ∃ v ∈ S, ∀ w : V, flow O w v > 0 → w ∉ S by
+    rcases h_v with ⟨v, h_v, h_flow⟩
+    have h_prin : (prin G) σ v + indeg G O v ≤ 0 := by
+      dsimp [prin]
+      rw [indeg_eq_sum_flow O v]
+      have h_diff : ∀ u : V, σ u - σ v ≤ if u ∈ S then 0 else -1 := by
+        intro u
+        by_cases h_u_in_S : u ∈ S
+        · simp [h_u_in_S]
+          -- Goal is now: σ u ≤ σ v
+          dsimp [S] at h_u_in_S h_v
+          rw [h_u_in_S,h_v]
+        · simp [h_u_in_S]
+          -- Goal is now: σ u - σ v ≤ -1
+          dsimp [S] at h_u_in_S h_v
+          have := h_lt u h_u_in_S
+          rw [h_v]
+          linarith [this]
+      have h_diff_mul : ∀ u : V, (σ u - σ v) * ↑(num_edges G v u) ≤ if u ∈ S then 0 else -↑(num_edges G v u) := by
+        intro u
+        by_cases h_u_in_S : u ∈ S
+        · simp [h_u_in_S]
+          dsimp [S] at h_u_in_S h_v
+          rw [h_u_in_S,h_v]
+          simp
+        · simp [h_u_in_S]
+          have ineq := h_lt u h_u_in_S
+          rw [← h_v] at ineq
+          apply le_of_sub_nonneg
+          rw [neg_eq_neg_one_mul, ← sub_mul]
+          apply mul_nonneg
+          linarith
+          exact Nat.cast_nonneg _
+      have h_sum : ∑ w : V, (σ w - σ v) * ↑(num_edges G v w) ≤ ∑ w : V, if w ∈ S then 0 else -↑(num_edges G v w) := by
+        apply Finset.sum_le_sum
+        intro u _
+        specialize h_diff_mul u
+
+        exact h_diff_mul
+      suffices ∑ u : V, ((σ u - σ v) * ↑(num_edges G v u)) ≤ -↑ (∑ u: V, (flow O u v)) by linarith
+      refine le_trans h_sum ?_
+      apply le_of_neg_le_neg
+      rw [neg_neg, Nat.cast_sum, neg_eq_neg_one_mul, mul_comm (-1), Finset.sum_mul]
+
+
+      apply sum_le_sum
+
+      intro u _
+      by_cases h_u_in_S : u ∈ S
+      · -- Case: u ∈ S. No edges from u to v.
+        simp only [h_u_in_S]
+        rw [if_true]
+        contrapose! h_flow
+        use u
+        norm_num at h_flow
+        exact ⟨h_flow, h_u_in_S⟩
+      · -- Case : u ∉ S.
+        simp [h_u_in_S]
+        -- Goal: flow O u v ≤ num_edges G v u
+        rw [← opp_flow O v u]
+        linarith
+    specialize E_eff v
+    rw [h_σ] at E_eff
+    rw [add_apply] at E_eff
+    dsimp [ordiv] at E_eff
+    linarith
+  -- Now we must find a source of O relative to S
+  let S' := Finset.filter (λ v => v ∈ S) Finset.univ
+  have S'_nonempty : S'.Nonempty := by
+    rcases S_nonempty with ⟨v, h_v_in_S⟩
+    use v
+    simp [S']
+    exact h_v_in_S
+  have h := subset_source G O S' S'_nonempty h_acyclic
+  rcases h with ⟨v, h_v_in_S', h_flow⟩
+  use v
+  simp [S'] at h_v_in_S'
+  constructor
+  · exact h_v_in_S'
+  · intro w h_flow_w_v
+    specialize h_flow w
+    by_contra!
+    have : w ∈ S' := by
+      simp [S']
+      exact this
+    apply h_flow at this
+    linarith
 
 /-- The canonical divisor assigns degree - 2 to each vertex.
     This is independent of orientation and equals D(O) + D(reverse(O)) -/
