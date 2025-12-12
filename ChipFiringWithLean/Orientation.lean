@@ -64,12 +64,77 @@ lemma eq_orient {G : CFGraph V} (O1 O2 : CFOrientation G) : O1 = O2 ↔ ∀ (u v
     cases h_directed_edges_eq
     rfl
 
+/-- Helper lema for the count below.-/
+lemma double_sum (f : V × V → ℕ) : ∑  (u : V), ∑ (v : V), f ⟨u,v⟩ = ∑ (e : V × V), f e := by
+  rw [← Finset.sum_product]
+  simp
+
+/-- Helper lemma for later calculations. Puzzlingly
+  intricate for such a simple statement! Perhaps it can
+  be simplified. -/
+lemma card_directed_edges_eq_card_edges {G : CFGraph V} (O : CFOrientation G) : Multiset.card  O.directed_edges = Multiset.card G.edges := by
+  have hms (M : Multiset (V × V)): ∀ e ∈ M, e ∈ univ := by
+      intro e _
+      exact mem_univ e
+
+  let f (u v : V) := flow O u v
+  let g (u v : V) := Multiset.count ⟨u,v⟩ G.edges
+  have h_uv (u v : V) : f u v + f v u = g u v + g v u := by
+    have h := O.count_preserving u v
+    dsimp [f,g, flow]
+    dsimp [num_edges] at h
+    rw [← h]
+    rw [← Multiset.sum_count_eq_card (hms ((Multiset.filter (fun e ↦ e = (u, v) ∨ e = (v, u)) G.edges)))]
+    -- Now simplif the count of a in the filtered multiset
+    have h_msum (u v : V) : Multiset.filter (λ e => e = (u, v) ∨ e = (v, u)) G.edges = Multiset.filter (λ e => e = ⟨u,v⟩) G.edges + Multiset.filter (λ e => e = ⟨v,u⟩) G.edges := by
+      apply Multiset.ext.mpr
+      intro e
+      simp only [Multiset.count_add]
+      repeat rw [Multiset.count_filter]
+      by_cases h_e : e = ⟨u,v⟩
+      · -- case: e = ⟨u,v⟩
+        simp [h_e]
+        intro h_eq _
+        rw [h_eq]
+        exact (isLoopless_prop_bool_equiv G.edges).mpr G.loopless v
+      · -- case: e ≠ ⟨u,v⟩
+        by_cases h_e' : e = ⟨v,u⟩
+        · -- case: e = ⟨v,u⟩
+          simp [h_e']
+          intro h_eq _
+          rw [h_eq]
+          exact (isLoopless_prop_bool_equiv G.edges).mpr G.loopless u
+        · -- case: e ≠ ⟨v,u⟩
+          simp [h_e, h_e']
+    rw [h_msum]
+    simp only [Multiset.count_add]
+    rw [sum_add_distrib]
+    simp [Multiset.count_filter]
+  have lhs : ∑ u: V, ∑ v : V, (f u v + f v u)= 2 * Multiset.card O.directed_edges := by
+    simp only [Finset.sum_add_distrib]
+    dsimp [f, flow]
+    nth_rewrite 2 [Finset.sum_comm]
+    rw [← two_mul]
+    have h_replace := double_sum (λ e : V × V => Multiset.count e O.directed_edges)
+    simp only [h_replace]
+    simp
+  have rhs : ∑ u : V, ∑ v : V, (g u v + g v u) = 2 * Multiset.card G.edges := by
+    simp only [Finset.sum_add_distrib]
+    dsimp [g, num_edges]
+    nth_rewrite 2 [Finset.sum_comm]
+    rw [← two_mul]
+    have h_replace := double_sum (λ e : V × V => Multiset.count e G.edges)
+    simp only [h_replace]
+    simp
+  simp only [h_uv] at lhs
+  rw [lhs] at rhs
+  linarith
 
 /-- Number of edges directed into a vertex under an orientation -/
 def indeg (G : CFGraph V) (O : CFOrientation G) (v : V) : ℕ :=
   Multiset.card (O.directed_edges.filter (λ e => e.snd = v))
 
-lemma indeg_eq_sum_flow (G : CFGraph V) (O : CFOrientation G) (v : V) :
+lemma indeg_eq_sum_flow {G : CFGraph V} (O : CFOrientation G) (v : V) :
   indeg G O v = ∑ w : V, flow O w v := by
   dsimp [indeg, flow]
   suffices h_eq : (∀ S : Multiset (V × V) , ∀ v : V,
@@ -179,190 +244,6 @@ noncomputable def ancestors (G : CFGraph V) (O : CFOrientation G) (v : V) : Fins
 noncomputable def vertexLevelMeasure (G : CFGraph V) (O : CFOrientation G) (v : V) : Nat :=
   (ancestors G O v).card
 
--- Axiom removed since it does not follow from other definitions.
--- /-- Axiom [TODO]: Path vertices are internally distinct -/
--- axiom path_vertices_internally_distinct_axiom
---   (G : CFGraph V) (O : CFOrientation G) (path_verts : List V) :
---   (∀ (i j : Nat),
---     i < path_verts.length - 1 →
---     j < path_verts.length - 1 →
---     i ≠ j →
---     match (path_verts.get? i, path_verts.get? j) with
---     | (some u, some v) => u ≠ v
---     | _ => True)
-
--- /-- Lemma: No self-loops in acyclic orientations -/
--- lemma not_trans_gen_self_of_acyclic (G : CFGraph V) (O : CFOrientation G) (h_acyclic : is_acyclic G O) (v_node : V) :
---     ¬Relation.TransGen (fun a b => is_directed_edge G O a b = true) v_node v_node := by
---   let R := fun a b => is_directed_edge G O a b = true
-
---   have construct_path_from_trans_gen : ∀ {v_start v_end : V}, (h_trans : Relation.TransGen R v_start v_end) →
---     ∃ (path_verts : List V), path_verts.length ≥ 2 ∧
---                               path_verts.head? = some v_start ∧
---                               path_verts.getLast? = some v_end ∧
---                               List.Chain' R path_verts := by
---     intro v_s v_e h_trans_gen_s_e
---     refine Relation.TransGen.recOn (motive := fun y_target _h_trans_ignored => -- y_target is current end node from v_s
---                                       ∃ (path_verts : List V), path_verts.length ≥ 2 ∧
---                                                               path_verts.head? = some v_s ∧ -- Fixed start v_s
---                                                               path_verts.getLast? = some y_target ∧ -- Current end y_target
---                                                               List.Chain' R path_verts) h_trans_gen_s_e ?_ ?_
---     · -- Base case for recOn: single (h_Rxy : R x y)
---       -- Parameters provided by recOn: x (fixed as v_s), y_node, h_R_x_y
---       -- Here y_node is the target for the motive.
---       intro y_node_base h_R_vs_ynode_base -- x is v_s (implicit), y_node_base is the 'y_target'
---       use [v_s, y_node_base] -- Path from v_s to y_node_base
---       refine' ⟨by simp, by simp, by simp, _⟩
---       simp only [List.chain'_cons, List.chain'_singleton, and_true]
---       exact h_R_vs_ynode_base -- R v_s y_node_base
---     · -- Inductive step for recOn: tail (h_trans_x_mid : TransGen R x mid) (h_R_mid_z : R mid z) (ih_x_mid : motive x mid h_trans_x_mid)
---       -- Parameters: x (fixed as v_s), mid, z, h_trans_x_mid (now TransGen R v_s mid), h_R_mid_z, ih_x_mid (now motive mid h_trans_v_s_mid)
---       intro mid_node_ind z_node_ind h_trans_vs_mid h_R_mid_z ih_vs_mid
---       obtain ⟨path_vsm, h_len_ge_2_vsm, h_head_eq_vs, h_last_eq_mid, h_chain'_vsm⟩ := ih_vs_mid
---       use path_vsm ++ [z_node_ind]
---       constructor
---       ·
---         simp only [List.length_append, List.length_singleton]
---         apply Nat.le_trans h_len_ge_2_vsm (Nat.le_add_right _ 1)
---       · constructor
---         ·
---           have h_path_vsm_ne_nil : path_vsm ≠ [] := List.ne_nil_of_length_pos (by linarith only [h_len_ge_2_vsm])
---           simp only [List.head?_append, h_path_vsm_ne_nil, h_head_eq_vs, List.head?_cons, List.head?_nil, Option.some_orElse]
---           rfl
---         · constructor
---           ·
---             simp only [List.getLast?_append, List.getLast?_cons, List.getLast?_nil, Option.some_orElse]
---             rfl -- Should be `some z_node_ind = some z_node_ind` by now
---           ·
---             -- Prove List.Chain' R (path_vsm ++ [z_node_ind])
---             simp only [List.chain'_append, h_chain'_vsm, List.chain'_singleton, and_true]
---             constructor
---             · trivial
---             constructor
---             · trivial
---             intros x hx y hy
---             -- hx : path_vsm.getLast? = some x, h_last_eq_mid : path_vsm.getLast? = some mid_node_ind
---             have hx' := hx.symm.trans h_last_eq_mid
---             have eqx : x = mid_node_ind := Option.some.inj hx'
---             subst eqx
---             -- hy : y ∈ [z_node_ind].head?
---             rw [Option.mem_def] at hy
---             have eqy : y = z_node_ind := Option.some.inj hy.symm
---             subst eqy
---             exact h_R_mid_z
-
-
---   intro h_trans_gen_v_v
---   obtain ⟨path_verts, hv_path_verts_length_ge_2, hv_path_verts_head_eq_v_node,
---             hv_path_verts_last_eq_v_node, h_path_verts_chain'_R⟩ := construct_path_from_trans_gen h_trans_gen_v_v
-
---   have h_path_len_gt_1 : path_verts.length > 1 := Nat.lt_of_succ_le hv_path_verts_length_ge_2
-
---   let dc : DirectedCycle G O := {
---     vertices := path_verts,
---     valid_edges := by
---       intros i hi
---       have hi' : i < path_verts.length := Nat.lt_of_succ_lt hi
---       have hi1' : i + 1 < path_verts.length := hi
---       rw [List.get?_eq_get hi', List.get?_eq_get hi1']
---       exact (List.chain'_iff_get.mp h_path_verts_chain'_R) i (Nat.lt_pred_of_succ_lt hi)
---     cycle_condition := by
---       constructor
---       · exact h_path_len_gt_1
---       · cases h0_get : path_verts.get? 0;
---         case none =>
---           have h_path_is_nil : path_verts = [] := by
---             cases path_verts with
---             | nil => rfl
---             | cons hd tl =>
---               simp only [List.get?] at h0_get -- h0_get is now `some hd = none`
---               exact (Option.noConfusion h0_get) -- Derives False from `some hd = none`
---           rw [h_path_is_nil] at h_path_len_gt_1
---           simp at h_path_len_gt_1 -- Contradiction: 0 > 1, proves False for this branch
---         case some v0 =>
---           cases h1_get : path_verts.get? (path_verts.length - 1);
---           case none => -- path_verts.get? (path_verts.length - 1) = none
---             exfalso
---             rw [List.get?_eq_none] at h1_get -- h1_get is ¬ (path_verts.length - 1 < path_verts.length)
---             have h_lt : path_verts.length - 1 < path_verts.length := by
---               apply Nat.sub_lt_of_pos_le -- Proves n - k < n if 0 < k and k <= n
---               · exact Nat.zero_lt_one -- k=1, 0 < 1
---               · linarith [h_path_len_gt_1] -- path_verts.length > 1 implies 1 <= path_verts.length
---             linarith [h_lt, h1_get] -- Should now find contradiction from (L-1 < L) and not(L-1 < L)
---           case some v1 =>
---             have ne_nil : path_verts ≠ [] := by intro H; rw[H] at h_path_len_gt_1; simp at h_path_len_gt_1
---             have eq_v0 : v0 = v_node := by
---               have h_head_eq_get_zero : path_verts.head? = path_verts.get? 0 := by
---                 cases path_verts with
---                 | nil => exfalso; exact ne_nil rfl
---                 | cons hd tl =>
---                   simp only [List.head?, List.get?] -- head? (hd::tl) = some hd; get? (hd::tl) 0 = some hd
---               rw [h_head_eq_get_zero] at hv_path_verts_head_eq_v_node
---               rw [h0_get] at hv_path_verts_head_eq_v_node
---               exact Option.some.inj hv_path_verts_head_eq_v_node
---             have eq_v1 : v1 = v_node := by
---               have h_last_eq_get_len_sub_one : path_verts.getLast? = path_verts.get? (path_verts.length - 1) :=
---                 (List.getLast?_eq_getElem? path_verts).trans ((List.get?_eq_getElem? path_verts (path_verts.length - 1)).symm)
---               rw [h_last_eq_get_len_sub_one] at hv_path_verts_last_eq_v_node
---               rw [h1_get] at hv_path_verts_last_eq_v_node
---               exact Option.some.inj hv_path_verts_last_eq_v_node
---             rw [eq_v0, eq_v1]
---     distinct_internal_vertices := path_vertices_internally_distinct_axiom G O path_verts,
---   };
---   exact h_acyclic.2 (Exists.intro dc (by trivial));
-
--- /-- Key lemma for vertex_level termination -/
--- lemma ancestors_card_lt_of_pred_of_acyclic
---     (G : CFGraph V) (O : CFOrientation G) (h_acyclic : is_acyclic G O)
---     {u v_call : V} (u_is_pred_of_v_call : is_directed_edge G O u v_call = true) :
---     vertexLevelMeasure G O u < vertexLevelMeasure G O v_call := by
---   let R := fun a b => is_directed_edge G O a b = true
---   apply Finset.card_lt_card
---   -- Goal: ancestors G O u ⊂ ancestors G O v_call
---   apply Finset.ssubset_def.mpr
---   constructor
---   · -- 1. ancestors G O u ⊆ ancestors G O v_call
---     intros x hx_mem_anc_u
---     simp only [ancestors, Finset.mem_filter, Finset.mem_univ, true_and] at hx_mem_anc_u ⊢
---     exact Relation.TransGen.trans hx_mem_anc_u (Relation.TransGen.single u_is_pred_of_v_call)
---   · -- 2. ¬ (ancestors G O v_call ⊆ ancestors G O u)
---     --    This is equiv to ∃ k, k ∈ (ancestors G O v_call) ∧ k ∉ (ancestors G O u)
---     --    We pick k = u.
---     intro h_contra_subset_rev -- Assume for contradiction: ancestors G O v_call ⊆ ancestors G O u
---     have u_in_anc_v_call : u ∈ ancestors G O v_call := by {
---       simp only [ancestors, Finset.mem_filter, Finset.mem_univ, true_and]
---       exact Relation.TransGen.single u_is_pred_of_v_call
---     }
---     have u_in_anc_u_from_contra : u ∈ ancestors G O u := h_contra_subset_rev u_in_anc_v_call
---     have u_not_in_anc_u_from_acyclic : u ∉ ancestors G O u := by {
---       simp only [ancestors, Finset.mem_filter, Finset.mem_univ, true_and]
---       exact not_trans_gen_self_of_acyclic G O h_acyclic u
---     }
---     exact u_not_in_anc_u_from_acyclic u_in_anc_u_from_contra
-
--- /-- The level of a vertex is its position in the topological ordering -/
--- noncomputable def vertex_level (G : CFGraph V) (O : CFOrientation G) (h_acyclic : is_acyclic G O) : V → Nat :=
---   let R_measure_lt (y x : V) : Prop := vertexLevelMeasure G O y < vertexLevelMeasure G O x
---   have wf_R_measure_lt : WellFounded R_measure_lt := -- Proof that the relation is well-founded
---     (InvImage.wf (vertexLevelMeasure G O) Nat.lt_wfRel.wf) -- Corrected to Nat.lt_wfRel.wf
---   WellFounded.fix wf_R_measure_lt
---     (fun (v : V) (recursive_call_handler : Π (u_rec : V), R_measure_lt u_rec v → Nat) =>
---       let predecessors := univ.filter (fun u_filter_pred => is_directed_edge G O u_filter_pred v = true)
---       predecessors.attach.sup
---         (fun (u_attached : {x // x ∈ predecessors}) =>
---           let u_val := u_attached.val
---           let proof_u_in_predecessors := u_attached.property
---           have edge_proof : is_directed_edge G O u_val v = true :=
---             (Finset.mem_filter.mp proof_u_in_predecessors).2
---           recursive_call_handler u_val (ancestors_card_lt_of_pred_of_acyclic G O h_acyclic edge_proof) + 1
---         )
---     )
-
--- /-- Vertices at a given level in the orientation -/
--- noncomputable def vertices_at_level (G : CFGraph V) (O : CFOrientation G) (h_acyclic : is_acyclic G O) (l : ℕ) : Finset V :=
---   univ.filter (λ v => vertex_level G O h_acyclic v = l)
-
-
 /-- Vertices that are not sources must have at least one incoming edge. -/
 lemma indeg_ge_one_of_not_source (G : CFGraph V) (O : CFOrientation G) (v : V) :
     ¬ is_source G O v → indeg G O v ≥ 1 := by
@@ -406,9 +287,92 @@ def config_of_source {G : CFGraph V} {O : CFOrientation G} {q : V}
 def ordiv (G : CFGraph V) (O : CFOrientation G) : CFDiv V :=
   λ v => indeg G O v - 1
 
-lemma degree_ordiv (G : CFGraph V) (O : CFOrientation G) :
+/-- Helper lemma to simplify handshking argument. Is something
+  like this already in Mathlib somewhere? -/
+lemma sum_filter_eq_map (G : CFGraph V) (M : Multiset (V × V)) (crit  : V → V × V → Prop)
+    [∀ v e, Decidable (crit v e)] :
+  ∑ v : V, Multiset.card (M.filter (crit v))
+    = Multiset.sum (M.map (λ e => (Finset.univ.filter (λ v => (crit v e) )).card)) := by
+  -- Define P and g using Prop for clarity in the proof - Available throughout
+  let P : V → V × V → Prop := fun v e => crit v e
+  let g : V × V → ℕ := fun e => (Finset.univ.filter (P · e)).card
+
+  -- Rewrite the goal using P and g for proof readability
+  suffices goal_rewritten : ∑ v : V, Multiset.card (M.filter (P v)) = Multiset.sum (M.map g) by
+    exact goal_rewritten -- The goal is now exactly the statement `goal_rewritten`
+
+  -- Prove the rewritten goal by induction on the multiset G.edges
+  induction M using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero,
+               Multiset.map_zero, Multiset.sum_zero] -- Use _zero lemmas
+  | cons e_head s_tail ih_s_tail =>
+    -- Rewrite RHS: sum(map(g, e_head::s_tail)) = g e_head + sum(map(g, s_tail))
+    rw [Multiset.map_cons, Multiset.sum_cons]
+
+    -- Rewrite LHS: ∑ v, card(filter(P v, e_head::s_tail))
+    simp_rw [← Multiset.countP_eq_card_filter]
+    simp only [Multiset.countP_cons]
+    rw [Finset.sum_add_distrib]
+
+    -- Simplify the second sum (∑ v, ite (P v e_head) 1 0) to g e_head
+    have h_sum_ite_eq_card : ∑ v : V, ite (P v e_head) 1 0 = g e_head := by
+      rw [← Finset.card_filter] -- This completes the proof for h_sum_ite_eq_card
+    rw [h_sum_ite_eq_card]
+
+    simp_rw [Multiset.countP_eq_card_filter]
+    rw [add_comm, ih_s_tail]
+
+/-- Lemma: An orientation divisor has degree g-1. This is
+  surprisingly tricky to implement in Lean. The proof here
+  follows the same pattern as the handshaking theorem
+  helper_sum_vertex_degrees, and perahps could be unified
+  with it. -/
+lemma degree_ordiv {G : CFGraph V} (O : CFOrientation G) :
   deg (ordiv G O) = (genus G) - 1 := by
-  sorry
+  have flow_sum : deg (ordiv G O) = (∑ v : V, ∑ w : V, ↑(flow O w v)) - (Fintype.card V) := by
+    calc
+      deg (ordiv G O)
+        = ∑ v : V, ordiv G O v := by rfl
+      _ = ∑ v : V, (∑ w : V, ↑(flow O w v) - 1) := by
+        apply Finset.sum_congr rfl
+        intro x _
+        dsimp [ordiv]
+        rw [indeg_eq_sum_flow O x]
+        simp
+      _ = (∑ v : V, ∑ w : V, ↑(flow O w v)) - (Fintype.card V) := by
+        rw [Finset.sum_sub_distrib]
+        simp
+  dsimp [genus]
+  rw [flow_sum]
+  suffices h : (∑ v : V, ∑ w : V, ↑(flow O w v)) = ↑(Multiset.card G.edges) by linarith [h]
+  calc
+    ∑ v : V, ∑ w : V, ↑(flow O w v)
+      = ∑ v : V, (indeg G O v) := by
+        apply Finset.sum_congr rfl
+        intro x _
+        rw [indeg_eq_sum_flow]
+    _ = ∑ v : V, Multiset.card (O.directed_edges.filter (λ e => e.snd = v)) := by
+      dsimp [indeg]
+    _ = Multiset.sum (O.directed_edges.map (λ e => (Finset.univ.filter (λ v => e.snd = v)).card)) := by
+      exact (sum_filter_eq_map G O.directed_edges (λ v e => e.snd = v))
+    _ = ↑(Multiset.card O.directed_edges) := by
+      have h_singleton : ∀ e ∈ O.directed_edges, (Finset.filter (fun v ↦ e.2 = v) univ).card = 1  := by
+        intro e h_e
+        refine Finset.card_eq_one.mpr ?_
+        use e.2
+        refine eq_singleton_iff_unique_mem.mpr ?h.a
+        constructor
+        simp
+        intro x h_x
+        rw [Finset.mem_filter] at h_x
+        rw [h_x.2]
+      rw [Multiset.map_congr rfl h_singleton]
+      rw [Multiset.map_const', Multiset.sum_replicate,Nat.nsmul_eq_mul, mul_one]
+    _ = ↑(Multiset.card G.edges) := by
+      exact card_directed_edges_eq_card_edges O
+    _ = Multiset.card G.edges := by
+      rfl
 
 lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
   ¬ winnable G (ordiv G O) := by

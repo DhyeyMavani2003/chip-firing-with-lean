@@ -267,7 +267,7 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
     have h_uv_le := h_ineq u v
     have h_lt : flow O u v < flow O' u v := lt_of_le_of_ne h_uv_le h_neq
     have h_indeg_contra : indeg G O v < indeg G O' v := by
-      rw [indeg_eq_sum_flow G O v, indeg_eq_sum_flow G O' v]
+      rw [indeg_eq_sum_flow O v, indeg_eq_sum_flow O' v]
       apply Finset.sum_lt_sum
       intro x hx
       exact h_ineq x v
@@ -783,39 +783,6 @@ lemma edge_incident_vertices_count (G : CFGraph V) (e : V × V) (he : e ∈ G.ed
       | inl h => exact Or.inl (Eq.symm h)
       | inr h => exact Or.inr (Eq.symm h)
 
-/-- Helper lemma: Swapping sum order for incidence checking (Nat version). -/
-lemma sum_filter_eq_map_inc_nat (G : CFGraph V) :
-  ∑ v : V, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))
-    = Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card)) := by
-  -- Define P and g using Prop for clarity in the proof - Available throughout
-  let P : V → V × V → Prop := fun v e => e.fst = v ∨ e.snd = v
-  let g : V × V → ℕ := fun e => (Finset.univ.filter (P · e)).card
-
-  -- Rewrite the goal using P and g for proof readability
-  suffices goal_rewritten : ∑ v : V, Multiset.card (G.edges.filter (P v)) = Multiset.sum (G.edges.map g) by
-    exact goal_rewritten -- The goal is now exactly the statement `goal_rewritten`
-
-  -- Prove the rewritten goal by induction on the multiset G.edges
-  induction G.edges using Multiset.induction_on with
-  | empty =>
-    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero,
-               Multiset.map_zero, Multiset.sum_zero] -- Use _zero lemmas
-  | cons e_head s_tail ih_s_tail =>
-    -- Rewrite RHS: sum(map(g, e_head::s_tail)) = g e_head + sum(map(g, s_tail))
-    rw [Multiset.map_cons, Multiset.sum_cons]
-
-    -- Rewrite LHS: ∑ v, card(filter(P v, e_head::s_tail))
-    simp_rw [← Multiset.countP_eq_card_filter]
-    simp only [Multiset.countP_cons]
-    rw [Finset.sum_add_distrib]
-
-    -- Simplify the second sum (∑ v, ite (P v e_head) 1 0) to g e_head
-    have h_sum_ite_eq_card : ∑ v : V, ite (P v e_head) 1 0 = g e_head := by
-      rw [← Finset.card_filter] -- This completes the proof for h_sum_ite_eq_card
-    rw [h_sum_ite_eq_card]
-
-    simp_rw [Multiset.countP_eq_card_filter]
-    rw [add_comm, ih_s_tail]
 
 /-- Helper lemma: Summing mapped incidence counts equals summing constant 2 (Nat version). -/
 lemma map_inc_eq_map_two_nat (G : CFGraph V) :
@@ -860,7 +827,7 @@ theorem helper_sum_vertex_degrees (G : CFGraph V) :
     _ = ∑ v, ↑(∑ u, num_edges G v u) := by simp_rw [← Nat.cast_sum]
     _ = ∑ v, ↑(Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by simp_rw [sum_num_edges_eq_filter_count G]
     _ = ↑(∑ v, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by rw [← Nat.cast_sum]
-    _ = ↑(Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))) := by rw [sum_filter_eq_map_inc_nat G]
+    _ = ↑(Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))) := by rw [sum_filter_eq_map G (G.edges) (λ v e => e.fst = v ∨ e.snd = v)]
     _ = ↑(2 * Multiset.card G.edges) := by rw [map_inc_eq_map_two_nat G]
     _ = 2 * ↑(Multiset.card G.edges) := by rw [Nat.cast_mul, Nat.cast_two]
 
