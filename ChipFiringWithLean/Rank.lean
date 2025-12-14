@@ -88,10 +88,7 @@ lemma maximal_unwinnable_preserved (G : CFGraph V) (D1 D2 : CFDiv V) :
     simp
     exact h_lequiv
 
-/-- Given an acyclic orientation O with a unique source q, returns a configuration c(O) -/
-def orientation_to_config (G : CFGraph V) (O : CFOrientation G) (q : V)
-    (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : Config V q :=
-  config_of_source h_acyclic h_unique_source
+
 
 -- /-- A divisor has rank -1 if it is not winnable -/
 -- def rank_eq_neg_one_wrt_winnability (G : CFGraph V) (D : CFDiv V) : Prop :=

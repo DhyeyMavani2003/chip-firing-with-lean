@@ -143,10 +143,10 @@ lemma qeff_divs_equal (D1 D2 : q_eff_div V q) :
   simp at h_eq
   exact h_eq
 
-lemma div_of_config_of_div (D : q_eff_div V q) (D : q_eff_div V q) :
-  to_qed (deg D.D) (toConfig D) = D := by
-  apply (qeff_divs_equal (to_qed (deg D.D) (toConfig D)) D).mpr
-  dsimp [to_qed]
+lemma div_of_config_of_div (D : q_eff_div V q) :
+  toDiv (deg D.D) (toConfig D) = D.D := by
+  -- apply (qeff_divs_equal (to_qed (deg D.D) (toConfig D)) D).mpr
+  -- dsimp [to_qed]
   funext v
   dsimp [toDiv]
   by_cases h: v ∈ Vtilde q
@@ -238,6 +238,7 @@ instance : PartialOrder (Config V q) := {
 
     exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
 }
+
 
 -- lemma config_ge_iff_div_ge {q : V} (d : ℤ) (c c' : Config V q) :
 --   config_ge c c' ↔ (c : CFDiv V)  ≥ (c' : CFDiv V) := by

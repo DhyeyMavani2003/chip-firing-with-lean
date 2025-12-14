@@ -287,6 +287,50 @@ def config_of_source {G : CFGraph V} {O : CFOrientation G} {q : V}
 def ordiv (G : CFGraph V) (O : CFOrientation G) : CFDiv V :=
   λ v => indeg G O v - 1
 
+def orqed {G : CFGraph V} (O : CFOrientation G) {q : V} (h_acyclic : is_acyclic G O)
+    (h_unique_source : ∀ w, is_source G O w → w = q) : q_eff_div V q := {
+      D := ordiv G O,
+      h_eff := by
+        intro v v_ne_q
+        dsimp [ordiv]
+        contrapose! v_ne_q with v_q
+        have h_indeg : indeg G O v = 0 := by
+          linarith
+        specialize h_unique_source v
+        rw [indeg_eq_sum_flow] at h_indeg
+        -- Sum of non-negative terms is zero, so each term is zero
+        apply h_unique_source
+        contrapose! h_indeg with h_not_source
+        dsimp [is_source] at h_not_source
+        rw [indeg_eq_sum_flow] at h_not_source
+        intro h_bad
+        rw [h_bad] at h_not_source
+        simp at h_not_source
+    }
+
+/-- Given an acyclic orientation O with a unique source q, returns a configuration c(O) -/
+def orientation_to_config (G : CFGraph V) (O : CFOrientation G) (q : V)
+    (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : Config V q :=
+  config_of_source h_acyclic h_unique_source
+
+/-- Compatibility between configurations and divisors from
+  an orientation -/
+lemma config_and_divisor_from_O {G : CFGraph V} (O : CFOrientation G) {q : V} (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
+  orientation_to_config G O q h_acyclic h_unique_source = toConfig (orqed O h_acyclic h_unique_source) := by
+  let c := orientation_to_config G O q h_acyclic h_unique_source
+  let D := orqed O h_acyclic h_unique_source
+  rw [eq_config_iff_eq_vertex_degree]
+  funext v
+  by_cases h_v: v = q
+  · -- Case v = q
+    rw [h_v]
+    have (c d : Config V q) : c.vertex_degree q = d.vertex_degree q := by
+      rw [c.q_zero, d.q_zero]
+    rw [this]
+  · -- Case v ≠ q
+    dsimp [orientation_to_config, toConfig, config_of_source, orqed, ordiv]
+    simp [h_v]
+
 /-- Helper lemma to simplify handshking argument. Is something
   like this already in Mathlib somewhere? -/
 lemma sum_filter_eq_map (G : CFGraph V) (M : Multiset (V × V)) (crit  : V → V × V → Prop)
@@ -594,6 +638,59 @@ lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
       exact this
     apply h_flow at this
     linarith
+
+lemma ordiv_q_reduced {G : CFGraph V} (O : CFOrientation G) {q : V} (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : q_reduced G q (ordiv G O) := by
+  constructor
+  · -- Show ordiv is effective away from q
+    intro v h_v_ne_q
+    simp at h_v_ne_q -- Now just ¬ v = q
+    dsimp [ordiv]
+    suffices indeg G O v > 0  by
+      linarith
+    specialize h_unique_source v
+    contrapose! h_v_ne_q with indeg_zero
+    apply h_unique_source
+    apply Nat.eq_zero_of_le_zero at indeg_zero
+    dsimp [is_source]
+    simp [indeg_zero]
+  · -- Show no valid firing move exists for subsets not containing q
+    intro S h_q_S S_nonempty
+    have h_source := subset_source G O S S_nonempty h_acyclic
+    rcases h_source with ⟨v, h_v_S, h_flow⟩
+    use v
+    refine ⟨h_v_S, ?_⟩
+    dsimp [ordiv]
+    -- Cancel -1 from both sides
+    apply Int.lt_of_le_sub_one
+    apply sub_le_sub_right
+    -- Expand indeg and compare terms
+    rw [indeg_eq_sum_flow O v, Nat.cast_sum]
+    -- Split the LHS sum into the x ∈ S part and the x ∉ S part
+    have flow_bound (w : V) : flow O w v ≤ if w ∈ S then 0 else num_edges G w v := by
+      by_cases h_w_in_S : w ∈ S
+      · -- Case: w ∈ S
+        simp [h_w_in_S]
+        specialize h_flow w
+        apply h_flow at h_w_in_S
+        dsimp [flow] at h_w_in_S
+        -- Now deduce (w,v) ∉ O.directed_edges from count = 0.
+        exact  Multiset.count_eq_zero.mp h_w_in_S
+      · -- Case: w ∉ S
+        simp [h_w_in_S]
+        rw [← opp_flow O w v]
+        linarith
+    have sum_flow_bound : ∑ w : V, ↑(flow O w v) ≤ ∑ w : V, if w ∈ S then 0 else ↑(num_edges G w v) := by
+      apply Finset.sum_le_sum
+      intro u _
+      specialize flow_bound u
+      exact flow_bound
+    rw [Finset.sum_ite, sum_const,smul_zero, zero_add] at sum_flow_bound
+    -- Do some annoying casting business to remove ↑.
+    rw [← Nat.cast_sum, ← Nat.cast_sum]
+    apply Nat.cast_le.mpr
+    apply le_trans sum_flow_bound
+    -- Final step: we have num_edges G _ v on LHS and G v _ on the right. Use symemtriy.
+    simp [num_edges_symmetric]
 
 /-- The canonical divisor assigns degree - 2 to each vertex.
     This is independent of orientation and equals D(O) + D(reverse(O)) -/

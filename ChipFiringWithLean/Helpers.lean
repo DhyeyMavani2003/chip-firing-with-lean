@@ -375,9 +375,22 @@ lemma orientation_to_config_indeg (G : CFGraph V) (O : CFOrientation G) (q : V)
   -- Use the definition of config_of_source
   exact rfl
 
-axiom helper_orientation_config_superstable (G : CFGraph V) (O : CFOrientation G) (q : V)
+lemma helper_orientation_config_superstable (G : CFGraph V) (O : CFOrientation G) (q : V)
     (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-    superstable G q (orientation_to_config G O q h_acyc h_unique_source)
+    superstable G q (orientation_to_config G O q h_acyc h_unique_source) := by
+    let c := orientation_to_config G O q h_acyc h_unique_source
+    apply (superstable_iff_q_reduced G q (genus G -1) c).mpr
+
+    have h_c := config_and_divisor_from_O O h_acyc h_unique_source
+    dsimp [c]
+    rw [h_c]
+    have : genus G - 1 = deg ((orqed O h_acyc h_unique_source).D) := by
+      dsimp [orqed]
+      rw [degree_ordiv O]
+    rw [this]
+    rw [div_of_config_of_div (orqed O h_acyc h_unique_source)]
+    dsimp [orqed]
+    exact ordiv_q_reduced O h_acyc h_unique_source
 
 /- Axiom: Defining a reusable block for a configuration from an acyclic orientation with source q being maximal superstable
           Only to be used to define a maximal superstable configuration from an acyclic orientation with source q as a Prop.
