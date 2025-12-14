@@ -1038,12 +1038,33 @@ lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c :
 
 /-- Axiom: If a superstable configuration has degree equal to g, it is maximal
     This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
-  superstable G q c → config_degree c = genus G → maximal_superstable G c
-
-
-
-
+lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
+  superstable G q c → config_degree c = genus G → maximal_superstable G c := by
+  intro h_super h_deg_eq
+  -- Choose a maximal above c (we'll show it's equal to c)
+  have := helper_maximal_superstable_exists G q c h_super
+  rcases this with ⟨c_max, h_maximal, h_ge_c⟩
+  have c_max_deg : config_degree c_max = genus G := by
+    exact degree_max_superstable c_max h_maximal
+  let E := c_max.vertex_degree - c.vertex_degree
+  have E_eff : E ≥ 0 := by
+    intro v
+    specialize h_ge_c v
+    dsimp [E]
+    linarith
+  have E_deg : deg E = 0 := by
+    dsimp [E]
+    rw [map_sub]
+    dsimp [config_degree] at h_deg_eq c_max_deg
+    rw [h_deg_eq, c_max_deg]
+    simp
+  have E_0 : E = 0 := eff_degree_zero E E_eff E_deg
+  dsimp [E] at E_0
+  have : c_max.vertex_degree = c.vertex_degree := by
+    rw [← sub_eq_zero, E_0]
+  have : c_max = c := (eq_config_iff_eq_vertex_degree c_max c).mpr this
+  rw [← this]
+  exact h_maximal
 
 /-
 # Helpers for Proposition 4.1.13 Part (2)
