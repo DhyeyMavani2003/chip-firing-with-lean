@@ -965,6 +965,32 @@ lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph V) (q : V) (D : CFDiv
     exact h
   linarith
 
+-- Configuration version of the above
+lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : maximal_superstable G c): config_degree c = genus G := by
+  have := helper_maximal_superstable_orientation G q c h_max
+  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
+  rw [← h_orient_eq]
+  rw [config_and_divisor_from_O O h_acyc h_unique_source ]
+  dsimp [toConfig, config_degree]
+  rw [map_sub]
+  dsimp [orqed]
+  rw [degree_ordiv]
+  suffices (ordiv G O) q = -1 by
+    rw [this]
+    simp [map_smul, deg_one_chip]
+  -- Prove (ordiv G O) q = -1
+  dsimp [ordiv]
+  -- These lines look funny, but they just check that "q is a unique source" implies "q is a source."
+  -- [TODO] consider making a helper lemma for this step, and/or giving a name to the "is a unique source" property.
+  have := helper_acyclic_has_source G O h_acyc
+  rcases this with ⟨some_source, h_source⟩
+  specialize h_unique_source some_source h_source
+  rw [h_unique_source] at h_source
+  dsimp [is_source] at h_source
+  simp at h_source
+  rw [h_source]
+  norm_num
+
 -- An odd-looking lemma, a corollary of the above, that comes in handy in some later computations.
 lemma maximal_unwinnable_q_reduced_form (G : CFGraph V) (q : V) (D : CFDiv V) (c : Config V q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
@@ -991,30 +1017,7 @@ lemma helper_superstable_degree_bound (G : CFGraph V) (q : V) (c : Config V q) :
   intro h_super
   have := helper_maximal_superstable_exists G q c h_super
   rcases this with ⟨c_max, h_maximal, h_ge_c⟩
-  have := helper_maximal_superstable_orientation G q c_max h_maximal
-  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
-  have h_genus_eq : config_degree c_max = genus G := by
-    rw [← h_orient_eq]
-    rw [config_and_divisor_from_O O h_acyc h_unique_source ]
-    dsimp [config_degree, toConfig]
-    rw [map_sub]
-    dsimp [orqed]
-    rw [degree_ordiv]
-    suffices (ordiv G O) q = -1 by
-      rw [this]
-      simp [map_smul, deg_one_chip]
-    -- Prove (ordiv G O) q = -1
-    dsimp [ordiv]
-    -- These lines look funny, but they just check that "q is a unique source" implies "q is a source."
-    -- [TODO] consider making a helper lemma for this step, and/or giving a name to the "is a unique source" property.
-    have := helper_acyclic_has_source G O h_acyc
-    rcases this with ⟨some_source, h_source⟩
-    specialize h_unique_source some_source h_source
-    rw [h_unique_source] at h_source
-    dsimp [is_source] at h_source
-    simp at h_source
-    rw [h_source]
-    norm_num
+  have h_genus_eq := degree_max_superstable c_max h_maximal
   rw [← h_genus_eq]
   dsimp [config_ge] at h_ge_c
   dsimp [config_degree]
@@ -1024,8 +1027,14 @@ lemma helper_superstable_degree_bound (G : CFGraph V) (q : V) (c : Config V q) :
   specialize h_ge_c v
   exact h_ge_c
 
-axiom helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c : Config V q) :
-  superstable G q c → maximal_superstable G c → config_degree c ≥ genus G
+lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c : Config V q) :
+  superstable G q c → maximal_superstable G c → config_degree c ≥ genus G := by
+  intro h_super h_max
+  have := helper_maximal_superstable_orientation G q c h_max
+  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
+  have h_genus_eq : config_degree c = genus G := by
+    exact degree_max_superstable c h_max
+  rw [← h_genus_eq]
 
 /-- Axiom: If a superstable configuration has degree equal to g, it is maximal
     This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
