@@ -1070,11 +1070,6 @@ lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
 # Helpers for Proposition 4.1.13 Part (2)
 -/
 
-/-- Axiom: Superstabilization of configuration with degree g+1 sends chip to q
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_superstabilize_sends_to_q (G : CFGraph V) (q : V) (c : Config V q) :
-  maximal_superstable G c → config_degree c = genus G →
-  ∀ v : V, v ≠ q → winnable G (λ w => c.vertex_degree w + if w = v then 1 else 0 - if w = q then 1 else 0)
 
 -- Axiom (Based on Merino's Lemma / Properties of Superstable Configurations):
 -- If c and c' are superstable (using the standard definition `superstable`)
