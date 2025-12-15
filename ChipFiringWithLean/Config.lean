@@ -115,7 +115,7 @@ def config_degree_div_degree {q : V} (D : q_eff_div V q) : deg D.D = D.D q + con
   dsimp [config_degree, toConfig, one_chip]
   simp
 
-lemma config_of_div_of_config (c : Config V q) (d : ℤ) (D : q_eff_div V q) :
+lemma config_of_div_of_config (c : Config V q) (d : ℤ)  :
   toConfig (to_qed d c) = c := by
   rcases c with ⟨vertex_degree, q_zero, non_negative⟩
   dsimp [to_qed, toConfig]

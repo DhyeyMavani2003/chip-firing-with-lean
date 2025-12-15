@@ -1210,16 +1210,74 @@ lemma helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) 
   dsimp [D] at h_nonneg_q
   simp [c.q_zero] at h_nonneg_q
 
+lemma winnable_of_deg_ge_genus (G : CFGraph V) (D : CFDiv V) : deg D ≥ genus G → winnable G D := by
+  intro h_deg_ge_g
+  let q := Classical.arbitrary V
+  rcases (exists_q_reduced_representative G q D) with ⟨D_qred, h_equiv, h_qred⟩
+  have := (q_reduced_superstable_correspondence G q D_qred).mp h_qred
+  rcases this with ⟨c, h_super, h_D_eq⟩
+  have := helper_maximal_superstable_exists G q c h_super
+  rcases this with ⟨c_max, h_maximal, h_ge_c⟩
+  have h_deg_c : config_degree c ≤ genus G := by
+    have := degree_max_superstable c_max h_maximal
+    rw [← this]
+    dsimp [config_ge] at h_ge_c
+    apply Finset.sum_le_sum
+    intro v hv
+    specialize h_ge_c v
+    exact h_ge_c
+  have h_ineq := le_trans h_deg_c h_deg_ge_g
+  have D_deg : deg D = deg D_qred := linear_equiv_preserves_deg G D D_qred h_equiv
+  rw [D_deg] at h_ineq
+  have c_from_D : c = toConfig ⟨D_qred, h_qred.1⟩ := by
+    rw [eq_config_iff_eq_vertex_degree]
+    funext v
+    dsimp [toConfig]
+    dsimp [toDiv] at h_D_eq
+    rw [h_D_eq]
+    simp
+    by_cases hvq : v = q
+    · rw [hvq]
+      simp [c.q_zero]
+    · simp [hvq]
+  have deg_eq := config_degree_div_degree ⟨D_qred, h_qred.1⟩
+  simp at deg_eq
+  rw [← c_from_D] at deg_eq
+  rw [← D_deg] at deg_eq
+  have eff_q : D_qred q ≥ 0 := by
+    linarith [h_deg_ge_g, h_deg_c]
+  use D_qred
+  constructor
+  · -- Prove D_qred is effective
+    intro v
+    by_cases hvq : v = q
+    · rw [hvq]
+      exact eff_q
+    · -- v ≠ q
+      rw [h_D_eq]
+      dsimp [toDiv]
+      simp
+      rw [one_chip_apply_other q v]
+      simp [c.non_negative v]
+      intro h; rw [h] at hvq; contradiction
+  · -- Prove linear equivalence
+    exact h_equiv
 
 /-- Axiom: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable
     This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c' : Config V q) :
+lemma helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c' : Config V q) :
   maximal_superstable G c' →
-  ∀ (v : V), winnable G (λ w => (λ v => c'.vertex_degree v - if v = q then 1 else 0) w + if w = v then 1 else 0)
-
-
-
-
+  ∀ (v : V), winnable G (c'.vertex_degree- (one_chip q) + (one_chip v)) := by
+  intro h_max_superstable
+  intro v
+  let D' := c'.vertex_degree - one_chip q + one_chip v
+  have deg_ineq : deg D' ≥ genus G := by
+    dsimp [D']
+    simp
+    have h := degree_max_superstable c' h_max_superstable
+    dsimp [config_degree] at h
+    rw [h]
+  exact winnable_of_deg_ge_genus G D' deg_ineq
 
 /-
 # Helpers for RRG's Corollary 4.4.1
