@@ -146,7 +146,7 @@ lemma qeff_divs_equal (D1 D2 : q_eff_div V q) :
 lemma div_of_config_of_div (D : q_eff_div V q) :
   toDiv (deg D.D) (toConfig D) = D.D := by
   -- apply (qeff_divs_equal (to_qed (deg D.D) (toConfig D)) D).mpr
-  -- dsimp [to_qed]
+  -- dsimp [to_qe]
   funext v
   dsimp [toDiv]
   by_cases h: v ∈ Vtilde q

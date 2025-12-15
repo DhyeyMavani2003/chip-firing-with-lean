@@ -753,6 +753,32 @@ def CFOrientation.reverse (G : CFGraph V) (O : CFOrientation G) : CFOrientation 
         rwa [h_p_is_wv] at h_p_mem_O
       exact (Multiset.count_eq_zero.mp h_wv_O_zero) h_wv_mem_O_derived
 
+-- This lemma was added later than the next couple; it may be useful to use it to simplify those proof.
+lemma flow_reverse {G : CFGraph V} (O : CFOrientation G) (v w : V) :
+  flow (O.reverse G) v w = flow O w v := by
+  dsimp [flow, CFOrientation.reverse]
+  rw [Multiset.count_map (f := Prod.swap)]
+  rw [Multiset.count_eq_card_filter_eq]
+  apply congr_arg Multiset.card
+  have : ∀ a : (V × V), a = ⟨w,v⟩ ↔ ⟨v,w⟩ = Prod.swap a := by
+    intro a
+    constructor
+    · intro h_eq
+      rw [h_eq]
+      rfl
+    · intro h_eq
+      rw [← Prod.swap_swap a]
+      rw [← h_eq]
+      simp
+  apply Multiset.filter_congr
+  intro e _
+  specialize this e
+  -- "this" is now our statement, but with the iff in the opposite order
+  rw [← this]
+  constructor
+  intro h; rw [h]
+  intro h; rw [h]
+
 /- Helper: indegree in reversed orientation equals outdegree in original -/
 lemma indeg_reverse_eq_outdeg (G : CFGraph V) (O : CFOrientation G) (v : V) :
   indeg G (O.reverse G) v = outdeg G O v := by
@@ -801,3 +827,24 @@ lemma is_acyclic_reverse_of_is_acyclic (G : CFGraph V) (O : CFOrientation G)
   }
   have h_non_repeating_q : non_repeating q := h_acyclic q
   exact List.nodup_reverse.mp h_non_repeating_q
+
+
+lemma divisor_reverse_orientation {G : CFGraph V} (O : CFOrientation G)  : ordiv G O + ordiv G (O.reverse) = canonical_divisor G := by
+  let O' := O.reverse
+  funext v
+  rw [add_apply]
+  dsimp [ordiv, canonical_divisor]
+  suffices indeg G O v + indeg G O' v = vertex_degree G v by
+    dsimp [vertex_degree] at this
+    rw [← this]
+    ring
+  rw [indeg_eq_sum_flow, indeg_eq_sum_flow, Nat.cast_sum, Nat.cast_sum]
+  dsimp [vertex_degree]
+  rw [← sum_add_distrib]
+  apply Finset.sum_congr rfl
+  intro w _
+  rw [← opp_flow O v w]
+  rw [Nat.cast_add, add_comm]
+  simp
+  -- Goal is now: flow O' w v = flow O v w
+  rw [flow_reverse O w v]

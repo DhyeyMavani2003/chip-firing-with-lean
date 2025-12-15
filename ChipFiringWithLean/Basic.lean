@@ -399,6 +399,18 @@ def effective (D : CFDiv V) : Prop :=
   ∀ v : V, D v ≥ 0
   -- alternative: just say D ≥ 0. Requires changes elsewhere,
 
+-- Simple example: one_chip is effective.
+-- [TODO] Is this somewhere else in the code already?
+def eff_one_chip (v : V) : effective (one_chip v) := by
+  intro w
+  dsimp [one_chip]
+  by_cases h_eq : w = v
+  · -- Case w = v
+    rw [h_eq]
+    simp
+  · -- Case w ≠ v
+    simp [h_eq]
+
 lemma eff_iff_geq_zero (D : CFDiv V) : effective D ↔ D ≥ 0:= by
   rfl
 

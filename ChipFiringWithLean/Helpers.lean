@@ -602,95 +602,6 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
   exact h_ind k₁ k₂ E'' h_effective h_deg
 
 
--- Redundent with winnable_add_winnable from Rank.lean
--- /- Helper lemma: Winnability is preserved under addition -/
--- theorem helper_winnable_add (G : CFGraph V) (D₁ D₂ : CFDiv V) :
---   winnable G D₁ → winnable G D₂ → winnable G (D₁ + D₂) := by
---   -- Assume D₁ and D₂ are winnable
---   intro h1 h2
-
---   -- Get the effective divisors that D₁ and D₂ are equivalent to
---   rcases h1 with ⟨E₁, hE₁_eff, hE₁_equiv⟩
---   rcases h2 with ⟨E₂, hE₂_eff, hE₂_equiv⟩
-
---   -- Our goal is to show that D₁ + D₂ is winnable
---   -- We'll show E₁ + E₂ is effective and linearly equivalent to D₁ + D₂
-
---   -- Define our candidate effective divisor
---   let E := E₁ + E₂
-
---   -- Show E is effective
---   have hE_eff : effective E := by
---     intro v
---     simp [effective] at hE₁_eff hE₂_eff ⊢
---     have h1 := hE₁_eff v
---     have h2 := hE₂_eff v
---     exact add_nonneg h1 h2
-
---   -- Show E is linearly equivalent to D₁ + D₂
---   have hE_equiv : linear_equiv G (D₁ + D₂) E := by
---     unfold linear_equiv
---     -- Show (E₁ + E₂) - (D₁ + D₂) = (E₁ - D₁) + (E₂ - D₂)
---     have h : E - (D₁ + D₂) = (E₁ - D₁) + (E₂ - D₂) := by
---       funext w
---       simp [sub_apply, add_apply]
---       -- Expand E = E₁ + E₂
---       have h1 : E w = E₁ w + E₂ w := rfl
---       rw [h1]
---       -- Use ring arithmetic to complete the proof
---       ring
-
---     rw [h]
---     -- Use the fact that principal divisors form an additive subgroup
---     exact AddSubgroup.add_mem _ hE₁_equiv hE₂_equiv
-
---   -- Construct the witness for winnability
---   exists E
-
--- /- [Alternative-Proof] Helper theorem: Winnability is preserved under addition -/
--- theorem helper_winnable_add_alternative (G : CFGraph V) (D₁ D₂ : CFDiv V) :
---   winnable G D₁ → winnable G D₂ → winnable G (λ v => D₁ v + D₂ v) := by
---   -- Introduce the winnability hypotheses
---   intros h1 h2
-
---   -- Unfold winnability definition for D₁ and D₂
---   rcases h1 with ⟨E₁, hE₁_eff, hE₁_equiv⟩
---   rcases h2 with ⟨E₂, hE₂_eff, hE₂_equiv⟩
-
---   -- Our goal is to find an effective divisor linearly equivalent to D₁ + D₂
---   use (E₁ + E₂)
-
---   constructor
---   -- Show E₁ + E₂ is effective
---   {
---     unfold Div_plus -- Note: Div_plus is defined using effective
---     unfold effective at *
---     intro v
---     have h1 := hE₁_eff v
---     have h2 := hE₂_eff v
---     exact add_nonneg h1 h2
---   }
-
---   -- Show E₁ + E₂ is linearly equivalent to D₁ + D₂
---   {
---     unfold linear_equiv at *
-
---     -- First convert the function to a CFDiv
---     let D₁₂ : CFDiv V := (λ v => D₁ v + D₂ v)
-
---     have h : (E₁ + E₂ - D₁₂) = (E₁ - D₁) + (E₂ - D₂) := by
---       funext v
---       simp [Pi.add_apply, sub_apply]
---       ring
-
---     rw [h]
---     exact AddSubgroup.add_mem (principal_divisors G) hE₁_equiv hE₂_equiv
---   }
-
-
-
-
-
 /-
 # Helpers for Corollary 4.2.3 + Handshaking Theorem
 -/
@@ -1299,24 +1210,6 @@ lemma helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) 
   dsimp [D] at h_nonneg_q
   simp [c.q_zero] at h_nonneg_q
 
-/-- Axiom: Rank and degree bounds for canonical divisor
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_rank_deg_canonical_bound (G : CFGraph V) (q : V) (D : CFDiv V) (E H : CFDiv V) (c' : Config V q) :
-  linear_equiv G (λ v => c'.vertex_degree v - if v = q then 1 else 0) (λ v => D v - E v + H v) →
-  rank G (λ v => canonical_divisor G v - D v) + deg D - deg E + deg H ≤ rank G D
-
-/-- Axiom: Degree of H relates to graph parameters when H comes from maximal superstable configs
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_H_degree_bound (G : CFGraph V) (q : V) (D : CFDiv V) (H : CFDiv V) (k : ℤ) (c : Config V q) (c' : Config V q) :
-  effective H →
-  H = (λ v => if v = q then -(k + 1) else c'.vertex_degree v - c.vertex_degree v) →
-  rank G D + 1 - (Multiset.card G.edges - Fintype.card V + 1) < deg H
-
-/-- Axiom: Linear equivalence between DO and D-E+H
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-axiom helper_DO_linear_equiv (G : CFGraph V) (q : V) (D E H : CFDiv V) (c' : Config V q) :
-  linear_equiv G (λ v => c'.vertex_degree v - if v = q then 1 else 0)
-               (λ v => D v - E v + H v)
 
 /-- Axiom: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable
     This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
@@ -1361,31 +1254,3 @@ lemma zero_divisor_rank (G : CFGraph V) : rank G (0:CFDiv V) = 0 := by
   have ineq := rank_le_degree G (0:CFDiv V) 1 (by norm_num)
   simp [deg] at ineq
   exact ineq
-
--- Lemma: Firing a set of vertices results in a linearly equivalent divisor.
-lemma fireSet_linear_equiv (G : CFGraph V) (D_initial_acc : CFDiv V) (S : Finset V) :
-  linear_equiv G D_initial_acc (CF.fireSet G D_initial_acc S) := by
-  unfold CF.fireSet
-  let F_fold := fun (current_D_fold : CFDiv V) (v_fold : V) => firing_move G current_D_fold v_fold
-
-  revert D_initial_acc -- Generalize the initial accumulator for the fold.
-
-  induction S.toList with -- Induct directly on S.toList
-  | nil =>
-    intro acc_for_nil_case -- acc_for_nil_case is the universally quantified accumulator for the nil case.
-    -- Goal: linear_equiv G acc_for_nil_case (List.foldl F_fold acc_for_nil_case [])
-    simp only [List.foldl_nil] -- Use simp_only for precision
-    exact (linear_equiv_is_equivalence G).refl acc_for_nil_case
-  | cons v_head current_tail_list ih_for_tail =>
-    -- ih_for_tail : ∀ (acc_for_ih : CFDiv V),
-    --   linear_equiv G acc_for_ih (List.foldl F_fold acc_for_ih current_tail_list)
-    intro acc_for_cons_case -- acc_for_cons_case is the accumulator for this specific cons step.
-    -- Goal: linear_equiv G acc_for_cons_case (List.foldl F_fold acc_for_cons_case (v_head :: current_tail_list))
-    simp only [List.foldl_cons] -- Use simp_only for precision
-    -- Goal after simp: linear_equiv G acc_for_cons_case (List.foldl F_fold (F_fold acc_for_cons_case v_head) current_tail_list)
-    let D_intermediate := F_fold acc_for_cons_case v_head
-    have h_equiv_base_intermediate : linear_equiv G acc_for_cons_case D_intermediate := by
-      exact firing_move_linear_equiv G acc_for_cons_case v_head
-    have h_ih_applied : linear_equiv G D_intermediate (List.foldl F_fold D_intermediate current_tail_list) := by
-      exact ih_for_tail D_intermediate
-    exact (linear_equiv_is_equivalence G).trans h_equiv_base_intermediate h_ih_applied

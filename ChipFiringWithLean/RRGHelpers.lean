@@ -538,44 +538,98 @@ theorem rank_degree_inequality
   rcases helper_maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
 
   -- Let O be corresponding acyclic orientation using the bijection
-  rcases stable_bijection G q with ⟨h_inj, h_surj⟩
+  rcases stable_bijection G q with ⟨_, h_surj⟩
   -- Apply h_surj to the subtype element ⟨c', h_max'⟩
   rcases h_surj ⟨c', h_max'⟩ with ⟨O_subtype, h_eq_c'⟩ -- O_subtype is {O // acyclic ∧ unique_source}
+  let O := O_subtype.val
+  let O_acyc := O_subtype.prop.1
+  let O_unique_source := O_subtype.prop.2
 
   -- Get configuration c' from orientation O_subtype
   -- O_subtype.val is the CFOrientation, O_subtype.prop.1 is acyclicity, O_subtype.prop.2 is uniqueness
-  let c'_config := orientation_to_config G O_subtype.val q O_subtype.prop.1 O_subtype.prop.2
+  let c'_config := orientation_to_config G O q O_acyc O_unique_source
 
   -- Check consistency: h_eq_c' implies c'_config = c'
   have h_orient_eq_c' : c'_config = c' := by exact Subtype.mk.inj h_eq_c'
 
   -- Check consistency (assuming h_eq_c' implies c' = c'_config)
   -- Define H := (c' - c) - (k + 1)q as a divisor (using original c')
-  let H : CFDiv V := λ v =>
-    if v = q then -(k + 1)
-    else c'.vertex_degree v - c.vertex_degree v
+  let H : CFDiv V := -(k+1) • (one_chip q) + c'.vertex_degree - c.vertex_degree
 
   have h_H_eff : effective H := by
-    intro v
-    by_cases h_v : v = q
-    · -- Case v = q
-      rw [h_v]
-      simp [H]
-      -- Since k < 0, k + 1 ≤ 0, so -(k + 1) ≥ 0
-      have h_k_plus_one_nonpos : k + 1 ≤ 0 := by
+    have : c.vertex_degree ≤ c'.vertex_degree := h_ge
+    have diff_eff : effective (c'.vertex_degree - c.vertex_degree) := by
+      rw [sub_eff_iff_geq]
+      exact this
+    have src_eff : effective (-(k+1) • one_chip q)  := by
+      intro v
+      rw [smul_apply]
+      apply mul_nonneg
+      · -- Prove -(k + 1) ≥ 0
         linarith [h_k_neg]
-      linarith
+      · -- Prove one_chip q v ≥ 0
+        exact eff_one_chip q v
+    -- Sum of two effective divisors is effective
+    have := eff_of_eff_add_eff _ _ src_eff diff_eff
+    rw [← add_sub_assoc] at this
+    exact this
 
-    · -- Case v ≠ q
-      simp [H, h_v]
-      -- h_ge shows c' ≥ c for maximal superstable c'
-      have h_ge_at_v : c'.vertex_degree v ≥ c.vertex_degree v := by
-        exact h_ge v
-      -- Therefore difference is non-negative
-      linarith
+  -- The following divisor is called a "moderator" in the literature.
+  -- It is a maximal unwinnable divisor ≥ D-E, as we will show.
+  let M := c'.vertex_degree - one_chip q
+  have M_eq : linear_equiv G M (D - E + H) := by
+    dsimp[M,H]
+    dsimp [linear_equiv]
+    dsimp [linear_equiv] at h_equiv
+    rw [principal_iff_eq_prin] at h_equiv
+    rcases h_equiv with ⟨σ, eq_σ⟩
+    rw [principal_iff_eq_prin]
+    use (-σ)
+    rw [map_neg]
+    rw [← eq_σ]
+    funext v; simp; ring
+
+  have h_M_O : M = ordiv G O := by
+    have c'_eq : c' = toConfig (orqed O O_acyc O_unique_source) := by
+      rw [← h_orient_eq_c']
+      dsimp [c'_config]
+      rw [config_and_divisor_from_O O O_acyc O_unique_source]
+
+    have : toDiv (genus G - 1) (toConfig (orqed O O_acyc O_unique_source)) = ordiv G O := by
+      have := div_of_config_of_div (orqed O O_acyc O_unique_source)
+      dsimp [orqed] at *
+      rw [degree_ordiv O] at this
+      exact this
+    rw [← this]
+    dsimp [M,toDiv]
+    rw [c'_eq]
+    have : (genus G - 1 - config_degree (toConfig (orqed O O_acyc O_unique_source))) = -1 := by
+      dsimp [config_degree]
+      have := config_degree_div_degree (orqed O O_acyc O_unique_source)
+      dsimp [orqed] at this
+      rw [degree_ordiv O] at this
+      rw [this]
+      dsimp [config_degree, toConfig]
+      rw [map_sub, map_sub]
+      dsimp [orqed]
+      simp [degree_ordiv O, map_smul]
+      -- Now just show ordiv has degree -1 at source
+      -- This is surely proved somewhere already??
+      dsimp [ordiv]
+      suffices is_source G O q by
+        dsimp [is_source] at this
+        simp at this
+        rw [this]; simp
+      -- Show q is a source in O... [TODO] bubble this off as a lemma
+      rcases helper_acyclic_has_source G O O_acyc with ⟨s, hs⟩
+      specialize O_unique_source s hs
+      rw [O_unique_source] at hs
+      exact hs
+    simp [this]
+    rw [sub_eq_add_neg]
 
   -- Complete h_DO_unwin
-  have h_DO_unwin : maximal_unwinnable G (λ v => c'.vertex_degree v - if v = q then 1 else 0) := by
+  have h_DO_unwin : maximal_unwinnable G M := by
     constructor
     · -- First show it's unwinnable
       exact helper_superstable_to_unwinnable G q c' h_max'
@@ -583,23 +637,48 @@ theorem rank_degree_inequality
     · -- Then show adding a chip anywhere makes it winnable
       exact helper_maximal_superstable_chip_winnable_exact G q c' h_max'
 
-  -- Use degree property of maximal unwinnable divisors
-  have h_DO_deg : deg (λ v => c'.vertex_degree v - if v = q then 1 else 0) = genus G - 1 :=
-    maximal_unwinnable_deg G _ h_DO_unwin
+  -- Now dualize, to get a statement about the reverse orientation
+  let O' := O.reverse
+  have O'_acyc : is_acyclic G O' := is_acyclic_reverse_of_is_acyclic G O O_acyc
 
-  calc deg D - genus G
-    _ = deg D - (Multiset.card G.edges - Fintype.card V + 1) := by rw [genus]
-    _ < deg D - deg E + deg H := by
-        -- Substitute deg E = rank G D + 1
-        rw [h_E_deg]
-        -- Goal simplifies to: rank G D + 1 - genus G < deg H
-        -- Apply the axiom to get this inequality as a hypothesis
-        have h_bound := helper_H_degree_bound G q D H k c c' h_H_eff (by simp [H]) -- Provide proof for H form
-        -- Show the original goal follows algebraically
-        linarith [h_bound]
-    _ ≤ rank G D - rank G (λ v => canonical_divisor G v - D v) := by
-        -- This inequality is helper_rank_deg_canonical_bound rearranged
-        apply le_sub_iff_add_le.mpr
-        -- Provide the axiom conclusion and let linarith handle rearrangement
-        have h_bound_orig := helper_rank_deg_canonical_bound G q D E H c' (helper_DO_linear_equiv G q D E H c')
-        linarith [h_bound_orig]
+  let M' := ordiv G O'
+  let D' := canonical_divisor G - D
+  have M'_eq : M' = canonical_divisor G - M := by
+    rw [← divisor_reverse_orientation O]
+    rw [h_M_O]
+    simp
+
+  have h_M'_unwin : ¬ (winnable G M') :=
+    ordiv_unwinnable G O' O'_acyc
+  have h_M'_equiv : linear_equiv G (D' - H + E) M' := by
+    rw [M'_eq]
+    dsimp [D', linear_equiv]
+    dsimp [linear_equiv] at M_eq
+    rw [principal_iff_eq_prin] at M_eq
+    rw [principal_iff_eq_prin]
+    rcases M_eq with ⟨σ, eq_σ⟩
+    use σ
+    rw [← eq_σ]
+    abel
+  have h_D'_H : ¬ winnable G (D' - H) := by
+    contrapose! h_M'_unwin
+    have := winnable_add_winnable G (D' - H) E h_M'_unwin (winnable_of_effective G E h_E_eff)
+    apply winnable_equiv_winnable G (D'-H+E) M' this h_M'_equiv
+
+  have ineq : deg H > rank G D' := by
+    contrapose! h_D'_H
+    apply (rank_geq_iff G D' (deg H)).mpr at h_D'_H
+    dsimp [rank_geq] at h_D'_H
+    specialize h_D'_H H ⟨h_H_eff, rfl⟩
+    exact h_D'_H
+
+  -- Finally, degree calculations to finish the inequality
+  dsimp [D'] at ineq
+  have : deg H = - deg D + deg E + deg M := by
+    rw [linear_equiv_preserves_deg G M (D - E + H) M_eq]
+    simp
+    linarith
+  rw [this] at ineq
+  have := degree_ordiv O
+  rw [← h_M_O] at this
+  linarith
