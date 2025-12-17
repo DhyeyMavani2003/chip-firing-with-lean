@@ -1010,48 +1010,6 @@ lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
 # Helpers for Proposition 4.1.13 Part (2)
 -/
 
-
--- Axiom (Based on Merino's Lemma / Properties of Superstable Configurations):
--- If c and c' are superstable (using the standard definition `superstable`)
--- and c' dominates c pointwise (config_ge c' c), then their difference (c' - c)
--- must be a principal divisor. This is a known result in chip-firing theory.
--- It implies deg(c') = deg(c) because non-zero principal divisors have degree 0.
--- This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being.
-axiom superstable_dominance_implies_principal (G : CFGraph V) (q : V) (c c' : Config V q) :
-  superstable G q c → superstable G q c' → config_ge c' c →
-  (λ v => c'.vertex_degree v - c.vertex_degree v) ∈ principal_divisors G
-
-/-- Helper lemma: Difference between dominated configurations
-    implies linear equivalence of corresponding q-reduced divisors.
-
-    This proof relies on the standard definition of superstability (`superstable`)
-    and an axiom (`superstable_dominance_implies_principal`) stating that the difference
-    between dominated standard-superstable configurations is a principal divisor.
--/
-lemma helper_q_reduced_linear_equiv_dominates (G : CFGraph V) (q : V) (c c' : Config V q) :
-  superstable G q c → superstable G q c' → config_ge c' c →
-  linear_equiv G
-    (c.vertex_degree - one_chip q)
-    (c'.vertex_degree - one_chip q) := by
-  intros h_std_super_c h_std_super_c' h_ge
-
-  -- Goal: Show linear_equiv G D₁ D₂
-  -- By definition of linear_equiv, this means D₂ - D₁ ∈ principal_divisors G
-  unfold linear_equiv -- Explicitly unfold the definition
-
-  -- Prove the difference D₂ - D₁ equals c' - c pointwise
-  have h_diff : (c'.vertex_degree - one_chip q) - (c.vertex_degree - one_chip q) =
-                (c'.vertex_degree - c.vertex_degree) := by
-    simp
-
-  -- Rewrite the goal using the calculated difference D₂ - D₁ = c' - c
-  simp
-
-  -- Apply the axiom `superstable_dominance_implies_principal`.
-  -- This axiom states that if c and c' are standard-superstable and c' dominates c,
-  -- then their difference (c' - c) is indeed a principal divisor.
-  exact superstable_dominance_implies_principal G q c c' h_std_super_c h_std_super_c' h_ge
-
 /-- Helper theorem: Linear equivalence preserves winnability -/
 theorem helper_linear_equiv_preserves_winnability (G : CFGraph V) (D₁ D₂ : CFDiv V) :
   linear_equiv G D₁ D₂ → (winnable G D₁ ↔ winnable G D₂) := by

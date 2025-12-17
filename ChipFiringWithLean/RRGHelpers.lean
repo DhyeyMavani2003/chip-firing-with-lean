@@ -198,40 +198,67 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
         rw [sub_eq_add_neg]
       have h_qred_D'' := (q_reduced_superstable_correspondence G q D'').mpr ⟨c', ⟨ h_max_c'.1, D''_toDiv⟩⟩
 
-      -- Show D' is linearly equivalent to D''
-      have h_D'_equiv_D'' : linear_equiv G D' D'' := by
-        -- We know D' = form(c) (h_form_D'_eq_c)
-        -- We know form(c) ~ form(c') = D'' (helper_q_reduced_linear_equiv_dominates)
-        rw [h_form_D'_eq_c] -- Replace D' with form(c)
-        have h1 := h_form_D'_eq_c
-        have h2 := helper_q_reduced_linear_equiv_dominates G q c c' h_super_c h_max_c'.1 h_ge_c'_c
+      -- Show D'' is also unwinnable
+      have h_D''_unwinnable : ¬(winnable G D'') := by
+        by_contra! h_win
+        dsimp [winnable] at h_win
+        rcases h_win with ⟨E, E_eff, E_equiv⟩
+        let E_equiv := (linear_equiv_is_equivalence G).symmetric E_equiv
 
+        have : effective D'' := helper_q_reduced_of_effective_is_effective G q E D'' E_eff E_equiv h_qred_D''
+        dsimp [effective] at this
+        specialize this q
+        dsimp [D''] at this
+        simp [c'.q_zero] at this
 
-        rw [← h1]
-        dsimp [D'']
-        suffices linear_equiv G D' (c.vertex_degree - one_chip q) by
-          have is_trans := (linear_equiv_is_equivalence G).transitive
-          exact is_trans this h2
-        rw [h_form_D'_eq_c]
-        dsimp [toDiv]
-        suffices deg D' = -1 + (config_degree c) by
-          rw [this]
-          simp
-          rw [sub_eq_add_neg]
-          exact (linear_equiv_is_equivalence G).refl (c.vertex_degree - one_chip q)
-        -- Need to prove deg D' = config_degree c - 1.
-        -- Perhaps make a lemma: if D' is q-reduced and maximal unwinnable, then D' q = -1. Is that somewhere already?
+      -- Show D'' dominates D'
+      have h_D''_ge_D' : D'' ≥ D' := by
+        rw [h_form_D']; dsimp [D'']
+        intro v
+        simp
+        -- Goal: c.vertex_degree v ≤ c'.vertex_degree v
+        exact h_ge_c'_c v
 
-        rw [h_form_D', map_sub]
-        dsimp [config_degree]
-        rw [deg_one_chip]
-        linarith
-
-      -- Since D' and D'' are both q-reduced and linearly equivalent, they must be equal
+      -- Deduce that D'' = D' by maximality of D'
       have h_D'_eq_D'' : D' = D'' := by
-        apply q_reduced_unique G q D' D''
-        -- Provide the triple ⟨q_reduced D', q_reduced D'', D' ~ D''⟩
-        exact ⟨h_qred_D', h_qred_D'', h_D'_equiv_D''⟩
+        funext v
+        by_contra h_neq
+        have h_strict : D'' v > D' v := lt_of_le_of_ne (h_D''_ge_D' v) h_neq
+        have h_plus_one : D'' v ≥ D' v + 1 := by linarith
+
+        have h_D''_ge_D'_plus_one : D'' ≥ D' + one_chip v := by
+          intro w
+          by_cases hw : w = v
+          · simp [hw, h_plus_one]
+          · rw [add_apply]
+            simp [hw]
+            exact (h_D''_ge_D' w)
+
+        have helper : winnable G (D'' - D' - one_chip v) := by
+          suffices effective (D'' - D' - one_chip v) by
+            exact winnable_of_effective G (D'' - D' - one_chip v) this
+          intro w
+          specialize h_D''_ge_D'_plus_one w
+          simp at h_D''_ge_D'_plus_one
+          simp
+          linarith
+
+        have h_unwin_D'_plus_one : ¬ (winnable G (D' + one_chip v)) := by
+          contrapose! h_D''_unwinnable with h_win
+          have := winnable_add_winnable G (D'' - D' - one_chip v) (D' + one_chip v) helper h_win
+          simp at this
+          exact this
+
+        let W := D + one_chip v
+        have W_win : winnable G W := h_max_unwinnable_D.2 v
+        have W_equiv_D'_plus_one : linear_equiv G W (D' + one_chip v) := by
+          dsimp [linear_equiv, W]
+          simp
+          exact h_D_equiv_D'
+
+        -- Contradiction: W is winnable, hence D' + one_chip v is winnable.
+        rw [helper_linear_equiv_preserves_winnability G W (D' + one_chip v) W_equiv_D'_plus_one] at W_win
+        exact h_unwin_D'_plus_one W_win
 
       -- Now relate c and c' using D' = D''
       have h_lambda_eq : (c.vertex_degree - one_chip q) = (c'.vertex_degree - one_chip q) := by
