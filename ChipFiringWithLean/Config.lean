@@ -220,6 +220,36 @@ lemma config_eff {q : V} (d : ℤ) (c : Config V q) : effective (toDiv d c) ↔ 
 def config_ge {q : V} (c c' : Config V q) : Prop :=
   ∀ v : V, c.vertex_degree v ≥ c'.vertex_degree v
 
+lemma config_eq_of_ge_and_degree {q : V} {c1 c2 : Config V q} (h_ge : config_ge c1 c2) (h_deg : config_degree c1 = config_degree c2) : c1 = c2 := by
+  apply (eq_config_iff_eq_vertex_degree c1 c2).mpr
+  dsimp [config_ge] at h_ge
+  dsimp [config_degree, deg] at h_deg
+  have h_le : ∀ v : V, c2.vertex_degree v ≤ c1.vertex_degree v := by
+    intro v
+    specialize h_ge v
+    linarith
+  suffices ∀ v : V, c1.vertex_degree v = c2.vertex_degree v by
+    funext v
+    specialize this v
+    exact this
+  contrapose! h_deg with h_ne
+  rcases h_ne with ⟨v, h_v_ne⟩
+  have h_gt : c2.vertex_degree v < c1.vertex_degree v := by
+    specialize h_ge v
+    apply lt_of_le_of_ne h_ge
+    contrapose! h_v_ne
+    simp [h_v_ne]
+  suffices config_degree c2 < config_degree c1 by
+    apply ne_of_gt this
+  dsimp [config_degree, deg]
+  refine Finset.sum_lt_sum ?_ ?_
+  intro i _
+  specialize h_le i
+  exact h_le
+  use v
+  simp
+  exact h_gt
+
 instance : PartialOrder (Config V q) := {
   le := λ c₁ c₂ => c₁.vertex_degree ≤ c₂.vertex_degree,
   le_refl := by
@@ -502,7 +532,7 @@ lemma burn_list_helper (G : CFGraph V) {q : V} (c : Config V q) (h_ss : supersta
     . -- Show the tail is a burn list
       exact h_w_burn_list.2
 
-lemma superstable_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) : ∃ L : burn_list G c, ∀ v : V, L.list.contains v := by
+lemma superstable_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) : ∃ L : burn_list G c, ∀ v : V, v ∈ L.list := by
   have h_card_V : (univ : Finset V).card ≥ 1 := by
     have h_nonempty : Nonempty V := by infer_instance
     have h_card_pos : (univ : Finset V).card > 0 := Fintype.card_pos_iff.mpr h_nonempty
@@ -556,8 +586,26 @@ lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list 
       simp [h_uv',h_uv, h_full v]
       exact num_edges_symmetric G v u
 
-lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (v : V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): (v ∈ L.list) → ∑ (w : V), burn_flow L ⟨w,v⟩ > c.vertex_degree v := by
-  intro h_v_L
+lemma burn_flow_directed {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ v : V, v ∈ L.list) : ∀ (u v : V), burn_flow L ⟨u,v⟩ = 0 ∨ burn_flow L ⟨v,u⟩ = 0 := by
+  intro u v
+  dsimp [burn_flow]
+  by_cases h_uv : L.list.indexOf v < L.list.indexOf u
+  . -- Case: indexOf v < indexOf u
+    simp [h_uv, h_full u, h_full v]
+    right
+    intro h
+    linarith
+  . -- Case: indexOf v ≥ indexOf u
+    by_cases h_eq : L.list.indexOf u = L.list.indexOf v
+    . -- Subcase: indexOf u = indexOf v
+      simp [h_eq]
+    . -- Subcase: indexOf u > indexOf v
+      have h_uv' : L.list.indexOf u < L.list.indexOf v := by
+        simp at h_uv h_eq
+        exact lt_of_le_of_ne h_uv h_eq
+      simp [h_uv',h_uv, h_full v]
+
+lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (v : V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): ∑ (w : V), burn_flow L ⟨w,v⟩ > c.vertex_degree v := by
   let h_bl := L.h_burn_list
   cases h: L.list with
   | nil =>
@@ -570,8 +618,8 @@ lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c)
       rw [h] at h_bl
       dsimp [is_burn_list] at h_bl
       -- So x = q
-      simp [h] at h_v_L
-      rw [h_v_L, ← h_bl] at h_ne
+      simp [h] at h_pres
+      rw [h_pres, ← h_bl] at h_ne
       contradiction
     | cons y rest' =>
       rw [h'] at h
@@ -652,9 +700,9 @@ lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c)
           dsimp [L']
           rw [← h']
           rw [← h'] at h
-          rw [h] at h_v_L
-          simp [h_vx] at h_v_L
-          exact h_v_L
+          rw [h] at h_pres
+          simp [h_vx] at h_pres
+          exact h_pres
         have h_step : ∀ (w : V), burn_flow L ⟨w,v⟩ = burn_flow L' ⟨w,v⟩ := by
           have h_x_nin_rest: x ∉ rest := by
             have := L.h_burn_list
@@ -681,7 +729,7 @@ lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c)
           contrapose! h_vx
           rw [h_vx]
         simp only [h_step]
-        have h_ind := burnin_degree L' v h_v_in_L' h_ne h_v_in_L'
+        have h_ind := burnin_degree L' v h_v_in_L' h_ne
         exact h_ind
 termination_by L.list.length
 decreasing_by

@@ -143,18 +143,7 @@ lemma effective_of_winnable_and_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) 
 # Helpers for Lemma 4.1.10
 -/
 
-/-- Lemma: A non-empty graph with an acyclic orientation must have at least one source. -/
-lemma helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
-  is_acyclic G O → ∃ v : V, is_source G O v := by
-  intro h_acyclic
-  have h := subset_source G O Finset.univ Finset.univ_nonempty h_acyclic
-  rcases h with ⟨v, _, h_source⟩
-  use v
-  dsimp [is_source]
-  simp
-  rw [indeg_eq_sum_flow]
-  apply Finset.sum_eq_zero
-  exact h_source
+
 
 lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
     ∀ v : V, (v,v) ∉ O.directed_edges := by
@@ -392,13 +381,47 @@ lemma helper_orientation_config_superstable (G : CFGraph V) (O : CFOrientation G
     dsimp [orqed]
     exact ordiv_q_reduced O h_acyc h_unique_source
 
-/- Axiom: Defining a reusable block for a configuration from an acyclic orientation with source q being maximal superstable
+/- Lemma: Defining a reusable block for a configuration from an acyclic orientation with source q being maximal superstable
           Only to be used to define a maximal superstable configuration from an acyclic orientation with source q as a Prop.
-   This was especially hard to prove in Lean4, so we are leaving it as an axiom for now.
 -/
-axiom helper_orientation_config_maximal (G : CFGraph V) (O : CFOrientation G) (q : V)
+lemma helper_orientation_config_maximal (G : CFGraph V) (O : CFOrientation G) (q : V)
     (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-    maximal_superstable G (orientation_to_config G O q h_acyc h_unique_source)
+    maximal_superstable G (orientation_to_config G O q h_acyc h_unique_source) := by
+  dsimp [maximal_superstable]
+  let cO := orientation_to_config G O q h_acyc h_unique_source
+  have h_ssO : superstable G q cO := helper_orientation_config_superstable G O q h_acyc h_unique_source
+  simp [h_ssO]
+  -- Goal is now just maximality of cO.
+  -- Suppose another divisor is bigger. THere's an orientation divisor yet above that one.
+  intro c h_ss h_ge
+  rcases superstable_dhar h_ss with ⟨O', h_acyc', h_src', h_ge'⟩
+  let c' := orientation_to_config G O' q h_acyc' h_src'
+  -- Sandwich c between cO and c', which have the same degree
+  -- These two blocks are repetitive; could factor them out
+  have h_deg_le : config_degree cO ≤ config_degree c := by
+    rw [config_degree]
+    rw [config_degree]
+    dsimp [deg]
+    apply Finset.sum_le_sum
+    intro v _
+    specialize h_ge v
+    simp [h_ge]
+  have h_deg_le' : config_degree c ≤ config_degree c' := by
+    rw [config_degree]
+    rw [config_degree]
+    dsimp [deg]
+    apply Finset.sum_le_sum
+    intro v _
+    specialize h_ge' v
+    simp [h_ge']
+  rw [config_degree_from_O] at h_deg_le h_deg_le'
+  have h_deg : config_degree c = genus G := by
+    linarith
+  have h_deg : config_degree c = config_degree cO := by
+    rw [config_degree_from_O]
+    exact h_deg
+  -- Now apply config equality from degree and ge
+  exact config_eq_of_ge_and_degree h_ge h_deg
 
 /-- Lemma: Two acyclic orientations with same indegrees are equal -/
 lemma orientation_unique_by_indeg {G : CFGraph V} (O₁ O₂ : CFOrientation G)
@@ -465,21 +488,27 @@ lemma helper_config_eq_of_subtype_eq {G : CFGraph V} {q : V}
     orientation_to_config G O₁.val q O₁.prop.1 O₁.prop.2 := by
   exact h.symm
 
-/-- Axiom: Every superstable configuration extends to a maximal superstable configuration
-    This was especially hard to prove in Lean4, so we are leaving it as an axiom for now. -/
-axiom helper_maximal_superstable_exists (G : CFGraph V) (q : V) (c : Config V q)
+/-- Lemma: Every superstable configuration extends to a maximal superstable configuration -/
+lemma helper_maximal_superstable_exists (G : CFGraph V) (q : V) (c : Config V q)
     (h_super : superstable G q c) :
-    ∃ c' : Config V q, maximal_superstable G c' ∧ config_ge c' c
+    ∃ c' : Config V q, maximal_superstable G c' ∧ config_ge c' c := by
+    rcases superstable_dhar h_super with ⟨O, h_acyc, h_src, h_ge⟩
+    let c' := orientation_to_config G O q h_acyc h_src
+    use c'
+    simp [h_ge]
+    -- Remains to show c' is maximal superstable
+    exact helper_orientation_config_maximal G O q h_acyc h_src
 
-/-- Axiom: Every maximal superstable configuration comes from an acyclic orientation
-    This was especially hard to prove in Lean4, so we are leaving it as an axiom for now. -/
-axiom helper_maximal_superstable_orientation (G : CFGraph V) (q : V) (c : Config V q)
+/-- Lemma: Every maximal superstable configuration comes from an acyclic orientation -/
+lemma helper_maximal_superstable_orientation (G : CFGraph V) (q : V) (c : Config V q)
     (h_max : maximal_superstable G c) :
     ∃ (O : CFOrientation G) (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q),
-      orientation_to_config G O q h_acyc h_unique_source = c
-
-
-
+      orientation_to_config G O q h_acyc h_unique_source = c := by
+rcases superstable_dhar h_max.1 with ⟨O, h_acyc, h_src, h_ge⟩
+use O, h_acyc, h_src
+let c' := orientation_to_config G O q h_acyc h_src
+have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q h_acyc h_src) h_ge
+rw [← h_eq]
 
 
 /-
