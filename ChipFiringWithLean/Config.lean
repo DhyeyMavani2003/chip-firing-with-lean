@@ -386,6 +386,304 @@ def is_burn_list (G : CFGraph V) {q : V} (c : Config V q) (L : List V) : Prop :=
       ∧ ¬ (w :: rest).contains v
       ∧ is_burn_list G c (w :: rest)
 
+lemma burn_list_contains_q (G : CFGraph V) {q : V} (c : Config V q) (L : List V) (h_bl : is_burn_list G c L) :
+  L.contains q := by
+  induction L with
+  | nil =>
+    dsimp [is_burn_list] at h_bl
+  | cons v rest ih =>
+    cases rest with
+    | nil =>
+      dsimp [is_burn_list] at h_bl
+      rw [h_bl]
+      simp
+    | cons w rest' =>
+      dsimp [is_burn_list] at h_bl
+      rcases h_bl with ⟨h_outdeg, h_not_in_rest, h_rest_burn_list⟩
+      specialize ih h_rest_burn_list
+      simp
+      simp at ih
+      simp [ih]
+
+lemma extend_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) (L : List V) : is_burn_list G c L → (∃ v : V, ¬ L.contains v) → (∃ w : V, w ∉ L.toFinset ∧ is_burn_list G c (w :: L)) := by
+  intro h_bl h_exists_v
+  let S := univ \ L.toFinset
+  have h_S_ne : S.Nonempty := by
+    rcases h_exists_v with ⟨v, h_v_not_in_L⟩
+    use v
+    dsimp [S]
+    simp [h_v_not_in_L]
+    contrapose! h_v_not_in_L with h_raa
+    simp [h_raa]
+  have h_S_Vtilde : S ⊆ Vtilde q := by
+    intro v h_v_in_S
+    dsimp [Vtilde]
+    simp
+    contrapose! h_v_in_S with h_eq
+    rw [h_eq]
+    dsimp [S]
+    simp
+    -- Goal is not: q ∈ L
+    have := burn_list_contains_q G c L h_bl
+    simp at this
+    exact this
+  specialize h_ss S h_S_Vtilde h_S_ne
+  rcases h_ss with ⟨v, hv_in_S, hv_outdeg⟩
+  use v
+  dsimp [S] at hv_outdeg hv_in_S -- To get L to simplify after matching
+  match L with
+  | [] =>
+    exfalso
+    dsimp [is_burn_list] at h_bl
+  | h :: t =>
+    dsimp [is_burn_list]
+    -- Unpack all the conjunctions and use hypotheses one by one
+    constructor
+    . simp at hv_in_S
+      simp
+      exact hv_in_S
+    constructor
+    . exact hv_outdeg
+    constructor
+    simp [hv_in_S]
+    constructor
+    intro h
+    rw [h] at hv_in_S
+    simp at hv_in_S
+    simp at hv_in_S
+    exact hv_in_S.2
+    exact h_bl
+
 structure burn_list (G : CFGraph V) {q : V} (c : Config V q) :=
   (list : List V)
   (h_burn_list : is_burn_list G c list)
+
+lemma burn_list_helper (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) (n : ℕ) : (n < Finset.card (univ : Finset V))→ ∃ (L : List V), L.toFinset.card = n+1 ∧ is_burn_list G c L := by
+  intro h_n_lt_card_V
+  induction n with
+  | zero =>
+    use [q]
+    constructor
+    simp
+    dsimp [is_burn_list]
+  | succ n ih =>
+    have ih_L : n < (univ : Finset V).card := by
+      linarith
+    apply ih at ih_L
+    rcases ih_L with ⟨L, h_L_length, h_L_burn_list⟩
+    have h_exists_v : ∃ v : V, ¬ L.contains v := by
+      have h_card_L_le : L.toFinset.card < (univ : Finset V).card := by
+        rw [← h_L_length] at h_n_lt_card_V
+        linarith
+      have : ∃ v : V, v ∉ L.toFinset := by
+        refine not_forall.mp ?_
+        intro h_all_in_L
+        have : (univ : Finset V) ⊆ L.toFinset := by
+          intro v _
+          specialize h_all_in_L v
+          exact h_all_in_L
+        have bad_ineq : (univ : Finset V).card ≤ L.toFinset.card := Finset.card_le_card this
+        linarith
+      rcases this with ⟨v, h_v_not_in_L⟩
+      use v
+      contrapose! h_v_not_in_L with h_all_in_L
+      simp at h_all_in_L
+      simp [h_all_in_L]
+    have := extend_burn_list G c h_ss L h_L_burn_list h_exists_v
+    rcases this with ⟨w, h_w_burn_list⟩
+    use w :: L
+    constructor
+    . -- Show cardinality is n+2
+      rw [List.toFinset_cons]
+      rw [card_insert_eq_ite]
+      -- Need: w ∉ L.toFinset
+      simp [h_w_burn_list.1]
+      rw [h_L_length]
+    . -- Show the tail is a burn list
+      exact h_w_burn_list.2
+
+lemma superstable_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) : ∃ L : burn_list G c, ∀ v : V, L.list.contains v := by
+  have h_card_V : (univ : Finset V).card ≥ 1 := by
+    have h_nonempty : Nonempty V := by infer_instance
+    have h_card_pos : (univ : Finset V).card > 0 := Fintype.card_pos_iff.mpr h_nonempty
+    linarith
+  have : (univ : Finset V).card - 1 < (univ : Finset V).card := by
+    simp
+    -- Now show Fintype.card V > 0, so that the subtraction makes sense
+    apply Fintype.card_pos_iff.mpr
+    infer_instance
+  have h_burn_list := burn_list_helper G c h_ss ((univ : Finset V).card - 1) this
+  rcases h_burn_list with ⟨L, h_L_length, h_L_burn_list⟩
+  have h_L_card : L.toFinset.card = (univ : Finset V).card := by
+    simp [h_L_length]
+    apply Nat.sub_add_cancel
+    exact h_card_V
+  use burn_list.mk L h_L_burn_list
+  intro v
+  simp
+  -- Goal : v ∈ L
+  suffices (univ : Finset V) ⊆ L.toFinset by
+    have := this (Finset.mem_univ v)
+    simp at this
+    exact this
+  apply univ_subset_iff.mpr
+  -- Goal: L.toFinset = univ
+  exact (card_eq_iff_eq_univ L.toFinset).mp h_L_card
+
+-- The following lemmas establish the necessary properties of the orientation to be defined from the burn order.
+
+def burn_flow {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) : (V × V) → ℕ :=
+  λ e => if (e.1 ∈ L.list) ∧ (L.list.indexOf e.2 < L.list.indexOf e.1) then num_edges G e.1 e.2 else 0
+
+lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ v : V, v ∈ L.list) : ∀ (u v : V), (burn_flow L ⟨u, v⟩) + (burn_flow L ⟨v, u⟩) = num_edges G u v := by
+  intro u v
+  dsimp [burn_flow]
+  by_cases h_uv : L.list.indexOf v < L.list.indexOf u
+  . -- Case: indexOf v < indexOf u
+    simp [h_uv, h_full u, h_full v]
+    intro h
+    linarith
+  . -- Case: indexOf v ≥ indexOf u
+    by_cases h_eq : L.list.indexOf u = L.list.indexOf v
+    . -- Subcase: indexOf u < indexOf v
+      simp [h_eq]
+      have : u = v := (List.indexOf_inj (h_full u) (h_full v)).mp h_eq
+      rw [this, num_edges_self_eq_zero G v]
+    . -- Subcase: indexOf u > indexOf v
+      have h_uv' : L.list.indexOf u < L.list.indexOf v := by
+        simp at h_uv h_eq
+        exact lt_of_le_of_ne h_uv h_eq
+      simp [h_uv',h_uv, h_full v]
+      exact num_edges_symmetric G v u
+
+lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (v : V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): (v ∈ L.list) → ∑ (w : V), burn_flow L ⟨w,v⟩ > c.vertex_degree v := by
+  intro h_v_L
+  let h_bl := L.h_burn_list
+  cases h: L.list with
+  | nil =>
+    rw [h] at h_bl
+    dsimp [is_burn_list] at h_bl
+  | cons x rest =>
+    cases h' : rest with
+    | nil =>
+      rw [h'] at h
+      rw [h] at h_bl
+      dsimp [is_burn_list] at h_bl
+      -- So x = q
+      simp [h] at h_v_L
+      rw [h_v_L, ← h_bl] at h_ne
+      contradiction
+    | cons y rest' =>
+      rw [h'] at h
+      rw [h] at h_bl
+      dsimp [is_burn_list] at h_bl
+      -- Need to analyze the position of v in the list
+      by_cases h_vx : v = x
+      . -- Case: v = x
+        rw [← h_vx] at h_bl
+        suffices ∑ (w : V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G q (univ \ (y :: rest').toFinset) v by
+          linarith [this, h_bl.1]
+        dsimp [burn_flow]
+        have ind_v : L.list.indexOf v = 0 := by
+          rw [h_vx,h]
+          simp
+        simp only [ind_v]
+        have h_ineq := h_bl.1
+        have h_above : ∀ (x : V), x ∈ L.list ∧ 0 < List.indexOf x L.list ↔ x ∈ rest := by
+          intro w
+          rw [← h'] at h
+          rw [h]
+          simp
+          have : 0 < List.indexOf w (x :: rest) ↔ 0 ≠ List.indexOf w (x :: rest) := by
+            constructor
+            . intro h_pos
+              intro h_eq
+              rw [h_eq] at h_pos
+              linarith
+            . intro h_neq
+              simp at h_neq
+              apply Nat.zero_lt_of_ne_zero
+              contrapose! h_neq with h_eq_zero
+              rw [h_eq_zero]
+          rw [this]
+          have : 0 ≠ List.indexOf w (x :: rest) ↔ w ≠ x := by
+            constructor
+            . intro h_neq
+              contrapose! h_neq with h_eq
+              rw [h_eq]
+              simp
+            . intro h_neq
+              rw [List.indexOf_cons_ne]
+              simp [h_neq]
+              intro h
+              rw [h] at h_neq
+              contradiction
+          rw [this]
+          constructor
+          . -- Forward direction
+            intro h_w
+            by_contra!
+            simp [this] at h_w
+          . -- Reverse direction
+            intro h_w_in_rest
+            simp [h_w_in_rest]
+            by_contra!
+            rw [this] at h_w_in_rest
+            have := h_bl.2.1
+            rw [h_vx] at this
+            rw [← h'] at this
+            absurd this
+            simp [h_w_in_rest]
+        simp only [h_above]
+        dsimp [outdeg_S]
+        rw [← h']
+        rw [Finset.sum_ite, Finset.sum_const_zero, add_zero]
+        simp
+        have : Finset.filter (Membership.mem rest) univ = rest.toFinset := by
+          ext w
+          simp
+        rw [this]
+        apply sum_le_sum
+        intro i _
+        rw [num_edges_symmetric G i v]
+      . -- Case: v ≠ x
+        let L' := burn_list.mk (y :: rest') (h_bl.2.2)
+        have h_v_in_L' : v ∈ L'.list := by
+          dsimp [L']
+          rw [← h']
+          rw [← h'] at h
+          rw [h] at h_v_L
+          simp [h_vx] at h_v_L
+          exact h_v_L
+        have h_step : ∀ (w : V), burn_flow L ⟨w,v⟩ = burn_flow L' ⟨w,v⟩ := by
+          have h_x_nin_rest: x ∉ rest := by
+            have := L.h_burn_list
+            rw [h] at this
+            have := this.2.1
+            rw [h']
+            simp at this
+            simp [this]
+          intro w
+          dsimp [burn_flow]
+          rw [← h'] at h ⊢
+          rw [h]
+          rw [List.indexOf_cons_ne]
+          by_cases h_wx : w = x
+          . -- Subcase: w = x
+            rw [h_wx]
+            simp [h_x_nin_rest]
+          . -- Subcase: w ≠ x
+            simp [h_wx]
+            rw [List.indexOf_cons_ne]
+            simp
+            contrapose! h_wx
+            rw [h_wx]
+          contrapose! h_vx
+          rw [h_vx]
+        simp only [h_step]
+        have h_ind := burnin_degree L' v h_v_in_L' h_ne h_v_in_L'
+        exact h_ind
+termination_by L.list.length
+decreasing_by
+  rw [h,h']
+  simp
