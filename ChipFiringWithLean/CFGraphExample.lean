@@ -34,10 +34,6 @@ theorem loopless_example_edges : isLoopless exampleEdges = true := by rfl
 theorem loopless_prop_example_edges : isLoopless_prop exampleEdges := by
   unfold isLoopless_prop
   decide
-theorem undirected_example_edges : isUndirected exampleEdges = true := by rfl
-theorem undirected_prop_example_edges : isUndirected_prop exampleEdges := by
-  unfold isUndirected_prop
-  decide
 
 -- Example usage for Person type in a graph with a loop
 def edgesWithLoop : Multiset (Person × Person) :=
@@ -48,16 +44,6 @@ def edgesWithLoop : Multiset (Person × Person) :=
   ]
 theorem loopless_test_edges_with_loop : isLoopless edgesWithLoop = false := by rfl
 
--- Example usage for Person type in a graph with a non-undirected edge
-def edgesWithNonUndirected : Multiset (Person × Person) :=
-  Multiset.ofList [
-    (Person.A, Person.B),
-    (Person.B, Person.C),
-    (Person.C, Person.E),
-    (Person.E, Person.C)  -- This is a non-undirected edge
-  ]
-theorem undirected_test_edges_with_non_undirected : isUndirected edgesWithNonUndirected = false := by rfl
-
 def example_graph : CFGraph Person := {
   edges := Multiset.ofList [
     (Person.A, Person.B), (Person.B, Person.C),
@@ -65,7 +51,6 @@ def example_graph : CFGraph Person := {
     (Person.A, Person.E), (Person.E, Person.C)
   ],
   loopless := by rfl,
-  undirected := by rfl
 }
 
 def initial_wealth : CFDiv Person :=

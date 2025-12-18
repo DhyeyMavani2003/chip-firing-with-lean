@@ -71,52 +71,10 @@ lemma isLoopless_prop_bool_equiv (edges : Multiset (V × V)) :
 
     linarith
 
--- Define a set of edges to be undirected only if it doesn't have both (v, w) and (w, v)
-def isUndirected (edges : Multiset (V × V)) : Bool :=
-  Multiset.card (edges.filter (λ e => (e.2, e.1) ∈ edges)) = 0
-
-def isUndirected_prop (edges : Multiset (V × V)) : Prop :=
-  ∀ v1 v2, (v1, v2) ∈ edges → (v2, v1) ∉ edges
-
-lemma isUndirected_prop_bool_equiv (edges : Multiset (V × V)) :
-    isUndirected_prop edges ↔ isUndirected edges = true := by
-  unfold isUndirected_prop isUndirected
-  constructor
-  · intro h_prop -- Assume isUndirected_prop edges
-    apply decide_eq_true -- Goal: decide (...) = true
-    rw [Multiset.card_eq_zero] -- Goal: filter (...) = 0
-    simp only [Multiset.eq_zero_iff_forall_not_mem] -- Goal: ∀ (a : V × V), a ∉ filter (...) edges
-    intro e he_filter -- Assume e ∈ filter (...) edges
-    -- Unpack he_filter
-    have h_mem_edges : e ∈ edges := Multiset.mem_filter.mp he_filter |>.1
-    have h_rev_mem_edges : (e.2, e.1) ∈ edges := Multiset.mem_filter.mp he_filter |>.2
-    -- Use h_prop to get a contradiction
-    exact h_prop e.1 e.2 h_mem_edges h_rev_mem_edges
-  · intro h_bool -- Assume isUndirected edges = true
-    intro v1 v2 h_v1v2_mem h_v2v1_mem -- Assume v1, v2, (v1, v2) ∈ edges, (v2, v1) ∈ edges. Goal: False
-    apply False.elim
-    -- Show (v1, v2) is in the filtered multiset
-    have h_filter_mem : (v1, v2) ∈ Multiset.filter (λ e => (e.2, e.1) ∈ edges) edges := by
-      apply Multiset.mem_filter.mpr
-      constructor
-      · exact h_v1v2_mem -- (v1, v2) ∈ edges
-      · simp -- Goal: ((v1, v2).2, (v1, v2).1) ∈ edges
-        exact h_v2v1_mem -- (v2, v1) ∈ edges
-    -- The card of the filtered multiset must be > 0
-    have h_card_pos : Multiset.card (Multiset.filter (λ e => (e.2, e.1) ∈ edges) edges) > 0 := by
-      apply Multiset.card_pos_iff_exists_mem.mpr
-      exists (v1, v2)
-    -- Get card = 0 from h_bool
-    have h_card_zero : Multiset.card (Multiset.filter (λ e => (e.2, e.1) ∈ edges) edges) = 0 := by
-      apply of_decide_eq_true h_bool
-    -- Contradiction
-    linarith -- h_card_pos contradicts h_card_zero
-
--- Multigraph with undirected and loopless edges
+-- Multigraph with loopless edges
 structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (edges : Multiset (V × V))
   (loopless : isLoopless edges = true)
-  (undirected: isUndirected edges = true)
 
 /-- The genus of a graph is its cycle rank: |E| - |V| + 1 -/
 def genus (G : CFGraph V) : ℤ :=
