@@ -71,6 +71,7 @@ lemma isLoopless_prop_bool_equiv (edges : Multiset (V × V)) :
 
     linarith
 
+
 -- Multigraph with loopless edges
 structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (edges : Multiset (V × V))
@@ -84,6 +85,15 @@ lemma CFGraph_loopless_prop (G : CFGraph V) :
   isLoopless_prop G.edges := by
   rw [isLoopless_prop_bool_equiv G.edges]
   exact G.loopless
+
+-- Number of edges between two vertices as an integer
+-- It is preferable to use this function to access the graph structrue rather than accessing G.edges directly, in case the implementation changes.
+def num_edges (G : CFGraph V) (v w : V) : ℕ :=
+  Multiset.card (G.edges.filter (λ e => e = (v, w) ∨ e = (w, v)))
+
+def graph_connected (G : CFGraph V) : Prop :=
+  ∀ S : Finset V, ∃ (v w : V), v ∈ S ∧ w ∉ S →
+    ∃ v ∈ S, ∃ w ∉ S, num_edges G v w > 0
 
 -- Divisor as a function from vertices to integers
 def CFDiv (V : Type) := V → ℤ
@@ -167,10 +177,6 @@ lemma divisor_sub_eq_lambda (G : CFGraph V) (D₁ D₂ : CFDiv V) :
   (D₁ - D₂) = D₁ - D₂ := by
   funext v
   simp [sub_apply]
-
--- Number of edges between two vertices as an integer
-def num_edges (G : CFGraph V) (v w : V) : ℕ :=
-  Multiset.card (G.edges.filter (λ e => e = (v, w) ∨ e = (w, v)))
 
 -- Lemma: Number of edges is non-negative
 lemma num_edges_nonneg (G : CFGraph V) (v w : V) :

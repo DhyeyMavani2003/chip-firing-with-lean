@@ -61,7 +61,7 @@ noncomputable def sum_negativity_outside_q_list (q : V) (D : CFDiv V) : List ℕ
   (Finset.univ.erase q).toList.map (λ v => if D v < 0 then (-D v).toNat else 0)
 
 /- Axiom: Existence of a q-reduced representative within a divisor class -/
-axiom exists_q_reduced_representative (G : CFGraph V) (q : V) (D_initial : CFDiv V) :
+axiom exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D_initial : CFDiv V) :
   ∃ D' : CFDiv V, linear_equiv G D_initial D' ∧ q_reduced G q D'
 
 /- Lemma: Uniqueness of the q-reduced representative within a divisor class -/
@@ -85,12 +85,12 @@ lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv 
   exact q_reduced_unique G q D₁ D₂ ⟨h_qred_D1, h_qred_D2, h_equiv_D1_D2⟩
 
 /- Lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
-lemma helper_unique_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :
+lemma helper_unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   ∃! D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
   -- Prove existence and uniqueness separately
   -- Existence comes from the axiom
   have h_exists : ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
-    exact exists_q_reduced_representative G q D
+    exact exists_q_reduced_representative h_conn q D
 
   -- Uniqueness comes from the lemma proven above
   have h_unique : ∀ (y₁ y₂ : CFDiv V),
@@ -1067,12 +1067,12 @@ lemma helper_source_indeg_eq_at_q (G : CFGraph V) (O₁ O₂ : CFOrientation G) 
     from Dhar (1990) proven in detail in Chapter 3 of Corry & Perkinson's "Divisors and
     Sandpiles" (AMS, 2018)
 -/
-lemma helper_dhar_algorithm (G : CFGraph V) (q : V) (D : CFDiv V) :
+lemma helper_dhar_algorithm {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   ∃ (c : Config V q) (k : ℤ),
     linear_equiv G D (c.vertex_degree + k • (one_chip q)) ∧
     superstable G q c := by
   -- 1. Get the q-reduced representative D' for D using the axiom
-  rcases exists_q_reduced_representative G q D with ⟨D', h_equiv_D_D', h_qred_D'⟩
+  rcases exists_q_reduced_representative h_conn q D with ⟨D', h_equiv_D_D', h_qred_D'⟩
 
   -- 2. Use the correspondence lemma to get c from D'
   rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_D'_eq_c_minus_delta_q⟩
@@ -1121,13 +1121,13 @@ lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   apply (linear_equiv_is_equivalence G).symm h_equiv
 
 -- [Proven] Proposition 3.2.4: q-reduced and effective implies winnable
-theorem winnable_iff_q_reduced_effective (G : CFGraph V) (q : V) (D : CFDiv V) :
+theorem winnable_iff_q_reduced_effective {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
   constructor
   { -- Forward direction
     intro h_win
     rcases h_win with ⟨E, h_eff, h_equiv⟩
-    rcases helper_unique_q_reduced G q D with ⟨D', h_D'⟩
+    rcases helper_unique_q_reduced h_conn q D with ⟨D', h_D'⟩
     use D'
     constructor
     · exact h_D'.1.1  -- D is linearly equivalent to D'
@@ -1151,7 +1151,7 @@ theorem winnable_iff_q_reduced_effective (G : CFGraph V) (q : V) (D : CFDiv V) :
     c' that is greater than or equal to any superstable divisor c. This is a key
     result from Corry & Perkinson's "Divisors and Sandpiles" (AMS, 2018) that is
     used in proving the Riemann-Roch theorem for graphs. -/
-lemma helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) :
+lemma helper_superstable_to_unwinnable {G : CFGraph V} (h_conn : graph_connected G) (q : V) (c : Config V q) :
   maximal_superstable G c →
   ¬winnable G (c.vertex_degree - one_chip q) := by
   intro h_max_superstable
@@ -1174,12 +1174,12 @@ lemma helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) 
       rw [sub_apply, add_apply, smul_apply]
       linarith
   by_contra! h_winnable
-  have := (winnable_iff_q_reduced_effective G q D).mp
+  have := (winnable_iff_q_reduced_effective h_conn q D).mp
   dsimp [D] at this
   apply this at h_winnable
   rcases h_winnable with ⟨D', h_equiv, h_qred', h_eff⟩
   -- Use uniqueness of q-reduced forms to conclude D = D'
-  rcases helper_unique_q_reduced G q D with ⟨D'', h_equiv'', h_unique⟩
+  rcases helper_unique_q_reduced h_conn q D with ⟨D'', h_equiv'', h_unique⟩
   have h_eq : D = D'' := by
     apply h_unique D
     constructor
@@ -1197,10 +1197,10 @@ lemma helper_superstable_to_unwinnable (G : CFGraph V) (q : V) (c : Config V q) 
   dsimp [D] at h_nonneg_q
   simp [c.q_zero] at h_nonneg_q
 
-lemma winnable_of_deg_ge_genus (G : CFGraph V) (D : CFDiv V) : deg D ≥ genus G → winnable G D := by
+lemma winnable_of_deg_ge_genus {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) : deg D ≥ genus G → winnable G D := by
   intro h_deg_ge_g
   let q := Classical.arbitrary V
-  rcases (exists_q_reduced_representative G q D) with ⟨D_qred, h_equiv, h_qred⟩
+  rcases (exists_q_reduced_representative h_conn q D) with ⟨D_qred, h_equiv, h_qred⟩
   have := (q_reduced_superstable_correspondence G q D_qred).mp h_qred
   rcases this with ⟨c, h_super, h_D_eq⟩
   have := helper_maximal_superstable_exists G q c h_super
@@ -1252,7 +1252,7 @@ lemma winnable_of_deg_ge_genus (G : CFGraph V) (D : CFDiv V) : deg D ≥ genus G
 
 /-- Axiom: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable
     This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
-lemma helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c' : Config V q) :
+lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : graph_connected G) (q : V) (c' : Config V q) :
   maximal_superstable G c' →
   ∀ (v : V), winnable G (c'.vertex_degree- (one_chip q) + (one_chip v)) := by
   intro h_max_superstable
@@ -1264,7 +1264,7 @@ lemma helper_maximal_superstable_chip_winnable_exact (G : CFGraph V) (q : V) (c'
     have h := degree_max_superstable c' h_max_superstable
     dsimp [config_degree] at h
     rw [h]
-  exact winnable_of_deg_ge_genus G D' deg_ineq
+  exact winnable_of_deg_ge_genus h_conn D' deg_ineq
 
 /-
 # Helpers for RRG's Corollary 4.4.1

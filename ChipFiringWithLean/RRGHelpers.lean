@@ -37,21 +37,6 @@ lemma legal_firing_preserves_effective (G : CFGraph V) (D : CFDiv V) (S : Finset
     exact add_nonneg h1 h2
 
 
-
--- [Proven] Proposition 3.2.4 (Extension): q-reduced and effective implies winnable
-theorem q_reduced_effective_implies_winnable (G : CFGraph V) (q : V) (D : CFDiv V) :
-  q_reduced G q D → effective D → winnable G D := by
-  intros h_qred h_eff
-  -- Apply right direction of iff
-  rw [winnable_iff_q_reduced_effective]
-  -- Prove existence
-  use D
-  constructor
-  · exact (linear_equiv_is_equivalence G).refl D  -- D is linearly equivalent to itself using proven reflexivity
-  constructor
-  · exact h_qred  -- D is q-reduced
-  · exact h_eff   -- D is effective
-
 /-- [Proven] Lemma 4.1.10: An acyclic orientation is uniquely determined by its indegree sequence -/
 theorem acyclic_orientation_unique_by_indeg {G : CFGraph V}
   (O O' : CFOrientation G)
@@ -164,7 +149,7 @@ theorem maximal_superstable_config_prop (G : CFGraph V) (q : V) (c : Config V q)
     exact helper_degree_g_implies_maximal G q c h_super h_deg }
 
 /-- [Proven] Proposition 4.1.13 (2): Characterization of maximal unwinnable divisors -/
-theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
+theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   maximal_unwinnable G D ↔
   ∃ c : Config V q, maximal_superstable G c ∧
   ∃ D' : CFDiv V, q_reduced G q D' ∧ linear_equiv G D D' ∧
@@ -173,7 +158,7 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
   { -- Forward direction (⇒)
     intro h_max_unwinnable_D -- Assume D is maximal unwinnable
     -- Get the unique q-reduced representative D' for D
-    rcases helper_unique_q_reduced G q D with ⟨D', ⟨h_D_equiv_D', h_qred_D'⟩, _⟩
+    rcases helper_unique_q_reduced h_conn q D with ⟨D', ⟨h_D_equiv_D', h_qred_D'⟩, _⟩
     -- Show D' corresponds to some superstable c
     rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_form_D'_eq_c⟩
 
@@ -311,7 +296,7 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
 
       -- The divisor form derived from a maximal superstable config is unwinnable
       have h_unwin_form : ¬(winnable G (λ v => c.vertex_degree v - if v = q then 1 else 0)) :=
-        helper_superstable_to_unwinnable G q c h_max_c
+        helper_superstable_to_unwinnable h_conn q c h_max_c
 
       -- Since D' equals this form, D' is unwinnable
       have h_unwin_D' : ¬(winnable G D') := by
@@ -331,7 +316,7 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
 
       -- Adding a chip to the form derived from a maximal superstable config makes it winnable
       have h_win_D'_form_plus_delta_v : winnable G D'_form_plus_delta_v :=
-        helper_maximal_superstable_chip_winnable_exact G q c h_max_c v
+        helper_maximal_superstable_chip_winnable_exact h_conn q c h_max_c v
 
       -- Define D + δᵥ
       let D_plus_delta_v := D + delta_v
@@ -357,7 +342,7 @@ theorem maximal_unwinnable_char (G : CFGraph V) (q : V) (D : CFDiv V) :
   }
 
 /-- [Proven] Proposition 4.1.13: Combined (1) and (2)-/
-theorem superstable_and_maximal_unwinnable (G : CFGraph V) (q : V)
+theorem superstable_and_maximal_unwinnable {G : CFGraph V} (h_conn : graph_connected G) (q : V)
     (c : Config V q) (D : CFDiv V) :
     (superstable G q c →
      (maximal_superstable G c ↔ config_degree c = genus G)) ∧
@@ -367,18 +352,18 @@ theorem superstable_and_maximal_unwinnable (G : CFGraph V) (q : V)
      D' = λ v => c.vertex_degree v - if v = q then 1 else 0) := by
   -- This theorem now just wraps the two proven theorems above
   exact ⟨maximal_superstable_config_prop G q c,
-         maximal_unwinnable_char G q D⟩
+         maximal_unwinnable_char h_conn q D⟩
 
 /-- Theorem: A maximal unwinnable divisor has degree g-1
     This theorem now proven based on the characterizations above. -/
 theorem maximal_unwinnable_deg
-  (G : CFGraph V) (D : CFDiv V) :
+  {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D → deg D = genus G - 1 := by
   intro h_max_unwin
 
   let q := Classical.arbitrary V
 
-  have h_equiv_max_unwin := maximal_unwinnable_char G q D
+  have h_equiv_max_unwin := maximal_unwinnable_char h_conn q D
   rcases h_equiv_max_unwin.mp h_max_unwin with ⟨c, h_c_max_super, D', h_D'_qred, h_equiv_D_D', h_D'_eq⟩
 
   have h_c_super : superstable G q c := h_c_max_super.1
@@ -439,7 +424,7 @@ theorem maximal_unwinnable_deg
        where an orientation O maps to the divisor D(O) - q where D(O) assigns indegree to each vertex. (Surjection proof deferred)
     2) Any maximal unwinnable divisor has degree equal to genus - 1. -/
 theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
-    (G : CFGraph V) (q : V) :
+    {G : CFGraph V} (h_conn : graph_connected G) (q : V) :
     (Function.Injective (λ (O : {O : CFOrientation G // is_acyclic G O ∧ is_source G O q}) =>
       λ v => (indeg G O.val v) - if v = q then 1 else 0)) ∧
     (∀ D : CFDiv V, maximal_unwinnable G D → deg D = genus G - 1) := by
@@ -458,7 +443,7 @@ theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
   { -- Part 2: Degree characterization
     -- This now correctly refers to the theorem defined above
     intro D hD
-    exact maximal_unwinnable_deg G D hD
+    exact maximal_unwinnable_deg h_conn D hD
   }
 
 /-- [Proven] Corollary 4.2.2: Rank inequality for divisors -/
@@ -545,7 +530,7 @@ theorem degree_of_canonical_divisor (G : CFGraph V) :
 
 /-- [Proven] Rank Degree Inequality -/
 theorem rank_degree_inequality
-    (G : CFGraph V) (D : CFDiv V) :
+    {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
     deg D - genus G < rank G D - rank G (canonical_divisor G - D) := by
   -- Get rank value for D
   let r := rank G D
@@ -557,7 +542,7 @@ theorem rank_degree_inequality
   let q := Classical.arbitrary V
 
   -- Apply Dhar's algorithm to D - E to get q-reduced form
-  rcases helper_dhar_algorithm G q (D - E) with ⟨c, k, h_equiv, h_super⟩
+  rcases helper_dhar_algorithm h_conn q (D - E) with ⟨c, k, h_equiv, h_super⟩
 
   have h_k_neg := helper_dhar_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
 
@@ -659,10 +644,10 @@ theorem rank_degree_inequality
   have h_DO_unwin : maximal_unwinnable G M := by
     constructor
     · -- First show it's unwinnable
-      exact helper_superstable_to_unwinnable G q c' h_max'
+      exact helper_superstable_to_unwinnable h_conn q c' h_max'
 
     · -- Then show adding a chip anywhere makes it winnable
-      exact helper_maximal_superstable_chip_winnable_exact G q c' h_max'
+      exact helper_maximal_superstable_chip_winnable_exact h_conn q c' h_max'
 
   -- Now dualize, to get a statement about the reverse orientation
   let O' := O.reverse

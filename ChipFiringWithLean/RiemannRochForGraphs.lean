@@ -15,15 +15,15 @@ open Multiset Finset
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 /-- [Proven] The main Riemann-Roch theorem for graphs -/
-theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
+theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
 
   -- Get key inequality from axiom
-  have h_ineq := rank_degree_inequality G D
+  have h_ineq := rank_degree_inequality h_conn D
 
   -- Get reverse inequality by applying to K-D
-  have h_ineq_rev := rank_degree_inequality G (K-D)
+  have h_ineq_rev := rank_degree_inequality h_conn (K-D)
 
   -- Get degree of canonical divisor
   have h_deg_K : deg (canonical_divisor G) = 2 * genus G - 2 :=
@@ -46,7 +46,7 @@ theorem riemann_roch_for_graphs (G : CFGraph V) (D : CFDiv V) :
 
 /-- [Proven] Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
 theorem maximal_unwinnable_symmetry
-    (G : CFGraph V) (D : CFDiv V) :
+    {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
   set K := canonical_divisor G with K_def
   suffices : ∀ (D : CFDiv V), maximal_unwinnable G D → maximal_unwinnable G (canonical_divisor G - D)
@@ -65,10 +65,10 @@ theorem maximal_unwinnable_symmetry
     exact h_max_unwin.1
 
   -- Get degree = g-1 from maximal unwinnable
-  have h_deg : deg D = genus G - 1 := maximal_unwinnable_deg G D h_max_unwin
+  have h_deg : deg D = genus G - 1 := maximal_unwinnable_deg h_conn D h_max_unwin
 
   -- Use Riemann-Roch
-  have h_RR := riemann_roch_for_graphs G D
+  have h_RR := riemann_roch_for_graphs h_conn D
   rw [h_rank_neg] at h_RR
 
   -- Get degree of K-D
@@ -96,7 +96,7 @@ theorem maximal_unwinnable_symmetry
     rw [rank_geq_iff G E]
     calc
       rank G E = rank G (K-E) + deg E +1 - genus G := by
-        linarith [riemann_roch_for_graphs G E]
+        linarith [riemann_roch_for_graphs h_conn E]
       _ ≥ deg E - genus G := by
         linarith [rank_geq_neg_one G (K - E)]
       _ = 0 := by linarith[h_deg_E]
@@ -104,14 +104,14 @@ theorem maximal_unwinnable_symmetry
 /-- [Proven] Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
              and K-D also having non-negative rank, the rank of D is at most half its degree. -/
 theorem clifford_theorem
-    (G : CFGraph V) (D : CFDiv V)
+    {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V)
     (h_D : rank G D ≥ 0)
     (h_KD : rank G (canonical_divisor G - D) ≥ 0) :
     (rank G D : ℚ) ≤ (deg D : ℚ) / 2 := by
   -- Get canonical divisor K's rank using Riemann-Roch
   have h_K_rank : rank G (canonical_divisor G) = genus G - 1 := by
     -- Apply Riemann-Roch with D = K
-    have h_rr := riemann_roch_for_graphs G (canonical_divisor G)
+    have h_rr := riemann_roch_for_graphs h_conn (canonical_divisor G)
     -- For K-K = 0, rank is 0
     have h_K_minus_K : rank G (canonical_divisor G - canonical_divisor G) = 0 := by
       -- Show that this divisor is the zero divisor
@@ -138,7 +138,7 @@ theorem clifford_theorem
   rw [h_K_rank] at h_subadd
 
   -- Use Riemann-Roch to get r(K-D) in terms of r(D)
-  have h_rr := riemann_roch_for_graphs G D
+  have h_rr := riemann_roch_for_graphs h_conn D
 
   -- Explicit algebraic manipulation
   have h1 : rank G (canonical_divisor G - D) =
@@ -179,7 +179,7 @@ theorem clifford_theorem
 
 /-- [Proven] RRG's Corollary 4.4.3 establishing divisor degree to rank correspondence  -/
 theorem riemann_roch_deg_to_rank_corollary
-  (G : CFGraph V) (D : CFDiv V) :
+  {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   -- Part 1
   (deg D < 0 → rank G D = -1) ∧
   -- Part 2
@@ -211,9 +211,9 @@ theorem riemann_roch_deg_to_rank_corollary
       let K := canonical_divisor G
       by_cases h_rankKD : rank G (K - D) ≥ 0
       · -- Case where r(K-D) ≥ 0: use Clifford's theorem
-        exact clifford_theorem G D h_rank h_rankKD
+        exact clifford_theorem h_conn D h_rank h_rankKD
       · -- Case where r(K-D) = -1: use Riemann-Roch
-        have h_rr := riemann_roch_for_graphs G D
+        have h_rr := riemann_roch_for_graphs h_conn D
         have h_rankKD_eq : rank G (K - D) = -1 :=
           rank_neg_one_of_not_nonneg G (K - D) h_rankKD
 
@@ -289,7 +289,7 @@ theorem riemann_roch_deg_to_rank_corollary
       exact not_le_of_gt h_KD_neg h_E_nonneg
 
     -- Apply Riemann-Roch to get r(D) = deg(D) - g
-    have h_rr := riemann_roch_for_graphs G D
+    have h_rr := riemann_roch_for_graphs h_conn D
     rw [h_rankKD] at h_rr
     rw [sub_neg_eq_add] at h_rr
     linarith
