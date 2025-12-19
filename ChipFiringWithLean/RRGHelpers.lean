@@ -44,7 +44,7 @@ theorem acyclic_orientation_unique_by_indeg {G : CFGraph V}
   (h_acyclic' : is_acyclic G O')
   (h_indeg : ∀ v : V, indeg G O v = indeg G O' v) :
   O = O' := by
-  -- Apply the helper_orientation_determined_by_levels axiom directly
+  -- Apply the helper_orientation_determined_by_levels lemma directly
   exact helper_orientation_determined_by_levels O O' h_acyclic h_acyclic' h_indeg
 
 /-- [Proven] Lemma 4.1.10 (Alternative Form): Two acyclic orientations with same indegree sequences are equal -/
@@ -112,7 +112,7 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
     let c_target : Config V q := y.val -- Explicitly type c_target
     let h_target_max_superstable := y.property
 
-    -- Use the axiom that every maximal superstable config comes from an orientation.
+    -- Use the fact that every maximal superstable config comes from an orientation.
     rcases helper_maximal_superstable_orientation G q c_target h_target_max_superstable with
       ⟨O, h_acyc, h_unique_source, h_config_eq_target⟩
 
@@ -145,7 +145,7 @@ theorem maximal_superstable_config_prop (G : CFGraph V) (q : V) (c : Config V q)
     exact le_antisymm h_bound h_geq }
   { -- Reverse direction: degree = g → maximal_superstable
     intro h_deg
-    -- Apply the axiom that degree g implies maximality
+    -- Apply the lemma that degree g implies maximality
     exact helper_degree_g_implies_maximal G q c h_super h_deg }
 
 /-- [Proven] Proposition 4.1.13 (2): Characterization of maximal unwinnable divisors -/

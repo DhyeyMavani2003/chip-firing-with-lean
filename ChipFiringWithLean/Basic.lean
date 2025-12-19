@@ -92,8 +92,8 @@ def num_edges (G : CFGraph V) (v w : V) : ℕ :=
   Multiset.card (G.edges.filter (λ e => e = (v, w) ∨ e = (w, v)))
 
 def graph_connected (G : CFGraph V) : Prop :=
-  ∀ S : Finset V, ∃ (v w : V), v ∈ S ∧ w ∉ S →
-    ∃ v ∈ S, ∃ w ∉ S, num_edges G v w > 0
+  ∀ S : Finset V, (∃ (v w : V), v ∈ S ∧ w ∉ S) →
+    (∃ v ∈ S, ∃ w ∉ S, num_edges G v w > 0)
 
 -- Divisor as a function from vertices to integers
 def CFDiv (V : Type) := V → ℤ
@@ -834,6 +834,547 @@ theorem q_reduced_unique (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   apply sub_eq_zero.mp at h_D2_eq
   rw [h_D2_eq]
 
+def benevolent (G : CFGraph V) (S : Finset V) : Prop :=
+  ∀ (D : CFDiv V), ∃ (E : CFDiv V), linear_equiv G D E ∧ (∀ (v : V), E v < 0 → v ∈ S)
+
+lemma benevolent_of_nonempty {G : CFGraph V} (h_conn : graph_connected G) (S : Finset V) (h_nonempty : S.Nonempty) :
+  benevolent G S := by
+  by_cases h : S = Finset.univ
+  · -- Case: S = V
+    intro D
+    use D
+    -- Verify the first part of the conjuction
+    constructor
+    exact (linear_equiv_is_equivalence G).refl D
+    -- Verify second part
+    intro v h_neg
+    rw [h]
+    simp
+  · -- Case: S ≠ V
+    let h_conn' := h_conn -- Unsimplified copy for later
+    dsimp [graph_connected] at h_conn
+    specialize h_conn S
+    have : ∃ (v w : V), v ∈ S ∧ w ∉ S := by
+      let v := Classical.choose h_nonempty
+      have v_in_S : v ∈ S := Classical.choose_spec h_nonempty
+      have : (univ \ S).Nonempty := by
+        contrapose! h
+        simp at h
+        exact h
+      let w := Classical.choose this
+      have h_vw : w ∉ S := by
+        have := Classical.choose_spec this
+        simp at this
+        exact this
+      use v, w
+    have h_vw := h_conn this
+    rcases h_vw with ⟨v,h_v,w,h_w,h_edge⟩
+    let T := insert w S
+    have h_T_nonempty : T.Nonempty := by
+      use w
+      simp [T]
+    have ih := benevolent_of_nonempty h_conn' T h_T_nonempty
+    intro D
+    specialize ih D
+    rcases ih with ⟨E1, h_lequiv_1, h_eff_S⟩
+    -- Now need to adjust E1 to get E
+    have : ∃ E : CFDiv V, linear_equiv G E1 E ∧ (∀ v : V, E v < 0 → v ∈ S) := by
+      let fire := firing_vector G v
+      have p_f : fire ∈ principal_divisors G := mem_principal_divisors_firing_vector G v
+      let k := max 0 (-(E1 w))
+      let E := E1 + k • fire
+      use E
+      constructor
+      · -- Verify linear equivalence
+        unfold linear_equiv
+        have h_diff : E - E1 = k • fire := by
+          simp [E]
+        rw [h_diff]
+        exact AddSubgroup.zsmul_mem _ p_f k
+      · -- Verify effectiveness outside S
+        intro x h_E_neg
+        by_cases h_x_eq_w : x = w
+        · -- Case x = w
+          exfalso
+          rw [h_x_eq_w] at h_E_neg
+          dsimp [E] at h_E_neg
+          contrapose! h_E_neg
+          simp [k]
+          by_cases h : -(E1 w) ≥ 0
+          . -- Case : E1 w nonpositive
+            have : max 0 (-(E1 w)) = -(E1 w) := by simp [h]
+            rw [this]
+            have : E1 w + -E1 w * fire w = (-E1 w) * (fire w -1) := by ring
+            rw [this]
+            apply mul_nonneg h
+            -- Goal: fire w -1 ≥ 0
+            dsimp [fire, firing_vector]
+            have : ¬ (w = v) := by
+              contrapose! h_w
+              rw [← h_w] at h_v
+              exact h_v
+            simp [this]
+            linarith [h_edge]
+          . -- Case : E1 w positive
+            simp at h
+            dsimp [max]
+            have : 0 ≥ -E1 w := by linarith [h]
+            simp [this]
+            linarith [h]
+        . -- Case : x ≠ w
+          have h_T := h_eff_S x
+          by_contra! x_nin_S
+          have h_xT : x ∉ T := by
+            contrapose! x_nin_S with x_in_T
+            dsimp [T] at x_in_T
+            simp [h_x_eq_w] at x_in_T
+            exact x_in_T
+          specialize h_eff_S x
+          contrapose! h_eff_S
+          simp [h_xT]
+          contrapose! h_E_neg with h_E1
+          -- Goal: 0 ≤ E x
+          dsimp [E]
+          simp
+          apply add_nonneg h_E1
+          -- Goal : 0 ≤ k * fire x
+          apply mul_nonneg
+          -- Show 0 ≤ k
+          dsimp [k]
+          simp
+          -- Show 0 ≤ fire x
+          dsimp [fire, firing_vector]
+          have : ¬ (x = v) := by
+            contrapose! x_nin_S with x_eq_v
+            rw [x_eq_v]
+            exact h_v
+          simp [this]
+    rcases this with ⟨E, h_lequiv_2, h_eff_S_final⟩
+    use E
+    constructor
+    · -- Verify linear equivalence
+      exact (linear_equiv_is_equivalence G).trans h_lequiv_1 h_lequiv_2
+    · -- Verify effectiveness outside S
+      exact h_eff_S_final
+termination_by ((univ : Finset V).card - S.card)
+decreasing_by
+  have h_succ: (insert w S).card = S.card + 1 := by
+    apply Finset.card_eq_succ.mpr
+    use w, S
+  rw [h_succ]
+  refine Nat.sub_succ_lt_self univ.card S.card ?_
+  have : (insert w S).card ≤ (univ : Finset V).card := by
+    apply Finset.card_le_card
+    simp
+  linarith
+
+lemma q_effective_exists {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
+  ∃ (E : CFDiv V), q_effective q E ∧ linear_equiv G D E := by
+  have h_bene := benevolent_of_nonempty h_conn {q} (by use q; simp) D
+  rcases h_bene with ⟨E,h_equiv, h_eff⟩
+  have : q_effective q E := by
+    intro v v_ne_q
+    specialize h_eff v
+    contrapose! h_eff
+    simp [h_eff]
+    exact v_ne_q
+  exact ⟨E,this, h_equiv⟩
+
+def reduces_to (G : CFGraph V) (q : V) (D₁ D₂: CFDiv V) : Prop :=
+  ∃ σ : firing_script V, q_reducer G q σ ∧ D₂ = D₁ + prin G σ
+
+lemma reduces_to_reflexive (G : CFGraph V) (q : V) (D : CFDiv V) :
+  reduces_to G q D D := by
+  use 0
+  constructor
+  · -- Show q_reducer holds for the zero firing script
+    intro v
+    repeat rw [Pi.zero_apply]
+  · -- Show D = D + prin G 0
+    simp [prin]
+
+lemma reduces_to_transitive (G : CFGraph V) (q : V) (D₁ D₂ D₃ : CFDiv V) :
+  reduces_to G q D₁ D₂ → reduces_to G q D₂ D₃ → reduces_to G q D₁ D₃ := by
+  intro h_red_12 h_red_23
+  rcases h_red_12 with ⟨σ₁, h_reducer_1, h_D2_eq⟩
+  rcases h_red_23 with ⟨σ₂, h_reducer_2, h_D3_eq⟩
+  use σ₁ + σ₂
+  constructor
+  · -- Show q_reducer holds for σ₁ + σ₂
+    intro v
+    repeat rw [Pi.add_apply]
+    apply add_le_add (h_reducer_1 v) (h_reducer_2 v)
+  · -- Show D₃ = D₁ + prin G (σ₁ + σ₂)
+    rw [(prin G).map_add, ← add_assoc]
+    rw [← h_D2_eq, ← h_D3_eq]
+
+lemma reduces_to_antisymmetric {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D₁ D₂ : CFDiv V) :
+  reduces_to G q D₁ D₂ → reduces_to G q D₂ D₁ → D₁ = D₂ := by
+  intro h_red_12 h_red_21
+  rcases h_red_12 with ⟨σ₁, h_reducer_1, h_D2_eq⟩
+  rcases h_red_21 with ⟨σ₂, h_reducer_2, h_D1_eq⟩
+  rw [h_D2_eq, add_assoc, ← (prin G).map_add] at h_D1_eq
+  let σ := σ₁ + σ₂
+  have h_reducer : q_reducer G q σ := by
+    intro v
+    apply add_le_add (h_reducer_1 v) (h_reducer_2 v)
+  have prin_sum_zero : prin G (σ) = 0 := by
+    simp at h_D1_eq
+    rw [← (prin G).map_add] at h_D1_eq
+    exact h_D1_eq
+  let S := Finset.univ.filter (λ v => σ v = σ q)
+  have q_in_S : q ∈ S := by
+    dsimp [S]
+    simp
+  have S_full : ∀ v : V, v ∈ S := by
+    by_contra! v_nin_S
+    rcases v_nin_S with ⟨v, h_v⟩
+    have h : ∃ (u v : V), u ∈ S ∧ v ∉ S := by
+      use q, v
+    have := h_conn S h
+    rcases this with ⟨u, h_u_in_S, w, h_w_nin_S, h_edge⟩
+    have zero_eq: (prin G) σ u = 0 := by
+      simp [prin_sum_zero]
+    dsimp [prin] at zero_eq
+
+    have nonneg_terms: ∀ w : V, (σ w - σ u) * (num_edges G u w : ℤ) ≥ 0 := by
+      intro w
+      have h_σw_ge_σu : σ w - σ u ≥ 0 := by
+        dsimp [S] at h_u_in_S h_w_nin_S
+        simp at h_u_in_S
+        specialize h_reducer w
+        linarith
+      have h_num_edges_nonneg : (num_edges G u w : ℤ) ≥ 0 := by
+        have := num_edges_nonneg G u w
+        linarith
+      apply Int.mul_nonneg h_σw_ge_σu h_num_edges_nonneg
+    have pos_term : ∃ (w : V), (σ w - σ u) * (num_edges G u w : ℤ) > 0 := by
+      use w
+      apply Int.mul_pos
+      · -- Show σ w - σ u > 0
+        dsimp [S] at h_u_in_S h_w_nin_S
+        simp at h_u_in_S h_w_nin_S
+        specialize h_reducer w
+        rw [h_u_in_S]
+        apply lt_of_le_of_ne at h_reducer
+        have : ¬ σ q = σ w := by
+          contrapose! h_w_nin_S
+          rw [← h_w_nin_S]
+        apply h_reducer at this
+        linarith
+      · -- Show num_edges G u w > 0
+        simp [h_edge]
+    have : ∑ u_1 : V, (σ u_1 - σ u) * ↑(num_edges G u u_1) >0 := by
+      apply Finset.sum_pos'
+      intro i _
+      exact nonneg_terms i
+      rcases pos_term with ⟨w, h_pos⟩
+      use w
+      simp
+      exact h_pos
+    linarith [zero_eq]
+  simp [S] at S_full
+  have : ∀ v : V, σ₁ v = σ₁ q := by
+    intro v
+    specialize h_reducer_1 v
+    specialize h_reducer_2 v
+    specialize S_full v
+    dsimp [σ] at S_full
+    repeat rw [_root_.add_apply] at S_full
+    linarith
+  have : prin G σ₁ = 0 := by
+    funext v
+    unfold prin
+    dsimp
+    simp [this]
+  rw [this] at h_D2_eq
+  rw [h_D2_eq]
+  simp
+
+-- A vertex is called ``dormant'' if it can never be fired in a firing script from D to a q-effective divisor.
+def active (G : CFGraph V) (q : V) (D : CFDiv V) (v : V) : Prop :=
+  ∃ σ : firing_script V, q_reducer G q σ ∧ q_effective q (D + prin G σ) ∧ σ q < σ v
+
+lemma q_reduced_of_no_active (G :CFGraph V) {q : V} {D : CFDiv V} (h_eff : q_effective q D) (h_no_active : ∀ v : V, ¬ active G q D v) :
+  q_reduced G q D := by
+  contrapose! h_no_active with h_not_q_reduced
+  dsimp [q_reduced] at h_not_q_reduced
+  push_neg at h_not_q_reduced
+  rcases h_not_q_reduced h_eff with ⟨S, h_S_subset, h_S_nonempty, h_outdeg⟩
+  have q_nin_S : q ∉ S := by
+    intro h_contra
+    have := h_S_subset h_contra
+    simp at this
+  -- Construct a firing script that fires all vertices in S
+  let σ : firing_script V := λ v => if v ∈ S then 1 else 0
+  have h_reducer : q_reducer G q σ := by
+    intro v
+    dsimp [σ]
+    simp [q_nin_S]
+    by_cases h : v ∈ S
+    simp [h]; simp [h]
+  use Classical.choose h_S_nonempty
+  let h := Classical.choose_spec h_S_nonempty
+  dsimp [active]
+  use σ
+  constructor
+  exact h_reducer
+  dsimp [σ]
+  simp [h, q_nin_S]
+  -- Show q_effective holds
+  intro x x_ne_q
+  dsimp [prin]
+  by_cases h_x : x ∈ S
+  · -- Case: x ∈ S
+    simp [h_x]
+    have simp_ite : ∀ x_1 : V, ((if x_1 ∈ S then 1 else 0) - 1) = -(if x_1 ∈ S then 0 else 1) := by
+      intro x_1
+      by_cases h_x1 : x_1 ∈ S
+      simp [h_x1]
+      simp [h_x1]
+    suffices (∑ x_1 : V, if x_1 ∈ S then 0 else ↑(num_edges G x x_1)) ≤ D x by
+      simp [simp_ite,this]
+    specialize h_outdeg x h_x
+    have : (∑ w ∈ Finset.filter (fun x ↦ x ∉ S) univ, ↑(num_edges G x w) : ℤ) = (∑ x_1 : V, if x_1 ∈ S then 0 else ↑(num_edges G x x_1)) := by
+      rw [Finset.sum_filter]
+      apply Finset.sum_congr rfl
+      intro y _
+      simp
+    rw [this] at h_outdeg
+    exact h_outdeg
+  · -- Case: x ∉ S
+    simp [h_x]
+    have : 0 ≤ D x := by
+      apply h_eff
+      exact x_ne_q
+    apply add_nonneg (this)
+    apply Finset.sum_nonneg
+    intro w _
+    simp
+
+noncomputable def reduction_excess (G : CFGraph V) (q : V) (D : CFDiv V) : ℤ := by
+  classical
+  exact (∑ v : V, if active G q D v then D v else 0)
+
+
+lemma reduction_excess_nonneg (G : CFGraph V) {q : V} {D : CFDiv V} (h_eff : q_effective q D) :
+  0 ≤ reduction_excess G q D := by
+  dsimp [reduction_excess]
+  apply Finset.sum_nonneg
+  intro v _
+  dsimp
+  by_cases h_active : active G q D v
+  · -- Case: v is active
+    simp [h_active]
+    apply h_eff
+    intro h_contra
+    rw [h_contra] at h_active
+    dsimp [active] at h_active
+    rcases h_active with ⟨σ, h_reducer, h_eff', h_ineq⟩
+    simp at h_ineq
+  · -- Case: v is not active
+    simp [h_active]
+
+theorem q_effective_to_q_reduced {G : CFGraph V} (h_conn : graph_connected G) {q : V} {D : CFDiv V} (h_eff : q_effective q D) :
+  ∃ E : CFDiv V, q_reduced G q E ∧ linear_equiv G D E := by
+  -- Use induction on reduction_excess
+  classical -- In order to filter using the undecidable "active"
+  let S := Finset.univ.filter (λ v : V => active G q D v)
+  have q_nin_S : q ∉ S := by
+    intro h_contra
+    dsimp [S] at h_contra
+    simp at h_contra
+    dsimp [active] at h_contra
+    rcases h_contra with ⟨σ, h_reducer, h_ineq⟩
+    simp at h_ineq
+  by_cases h_S_empty : S = ∅
+  · -- Case: No active vertices, so D is already q-reduced
+    use D
+    constructor
+    · -- q-reducedness
+      apply q_reduced_of_no_active G h_eff
+      intro v h_contra
+      have : v ∈ S := by
+        dsimp [S]
+        simp [h_contra]
+      rw [h_S_empty] at this
+      -- "this" is not v ∈ ∅, a contradiction
+      simp at this
+    . -- Linear equivalence
+      exact (linear_equiv_is_equivalence G).refl D
+  · -- Case: There are active vertices. Choose one on the boundary.
+    have : ∃ v : V, active G q D v := by
+      contrapose! h_S_empty with h_no_active
+      dsimp [S]
+      simp [h_no_active]
+    rcases this with ⟨v_active, h_v_active⟩
+    have : ∃ (v q : V), v ∈ S ∧ q ∉ S := by
+      use v_active, q
+      simp [q_nin_S]
+      simp [S]
+      exact h_v_active
+    have := h_conn S this
+    rcases this with ⟨v, v_in_S, w, w_nin_S, h_edge⟩
+    -- Fire involving v to get a new divisor D'
+    simp [S] at v_in_S
+    dsimp [active] at v_in_S
+    rcases v_in_S with ⟨σ, h_reducer, h_eff_S, h_ineq⟩
+    let D' := D + prin G (σ)
+    have D_equiv_D' : linear_equiv G D D' := by
+      unfold linear_equiv
+      have : D' - D = prin G σ := by
+        simp [D']
+      rw [this]
+      apply (principal_iff_eq_prin G (prin G σ)).mpr ⟨σ,rfl⟩
+
+    -- Facts about D', needed for induction
+    have h_eff' : q_effective q D' := by
+      intro x x_ne_q
+      dsimp [D']
+      exact h_eff_S x x_ne_q
+
+    have h_active_shrinks (x : V): active G q D' x → active G q D x := by
+      intro h_active_D'
+      dsimp [active]
+      rcases h_active_D' with ⟨σ', h_reducer', h_eff'', h_ineq'⟩
+      use σ + σ'
+      constructor
+      · -- Show q_reducer
+        intro y
+        repeat rw [Pi.add_apply]
+        apply add_le_add (h_reducer y) (h_reducer' y)
+      constructor
+      · -- Show q_effective
+        intro z z_ne_q
+        dsimp [D'] at h_eff''
+        specialize h_eff'' z z_ne_q
+        rw [(prin G).map_add, ← add_assoc]
+        exact h_eff''
+      · -- Show chips are fired from x
+        repeat rw [Pi.add_apply]
+        apply add_lt_add_of_le_of_lt
+        exact h_reducer x
+        exact h_ineq'
+
+    have chips_to_inactive_per_edge (u x : V) : ¬ active G q D x → (σ u - σ x) * ↑(num_edges G x u) ≥ 0 := by
+      intro h_inactive_D
+      dsimp [D']
+      simp
+      apply mul_nonneg
+      · -- Show σ u - σ x ≥ 0
+        have : σ x ≤ σ q := by
+          dsimp [active] at h_inactive_D
+          push_neg at h_inactive_D
+          specialize h_inactive_D σ
+          exact h_inactive_D h_reducer h_eff'
+        have : σ u ≥ σ q := by
+          specialize h_reducer u
+          linarith
+        linarith
+      · -- Show num_edges G x u ≥ 0
+        simp [num_edges_nonneg G x u]
+
+    have chips_to_inactive (x : V) : ¬ active G q D x → D x ≤ D' x := by
+      -- Goal: 0 ≤ ∑ (σ u - σ x) * num_edges G x u
+      intro h_inactive_D
+      dsimp [D', prin]
+      simp
+      apply Finset.sum_nonneg
+      intro u _
+      exact chips_to_inactive_per_edge u x h_inactive_D
+
+    have h_smaller : reduction_excess G q D' < reduction_excess G q D := by
+      dsimp [reduction_excess]
+      repeat rw [Finset.sum_ite, Finset.sum_const_zero, add_zero]
+      -- First, pass to a sum over non-active vertices
+      have h (D : CFDiv V) : ∑ x ∈ Finset.filter (active G q D) univ, D x = deg D - ∑ x ∈ Finset.filter (fun v => ¬ active G q D v) univ, D x := by
+        dsimp [deg]
+        rw [← Finset.sum_filter_add_sum_filter_not univ (fun v => active G q D v)]
+        simp
+      rw [h D', h D]
+      have : deg D = deg D' :=
+        linear_equiv_preserves_deg G D D' D_equiv_D'
+      rw [← this]
+      simp
+      -- Write as a sum over all vertices in order to compare terms
+      have h (D : CFDiv V) : ∑ x ∈ Finset.filter (fun v => ¬ active G q D v) univ, D x = ∑ x : V, if ¬ active G q D x then D x else 0 := by
+        rw [Finset.sum_filter]
+      rw [h D', h D]
+      -- Now compare term-by-term
+      apply Finset.sum_lt_sum
+      -- Show each term is ≤ the corresponding term
+      intro x _
+      by_cases h_active_D' : active G q D' x
+      · -- Case: x is active in D'. Then already active in D.
+        have h_active_D := h_active_shrinks x h_active_D'
+        simp [h_active_D, h_active_D']
+      · -- Case: x is not active in D'.
+        simp [h_active_D']
+        by_cases h_active_D : active G q D x
+        · -- Subcase: x is active in D
+          simp [h_active_D]
+          -- Show 0 ≤ D' x
+          apply h_eff' x
+          intro h_contra
+          rw [h_contra] at h_active_D
+          dsimp [S] at q_nin_S
+          simp at q_nin_S
+          contradiction
+        · -- Subcase: x is not active in D either
+          simp [h_active_D]
+          -- Show D x ≤ D' x
+          exact chips_to_inactive x h_active_D
+      -- Now, show that strict inequality holds for at least one term
+      use w
+      have h_inactive_D : ¬ active G q D w := by
+        dsimp [S] at w_nin_S
+        simp at w_nin_S
+        exact w_nin_S
+      have h_active_D' : ¬ active G q D' w := by
+        contrapose! h_inactive_D with h_active_D'
+        exact (h_active_shrinks w) h_active_D'
+      simp [h_inactive_D, h_active_D']
+      -- Show D w < D' w
+      dsimp [D', prin]
+      simp
+      -- Goal: 0 < ∑ (σ u - σ w) * num_edges
+      apply Finset.sum_pos'
+      -- Show each term is nonnegative
+      intro u _
+      exact chips_to_inactive_per_edge u w h_inactive_D
+      -- Show at least one term is positive
+      use v
+      simp
+      -- Goal: (σ v - σ w) * num_edges G w v > 0
+      apply Int.mul_pos
+      · -- Show σ v - σ w > 0
+        have : σ w ≤ σ q := by
+          dsimp [active] at h_inactive_D
+          push_neg at h_inactive_D
+          specialize h_inactive_D σ
+          exact h_inactive_D h_reducer h_eff'
+        linarith [this, h_ineq]
+      . -- Show num_edges G w v > 0
+        rw [← num_edges_symmetric G v w]
+        simp [h_edge]
+    have ih := q_effective_to_q_reduced h_conn h_eff'
+    rcases ih with ⟨E, h_q_reduced, h_lequiv⟩
+    use E
+    constructor
+    · -- q-reducedness
+      exact h_q_reduced
+    · -- Linear equivalence
+      refine (linear_equiv_is_equivalence G).trans ?_ h_lequiv
+      exact D_equiv_D'
+termination_by (reduction_excess G q D).toNat
+decreasing_by
+  -- Some effort needed to deal with ℤ versus ℕ
+  rw [Int.toNat_lt]
+  simp [reduction_excess_nonneg]
+  dsimp [D'] at h_smaller
+  left
+  exact h_smaller
+  exact reduction_excess_nonneg G h_eff'
 
 /-- Helper lemma to rewrite (in-)degree in terms of edge counts from each direction.
 This proof is quite clunky, and I suspect it can be simplified. -/

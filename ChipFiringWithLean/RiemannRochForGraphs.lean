@@ -19,7 +19,7 @@ theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D 
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
 
-  -- Get key inequality from axiom
+  -- Get key inequality
   have h_ineq := rank_degree_inequality h_conn D
 
   -- Get reverse inequality by applying to K-D

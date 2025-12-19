@@ -60,9 +60,21 @@ def sum_negativity_outside_q (q : V) (D : CFDiv V) : ℕ :=
 noncomputable def sum_negativity_outside_q_list (q : V) (D : CFDiv V) : List ℕ :=
   (Finset.univ.erase q).toList.map (λ v => if D v < 0 then (-D v).toNat else 0)
 
-/- Axiom: Existence of a q-reduced representative within a divisor class -/
-axiom exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D_initial : CFDiv V) :
-  ∃ D' : CFDiv V, linear_equiv G D_initial D' ∧ q_reduced G q D'
+/- Theorem: Existence of a q-reduced representative within a divisor class -/
+theorem exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
+  ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' :=
+by
+  rcases q_effective_exists h_conn q D with ⟨D_eff, h_eff, h_equiv⟩
+  rcases q_effective_to_q_reduced h_conn h_eff with ⟨D_qred, h_qred, h_lequiv'⟩
+  use D_qred
+  constructor
+  · -- Show linear equivalence
+    have equiv_rel := linear_equiv_is_equivalence G
+    have h_equiv' : linear_equiv G D_eff D_qred := h_lequiv'
+    have h_equiv'' : linear_equiv G D D_eff := h_equiv
+    exact equiv_rel.trans h_equiv'' h_equiv'
+  · -- Show q-reduced property
+    exact h_qred
 
 /- Lemma: Uniqueness of the q-reduced representative within a divisor class -/
 lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv V)
@@ -88,7 +100,6 @@ lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv 
 lemma helper_unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   ∃! D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
   -- Prove existence and uniqueness separately
-  -- Existence comes from the axiom
   have h_exists : ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
     exact exists_q_reduced_representative h_conn q D
 
@@ -976,8 +987,7 @@ lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c :
     exact degree_max_superstable c h_max
   rw [← h_genus_eq]
 
-/-- Axiom: If a superstable configuration has degree equal to g, it is maximal
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
+/-- Lemma: If a superstable configuration has degree equal to g, it is maximal -/
 lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
   superstable G q c → config_degree c = genus G → maximal_superstable G c := by
   intro h_super h_deg_eq
@@ -1054,7 +1064,7 @@ lemma helper_source_indeg_eq_at_q (G : CFGraph V) (O₁ O₂ : CFOrientation G) 
 # Helpers for Rank Degree Inequality used in RRG
 -/
 
-/-- [Proven from Axiom] Lemma: Dhar's algorithm produces a superstable configuration and chip count at q.
+/-- Lemma: Dhar's algorithm produces a superstable configuration and chip count at q.
     Given any divisor D, there exists a superstable configuration c and an integer k such that
     D is linearly equivalent to c + k * δ_q.
     Proven using `exists_q_reduced_representative` and `q_reduced_superstable_correspondence`.
@@ -1071,7 +1081,7 @@ lemma helper_dhar_algorithm {G : CFGraph V} (h_conn : graph_connected G) (q : V)
   ∃ (c : Config V q) (k : ℤ),
     linear_equiv G D (c.vertex_degree + k • (one_chip q)) ∧
     superstable G q c := by
-  -- 1. Get the q-reduced representative D' for D using the axiom
+  -- 1. Get the q-reduced representative D' for D using the lemma
   rcases exists_q_reduced_representative h_conn q D with ⟨D', h_equiv_D_D', h_qred_D'⟩
 
   -- 2. Use the correspondence lemma to get c from D'
@@ -1090,7 +1100,7 @@ lemma helper_dhar_algorithm {G : CFGraph V} (h_conn : graph_connected G) (q : V)
   · -- Prove superstable G q c
     exact h_super_c
 
--- /-- Axiom: Dhar's algorithm produces negative k for unwinnable divisors
+-- /-- Lemma: Dhar's algorithm produces negative k for unwinnable divisors
 --     When applied to an unwinnable divisor D, Dhar's algorithm must produce a
 --     negative value for k (the number of chips at q). This is a crucial fact used
 --     in characterizing unwinnable divisors, proven in chapter 4 of Corry & Perkinson's
@@ -1137,7 +1147,7 @@ theorem winnable_iff_q_reduced_effective {G : CFGraph V} (h_conn : graph_connect
       -- First get E ~ D' by transitivity through D
       have h_equiv_symm : linear_equiv G E D := (linear_equiv_is_equivalence G).symm h_equiv -- E ~ D
       have h_equiv_E_D' : linear_equiv G E D' := (linear_equiv_is_equivalence G).trans h_equiv_symm h_D'.1.1 -- E ~ D ~ D' => E ~ D'
-      -- Now use the axiom that q-reduced form of an effective divisor is effective
+      -- Now use the lemma that q-reduced form of an effective divisor is effective
       exact helper_q_reduced_of_effective_is_effective G q E D' h_eff h_equiv_E_D' h_D'.1.2
   }
   { -- Reverse direction
@@ -1250,8 +1260,7 @@ lemma winnable_of_deg_ge_genus {G : CFGraph V} (h_conn : graph_connected G) (D :
   · -- Prove linear equivalence
     exact h_equiv
 
-/-- Axiom: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable
-    This was especially hard to prove in Lean4, so I am leaving it as an axiom for the time being. -/
+/-- Lemma: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable -/
 lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : graph_connected G) (q : V) (c' : Config V q) :
   maximal_superstable G c' →
   ∀ (v : V), winnable G (c'.vertex_degree- (one_chip q) + (one_chip v)) := by
