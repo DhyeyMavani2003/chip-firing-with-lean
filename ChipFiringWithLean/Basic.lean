@@ -1,12 +1,4 @@
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.Finset.Fold
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Algebra.Group.Subgroup.Basic
-import Mathlib.Tactic.Abel
-import Mathlib.LinearAlgebra.Matrix.GeneralLinearGroup.Defs
-import Mathlib.Algebra.BigOperators.Group.Finset
 import Mathlib.Tactic
-import Mathlib.Algebra.Ring.Int
 
 import Init.Core
 import Init.NotationExtra
@@ -118,23 +110,6 @@ def one_chip (v_chip : V) : CFDiv V :=
 -- Make CFDiv an Additive Commutative Group
 instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
--- Removed this lines, since they are done implicity by Pi.addCommGroup.
--- -- Divisor addition (pointwise)
--- instance : Add (CFDiv V) := ⟨λ D₁ D₂ => λ v => D₁ v + D₂ v⟩
-
--- -- Divisor subtraction (pointwise)
--- instance : Sub (CFDiv V) := ⟨λ D₁ D₂ => λ v => D₁ v - D₂ v⟩
-
--- -- Zero divisor
--- instance : Zero (CFDiv V) := ⟨λ _ => 0⟩
-
--- -- Neg for divisors
--- instance : Neg (CFDiv V) := ⟨λ D => λ v => -D v⟩
-
--- -- Add coercion from V → ℤ to CFDiv V
--- instance : Coe (V → ℤ) (CFDiv V) where
---   coe f := f
-
 -- Properties of divisor arithmetic
 @[simp] lemma add_apply (D₁ D₂ : CFDiv V) (v : V) :
   (D₁ + D₂) v = D₁ v + D₂ v := rfl
@@ -162,15 +137,7 @@ instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
 @[simp] lemma smul_apply (n : ℤ) (D : CFDiv V) (v : V) :
   (n • D) v = n * (D v) := by
-  induction n using Int.induction_on with
-  | hz =>
-    simp [smul_zero, zero_apply]
-  | hp k ih =>
-    simp [add_smul, add_apply,add_mul]
-    exact ih
-  | hn k ih =>
-    rw [sub_smul, sub_apply, sub_mul,one_smul,ih]
-    ring
+  rfl
 
 /-- Lemma: Lambda form of divisor subtraction equals standard form -/
 lemma divisor_sub_eq_lambda (G : CFGraph V) (D₁ D₂ : CFDiv V) :
@@ -935,7 +902,6 @@ lemma benevolent_of_nonempty {G : CFGraph V} (h_conn : graph_connected G) (S : F
           contrapose! h_E_neg with h_E1
           -- Goal: 0 ≤ E x
           dsimp [E]
-          simp
           apply add_nonneg h_E1
           -- Goal : 0 ≤ k * fire x
           apply mul_nonneg

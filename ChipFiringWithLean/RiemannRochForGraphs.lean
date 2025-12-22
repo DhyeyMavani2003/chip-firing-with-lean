@@ -1,9 +1,4 @@
-import ChipFiringWithLean.Basic
-import ChipFiringWithLean.Config
-import ChipFiringWithLean.Orientation
-import ChipFiringWithLean.Rank
 import ChipFiringWithLean.RRGHelpers
-import Mathlib.Algebra.Ring.Int
 import Paperproof
 
 set_option linter.unusedVariables false

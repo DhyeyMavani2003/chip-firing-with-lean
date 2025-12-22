@@ -1,11 +1,4 @@
-import ChipFiringWithLean.Basic
-import ChipFiringWithLean.Config
 import ChipFiringWithLean.Orientation
-import Mathlib.Data.Fintype.Basic
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.List.Basic
-import Mathlib.Data.Finset.Fold
-import Mathlib.Tactic
 
 set_option linter.unusedVariables false
 

@@ -1,34 +1,12 @@
-import ChipFiringWithLean.Basic
-import ChipFiringWithLean.Config
 import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Rank
-import ChipFiringWithLean.Algorithms
-import Mathlib.Algebra.Ring.Int
 import Paperproof
-import Mathlib.Algebra.BigOperators.Group.Multiset
-import Mathlib.Algebra.BigOperators.Group.Finset
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.Finset.Fold
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Data.Nat.Cast.Basic
-import Mathlib.Data.Finset.Card
-import Mathlib.Data.Int.Order.Basic
-import Mathlib.Logic.IsEmpty
-import Mathlib.Logic.Basic
-import Mathlib.Order.Minimal
-import Mathlib.Data.Fintype.Card
-import Mathlib.Data.List.OfFn
-import Mathlib.Logic.Basic
-import Mathlib.Combinatorics.Pigeonhole -- Added import
-import Mathlib.Data.List.Lex -- Attempt to import for List.Lex
-import Mathlib.Order.WellFounded
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
 set_option linter.unusedSectionVars false
 
 open Multiset Finset Classical
-open CF -- Open the CF namespace globally for this file
 
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
@@ -816,7 +794,6 @@ lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V)
         dsimp [toDiv]
         simp [hv]
         dsimp [c, toConfig]
-        simp
         rw [one_chip_apply_other]
         ring
         intro h
@@ -1118,7 +1095,6 @@ lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   have D'_eff : effective D' := by
     intro v
     dsimp [D']
-    rw [smul_apply]
     have c_nonneg: c.vertex_degree v ≥ 0 := c.non_negative v
     have oc_nonneg : k*one_chip q v ≥ 0 := by
       dsimp [one_chip]

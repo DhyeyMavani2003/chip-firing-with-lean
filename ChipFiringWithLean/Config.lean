@@ -151,7 +151,6 @@ lemma div_of_config_of_div (D : q_eff_div V q) :
   dsimp [toDiv]
   by_cases h: v ∈ Vtilde q
   . -- Case v ∈ Vtilde q
-    simp [h]
     dsimp [toConfig]
     have : v ≠ q := by
       intro h_eq_q
@@ -159,7 +158,6 @@ lemma div_of_config_of_div (D : q_eff_div V q) :
       simp at h
     simp [this]
   . -- Case v ∉ Vtilde q
-    simp [h]
     have : v = q := by
       contrapose! h
       simp [h]

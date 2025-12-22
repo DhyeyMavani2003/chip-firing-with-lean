@@ -1,21 +1,6 @@
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.Finset.Fold
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Data.Nat.Order.Lemmas
-import Mathlib.Algebra.Group.Subgroup.Basic
-import Mathlib.Tactic.Abel
-import Mathlib.Tactic.Linarith
-import Mathlib.LinearAlgebra.Matrix.GeneralLinearGroup.Defs
-import Mathlib.Algebra.BigOperators.Group.Finset
-import Mathlib.Order.WellFounded
-import Mathlib.Data.List.Basic
-import Mathlib.Data.List.Lemmas
-import Mathlib.Data.List.Cycle
-import Mathlib.Data.List.Nodup
-import ChipFiringWithLean.Basic
 import ChipFiringWithLean.Config
 import Paperproof
-import Mathlib.Data.List.Defs
+-- import Mathlib.Data.List.Defs
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
