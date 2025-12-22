@@ -1,6 +1,5 @@
 import ChipFiringWithLean.Config
 import Paperproof
--- import Mathlib.Data.List.Defs
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
