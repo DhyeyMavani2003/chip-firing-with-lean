@@ -14,69 +14,17 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
--- Define a set of edges to be loopless only if it doesn't have loops
-def isLoopless (edges : Multiset (V × V)) : Bool :=
-  Multiset.card (edges.filter (λ e => (e.1 = e.2))) = 0
-
-def isLoopless_prop (edges : Multiset (V × V)) : Prop :=
+def isLoopless (edges : Multiset (V × V)) : Prop :=
   ∀ v, (v, v) ∉ edges
-
-lemma isLoopless_prop_bool_equiv (edges : Multiset (V × V)) :
-    isLoopless_prop edges ↔ isLoopless edges = true := by
-  unfold isLoopless_prop isLoopless
-  constructor
-  · intro h
-    apply decide_eq_true
-    rw [Multiset.card_eq_zero]
-    simp only [Multiset.eq_zero_iff_forall_not_mem]
-    intro e he
-    have h_eq : e.1 = e.2 := by
-      exact Multiset.mem_filter.mp he |>.2
-    have he' : e ∈ edges := by
-      exact Multiset.mem_filter.mp he |>.1
-    cases e with
-    | mk a b =>
-      simp at h_eq
-      have : (a, b) = (a, a) := by rw [h_eq]
-      rw [this] at he'
-      exact h a he'
-
-  · intro h
-    intro v
-    intro hv
-    apply False.elim
-    have h_filter : (v, v) ∈ Multiset.filter (λ e => e.1 = e.2) edges := by
-      apply Multiset.mem_filter.mpr
-      constructor
-      · exact hv
-      · simp
-
-    have h_card : Multiset.card (Multiset.filter (λ e => e.1 = e.2) edges) > 0 := by
-      apply Multiset.card_pos_iff_exists_mem.mpr
-      exists (v, v)
-
-    have h_eq : Multiset.card (Multiset.filter (λ e => e.1 = e.2) edges) = 0 := by
-      -- Use the fact that isLoopless edges = true means the cardinality is 0
-      unfold isLoopless at h
-      -- Since h : decide (...) = true, we extract the underlying proposition
-      apply of_decide_eq_true h
-
-    linarith
-
 
 -- Multigraph with loopless edges
 structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (edges : Multiset (V × V))
-  (loopless : isLoopless edges = true)
+  (loopless : isLoopless edges)
 
 /-- The genus of a graph is its cycle rank: |E| - |V| + 1 -/
 def genus (G : CFGraph V) : ℤ :=
   Multiset.card G.edges - Fintype.card V + 1
-
-lemma CFGraph_loopless_prop (G : CFGraph V) :
-  isLoopless_prop G.edges := by
-  rw [isLoopless_prop_bool_equiv G.edges]
-  exact G.loopless
 
 -- Number of edges between two vertices as an integer
 -- It is preferable to use this function to access the graph structrue rather than accessing G.edges directly, in case the implementation changes.
@@ -164,7 +112,9 @@ lemma num_edges_self_zero (G : CFGraph V) (v : V) :
   intro a h_inE h_eq_loop
   rw [or_self] at h_eq_loop
   rw [h_eq_loop] at h_inE
-  exact CFGraph_loopless_prop G v h_inE
+  exact G.loopless v h_inE
+
+
 
 -- degree (valence) of a vertex as an integer (defined as the sum of incident edge multiplicities)
 def vertex_degree (G : CFGraph V) (v : V) : ℤ :=
@@ -193,9 +143,7 @@ lemma num_edges_self_eq_zero (G : CFGraph V) (v : V) :
   intro e h_edge_in_G_edges h_edge_is_loop_form -- e ∈ G.edges and e = (v,v) ∨ e = (v,v)
   simp only [or_self] at h_edge_is_loop_form -- e = (v,v)
   rw [h_edge_is_loop_form] at h_edge_in_G_edges -- (v,v) ∈ G.edges
-  have h_loopless_prop : isLoopless_prop G.edges :=
-    (isLoopless_prop_bool_equiv G.edges).mpr G.loopless
-  exact h_loopless_prop v h_edge_in_G_edges -- Contradiction: (v,v) ∈ G.edges and isLoopless_prop
+  exact G.loopless v h_edge_in_G_edges -- Contradiction: (v,v) ∈ G.edges and isLoopless_prop
 
 -- Vertex degree equals the sum over neighbours other than the vertex itself.
 lemma vertex_degree_eq_sum_incident_edges (G : CFGraph V) (v : V) :
@@ -303,10 +251,6 @@ theorem linear_equiv_is_equivalence (G : CFGraph V) : Equivalence (linear_equiv 
 -- Define divisor class determined by a divisor
 def divisor_class (G : CFGraph V) (D : CFDiv V) : Set (CFDiv V) :=
   {D' : CFDiv V | linear_equiv G D D'}
-
--- Define effective divisors (in terms of non-negativity, returning a Bool)
-def effective_bool (D : CFDiv V) : Bool :=
-  ↑((Finset.univ.filter (fun v => D v < 0)).card = 0)
 
 -- Give CFDiv V the structure of a poset
 instance : PartialOrder (CFDiv V) :=

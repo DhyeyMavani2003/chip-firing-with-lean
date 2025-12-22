@@ -138,7 +138,7 @@ lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
     ∀ v : V, (v,v) ∉ O.directed_edges := by
   intro v
   have h_g_no_loop_at_v : (v,v) ∉ G.edges := by
-    exact (isLoopless_prop_bool_equiv G.edges).mpr G.loopless v
+    exact G.loopless v
 
   have h_g_count_loop_eq_zero : Multiset.count (v,v) G.edges = 0 := by
     exact Multiset.count_eq_zero_of_not_mem h_g_no_loop_at_v
@@ -419,14 +419,6 @@ lemma orientation_unique_by_indeg {G : CFGraph V} (O₁ O₂ : CFOrientation G)
   -- Apply the helper statement directly since we have exactly matching hypotheses
   exact helper_orientation_determined_by_levels O₁ O₂ h_acyc₁ h_acyc₂ h_indeg
 
-/-- Lemma to show indegree of source is 0 -/
-lemma source_indeg_zero {G : CFGraph V} (O : CFOrientation G) (v : V)
-    (h_src : is_source G O v) : indeg G O v = 0 := by
-  -- By definition of is_source in terms of indeg
-  unfold is_source at h_src
-  -- Convert from boolean equality to proposition
-  exact of_decide_eq_true h_src
-
 /-- Lemma proving uniqueness of orientations giving same config -/
 theorem helper_config_to_orientation_unique (G : CFGraph V) (q : V)
     (c : Config V q)
@@ -456,9 +448,7 @@ theorem helper_config_to_orientation_unique (G : CFGraph V) (q : V)
   · -- Case v = q: Both vertices are sources, so indegree is 0
     rw [hv]
     -- Use the explicit source assumptions h_src₁ and h_src₂
-    have h_zero₁ := source_indeg_zero O₁ q h_src₁
-    have h_zero₂ := source_indeg_zero O₂ q h_src₂
-    rw [h_zero₁, h_zero₂]
+    rw [h_src₁, h_src₂]
   · -- Case v ≠ q: use vertex degree equality
     rw [h_deg₁, h_deg₂] at h_config_eq
     simp only [if_neg hv] at h_config_eq
@@ -639,18 +629,10 @@ lemma eq_nil_of_card_eq_zero {α : Type _} {m : Multiset α}
 lemma edge_endpoints_distinct (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
     e.1 ≠ e.2 := by
   by_contra eq_endpoints
-  have : isLoopless G.edges = true := G.loopless
-  unfold isLoopless at this
-  have zero_loops : Multiset.card (G.edges.filter (λ e' => e'.1 = e'.2)) = 0 := by
-    simp only [decide_eq_true_eq] at this
-    exact this
-  have e_loop_mem : e ∈ Multiset.filter (λ e' => e'.1 = e'.2) G.edges := by
-    simp [he, eq_endpoints]
-  have positive : 0 < Multiset.card (G.edges.filter (λ e' => e'.1 = e'.2)) := by
-    exact Multiset.card_pos_iff_exists_mem.mpr ⟨e, e_loop_mem⟩
-  have : Multiset.filter (fun e' => e'.1 = e'.2) G.edges = ∅ := eq_nil_of_card_eq_zero zero_loops
-  rw [this] at e_loop_mem
-  cases e_loop_mem
+  rcases e with ⟨u,v⟩
+  have : u = v := eq_endpoints
+  rw [this] at he
+  exact G.loopless v he
 
 /-- Helper lemma: Each edge is incident to exactly two vertices -/
 lemma edge_incident_vertices_count (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
@@ -915,7 +897,6 @@ lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : m
   specialize h_unique_source some_source h_source
   rw [h_unique_source] at h_source
   dsimp [is_source] at h_source
-  simp at h_source
   rw [h_source]
   norm_num
 
@@ -1026,16 +1007,10 @@ theorem helper_linear_equiv_preserves_winnability (G : CFGraph V) (D₁ D₂ : C
 
 /-- Helper lemma: Source vertices have equal indegree (zero) when v = q -/
 lemma helper_source_indeg_eq_at_q (G : CFGraph V) (O₁ O₂ : CFOrientation G) (q v : V)
-    (h_src₁ : is_source G O₁ q = true) (h_src₂ : is_source G O₂ q = true)
+    (h_src₁ : is_source G O₁ q) (h_src₂ : is_source G O₂ q)
     (hv : v = q) :
     indeg G O₁ v = indeg G O₂ v := by
-  rw [hv]
-  rw [source_indeg_zero O₁ q h_src₁]
-  rw [source_indeg_zero O₂ q h_src₂]
-
-
-
-
+  rw [hv, h_src₁, h_src₂]
 
 /-
 # Helpers for Rank Degree Inequality used in RRG

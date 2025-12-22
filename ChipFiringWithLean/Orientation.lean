@@ -80,14 +80,14 @@ lemma card_directed_edges_eq_card_edges {G : CFGraph V} (O : CFOrientation G) : 
         simp [h_e]
         intro h_eq _
         rw [h_eq]
-        exact (isLoopless_prop_bool_equiv G.edges).mpr G.loopless v
+        exact G.loopless v
       · -- case: e ≠ ⟨u,v⟩
         by_cases h_e' : e = ⟨v,u⟩
         · -- case: e = ⟨v,u⟩
           simp [h_e']
           intro h_eq _
           rw [h_eq]
-          exact (isLoopless_prop_bool_equiv G.edges).mpr G.loopless u
+          exact G.loopless u
         · -- case: e ≠ ⟨v,u⟩
           simp [h_e, h_e']
     rw [h_msum]
@@ -160,15 +160,15 @@ def outdeg (G : CFGraph V) (O : CFOrientation G) (v : V) : ℕ :=
   Multiset.card (O.directed_edges.filter (λ e => e.fst = v))
 
 /-- A vertex is a source if it has no incoming edges (indegree = 0) -/
-def is_source (G : CFGraph V) (O : CFOrientation G) (v : V) : Bool :=
+def is_source (G : CFGraph V) (O : CFOrientation G) (v : V) : Prop :=
   indeg G O v = 0
 
 /-- A vertex is a sink if it has no outgoing edges (outdegree = 0) -/
-def is_sink (G : CFGraph V) (O : CFOrientation G) (v : V) : Bool :=
+def is_sink (G : CFGraph V) (O : CFOrientation G) (v : V) : Prop :=
   outdeg G O v = 0
 
 /-- Helper function to check if two consecutive vertices form a directed edge -/
-def is_directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Bool :=
+def is_directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
   (u, v) ∈ O.directed_edges
 
 -- Proposition verson of is_directed_edge
@@ -235,11 +235,7 @@ lemma indeg_ge_one_of_not_source (G : CFGraph V) (O : CFOrientation G) (v : V) :
   unfold is_source at h_not_source -- h_not_source : (decide (indeg G O v = 0)) = false
   apply Nat.one_le_iff_ne_zero.mpr -- Goal is indeg G O v ≠ 0
   intro h_eq_zero -- Assume indeg G O v = 0
-  have h_decide_true : decide (indeg G O v = 0) = true := by
-    rw [h_eq_zero]
-    exact decide_eq_true rfl
-  rw [h_decide_true] at h_not_source
-  simp at h_not_source
+  exact h_not_source h_eq_zero
 
 /-- For vertices that are not sources, indegree - 1 is non-negative. -/
 lemma indeg_minus_one_nonneg_of_not_source (G : CFGraph V) (O : CFOrientation G) (v : V) :
@@ -451,7 +447,6 @@ lemma helper_acyclic_has_source (G : CFGraph V) (O : CFOrientation G) :
   rcases h with ⟨v, _, h_source⟩
   use v
   dsimp [is_source]
-  simp
   rw [indeg_eq_sum_flow]
   apply Finset.sum_eq_zero
   exact h_source
@@ -530,7 +525,6 @@ lemma config_degree_from_O {G : CFGraph V} (O : CFOrientation G) {q : V} (h_acyc
   have h_q_source : is_source G O q := by
     exact is_source_of_unique_source O h_acyclic h_unique_source
   dsimp [is_source] at h_q_source
-  simp at h_q_source
   exact h_q_source
 
 lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :

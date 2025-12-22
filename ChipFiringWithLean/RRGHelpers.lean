@@ -630,7 +630,6 @@ theorem rank_degree_inequality
       dsimp [ordiv]
       suffices is_source G O q by
         dsimp [is_source] at this
-        simp at this
         rw [this]; simp
       -- Show q is a source in O... [TODO] bubble this off as a lemma
       rcases helper_acyclic_has_source G O O_acyc with ⟨s, hs⟩

@@ -30,9 +30,8 @@ def exampleEdges : Multiset (Person × Person) :=
     (Person.B, Person.C),
     (Person.C, Person.E)
   ]
-theorem loopless_example_edges : isLoopless exampleEdges = true := by rfl
-theorem loopless_prop_example_edges : isLoopless_prop exampleEdges := by
-  unfold isLoopless_prop
+theorem loopless_example_edges : isLoopless exampleEdges := by
+  unfold isLoopless
   decide
 
 -- Example usage for Person type in a graph with a loop
@@ -42,7 +41,7 @@ def edgesWithLoop : Multiset (Person × Person) :=
     (Person.A, Person.A),   -- This is a loop
     (Person.B, Person.C),
   ]
-theorem loopless_test_edges_with_loop : isLoopless edgesWithLoop = false := by rfl
+theorem loopless_test_edges_with_loop : ¬ (isLoopless edgesWithLoop) := by unfold isLoopless; decide
 
 def example_graph : CFGraph Person := {
   edges := Multiset.ofList [
@@ -50,7 +49,7 @@ def example_graph : CFGraph Person := {
     (Person.A, Person.C), (Person.A, Person.E),
     (Person.A, Person.E), (Person.E, Person.C)
   ],
-  loopless := by rfl,
+  loopless := by unfold isLoopless; decide,
 }
 
 def initial_wealth : CFDiv Person :=
@@ -128,15 +127,8 @@ theorem after_W₂_degree : deg after_W₂_firing = 2 := by rfl
 theorem after_W₃_degree : deg after_W₃_firing = 2 := by rfl
 
 -- Test effectiveness of divisors
-theorem initial_not_effective : ¬effective initial_wealth := by {
-  intro h
-  have hB := h Person.B
-  have h_neg : initial_wealth Person.B = -3 := by rfl
-  have h_lt : -3 < 0 := by norm_num
-  exact not_le.mpr h_lt hB
-}
-theorem initial_not_effective_bool : effective_bool initial_wealth = false := by rfl
-theorem after_W₃_firing_effective : effective_bool after_W₃_firing = true := by rfl
+theorem initial_not_effective : ¬(effective initial_wealth) := by unfold effective; decide
+theorem after_W₃_firing_effective : effective after_W₃_firing  := by unfold effective; decide
 
 -- Test Laplacian matrix values and symmetricity
 def example_laplacian := laplacian_matrix example_graph
