@@ -24,7 +24,7 @@ lemma legal_firing_preserves_effective (G : CFGraph V) (D : CFDiv V) (S : Finset
   · exact h_legal v hv
   -- Case 2: v ∉ S
   · have h1 : D v ≥ 0 := h_eff v
-    have h2 : finset_sum S (λ v' => if v = v' then -vertex_degree G v' else num_edges G v' v) ≥ 0 := by
+    have h2 : ∑ (v' ∈ S), (if v = v' then -vertex_degree G v' else num_edges G v' v) ≥ 0 := by
       apply Finset.sum_nonneg
       intro x hx
       -- Split on whether v = x
@@ -582,7 +582,7 @@ theorem rank_degree_inequality
       · -- Prove one_chip q v ≥ 0
         exact eff_one_chip q v
     -- Sum of two effective divisors is effective
-    have := eff_of_eff_add_eff _ _ src_eff diff_eff
+    have := (Eff V).add_mem src_eff diff_eff
     rw [← add_sub_assoc] at this
     exact this
 

@@ -128,7 +128,7 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
     intro x h
     rfl
   let E := k • E₁
-  have eff : effective E := eff_of_smul_eff k E₁ eff
+  have eff : effective E := (Eff V).nsmul_mem eff k
   have deg_E : deg E = k := by
     dsimp [E]
     have := AddMonoidHom.map_nsmul deg E₁ k
@@ -162,7 +162,7 @@ lemma deg_winnable_nonneg (G : CFGraph V) (D : CFDiv V) (h_winnable : winnable G
   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
   have same_deg: deg D = deg D' := linear_equiv_preserves_deg G D D' h_lequiv
   rw [same_deg]
-  dsimp [Div_plus] at h_D'_eff
+  dsimp [Eff] at h_D'_eff
   dsimp [deg]
   refine Finset.sum_nonneg ?_
   intro v h_v
@@ -184,7 +184,7 @@ lemma winnable_add_winnable (G : CFGraph V) (D1 D2 : CFDiv V)
   use D1' + D2'
   constructor
   · -- Show that D1' + D2' is effective
-    exact eff_of_eff_add_eff D1' D2' h_D1'_eff h_D2'_eff
+    exact (Eff V).add_mem h_D1'_eff h_D2'_eff
   · -- Show that D1 + D2 is linearly equivalent to D1' + D2'
     unfold linear_equiv at *
     have : D1' + D2' - (D1 + D2) = (D1' - D1) + (D2' - D2) := by
@@ -233,7 +233,7 @@ lemma rank_geq_trans (G : CFGraph V) (D : CFDiv V) (r1 r2 : ℤ) :
   constructor
   · -- Show that E + E_diff is effective of degree r2
     constructor
-    apply eff_of_eff_add_eff E E_diff
+    apply (Eff V).add_mem
     exact h_E_eff.left
     exact h_Ediff_eff
     -- Show degree
@@ -397,8 +397,8 @@ def exists_unwinnable_removal (G : CFGraph V) (D : CFDiv V) (k : ℕ) : Prop :=
 /-- Lemma: If a divisor is winnable, there exists an effective divisor linearly equivalent to it -/
 lemma winnable_iff_exists_effective (G : CFGraph V) (D : CFDiv V) :
   winnable G D ↔ ∃ D' : CFDiv V, effective D' ∧ linear_equiv G D D' := by
-  unfold winnable Div_plus
-  simp only [Set.mem_setOf_eq]
+  unfold winnable Eff
+  simp
 
 -- Can be removed; not used elsewhere.
 -- /-- Definition: Properties of rank function with respect to effective divisors -/

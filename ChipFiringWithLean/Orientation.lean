@@ -533,7 +533,7 @@ lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
   by_contra h_win
   let D := ordiv G O
   rcases h_win with ⟨E, E_eff, E_equiv⟩
-  dsimp [Div_plus] at E_eff
+  dsimp [Eff] at E_eff
   dsimp [linear_equiv] at E_equiv
   rw [principal_iff_eq_prin] at E_equiv
   rcases E_equiv with ⟨σ, h_σ⟩
@@ -856,7 +856,7 @@ lemma divisor_reverse_orientation {G : CFGraph V} (O : CFOrientation G)  : ordiv
   rw [add_apply]
   dsimp [ordiv, canonical_divisor]
   suffices indeg G O v + indeg G O' v = vertex_degree G v by
-    dsimp [vertex_degree] at this
+    dsimp [vertex_degree] at this ⊢
     rw [← this]
     ring
   rw [indeg_eq_sum_flow, indeg_eq_sum_flow, Nat.cast_sum, Nat.cast_sum]

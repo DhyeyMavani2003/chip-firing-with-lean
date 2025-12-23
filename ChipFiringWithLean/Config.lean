@@ -387,7 +387,7 @@ lemma linear_equiv_add_congr_right_local (G : CFGraph V) (D_add : CFDiv V) {D1 D
 lemma winnable_congr_local (G : CFGraph V) {D1 D2 : CFDiv V} (h_equiv : linear_equiv G D1 D2) :
   winnable G D1 ↔ winnable G D2 := by
   unfold winnable
-  simp only [Div_plus, Set.mem_setOf_eq]
+  simp only [Eff, Set.mem_setOf_eq]
   apply Iff.intro
   { intro hw1
     rcases hw1 with ⟨E, hE_effective, hD1E_equiv⟩
@@ -576,7 +576,7 @@ lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list 
     . -- Subcase: indexOf u < indexOf v
       simp [h_eq]
       have : u = v := (List.indexOf_inj (h_full u) (h_full v)).mp h_eq
-      rw [this, num_edges_self_eq_zero G v]
+      rw [this, num_edges_self_zero G v]
     . -- Subcase: indexOf u > indexOf v
       have h_uv' : L.list.indexOf u < L.list.indexOf v := by
         simp at h_uv h_eq

@@ -11,52 +11,96 @@ set_option linter.unusedSectionVars false
 
 open Multiset Finset
 
+/-!
+## Chip-firing graphs and their main attributes.
+-/
+
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
+/-- An edge set is *loopless* if it does not contain (v,v). -/
 def isLoopless (edges : Multiset (V × V)) : Prop :=
   ∀ v, (v, v) ∉ edges
 
--- Multigraph with loopless edges
+/-- A *chip-firing graph* is a loopless multigraph.
+It is not assumed connected by default, though many of our main theorems pertain to connected graphs. -/
 structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
   (edges : Multiset (V × V))
   (loopless : isLoopless edges)
+
+/-- The number of edges between vertex v and vertex w. When working with chip-firing graphs in this repository, it is usually preferable to work with this function, rather than with the multiset of edges directly. -/
+def num_edges (G : CFGraph V) (v w : V) : ℕ :=
+  Multiset.card (G.edges.filter (λ e => e = (v, w) ∨ e = (w, v)))
+
+/-- A graph is *connected* if the vertices cannot be partitioned into two nonempty sets with no edges between them. This is equivalent to saying there is a path between any two vertices, but the first definition is more convenient to work with in this repository. -/
+def graph_connected (G : CFGraph V) : Prop :=
+  ∀ S : Finset V, (∃ (v w : V), v ∈ S ∧ w ∉ S) →
+    (∃ v ∈ S, ∃ w ∉ S, num_edges G v w > 0)
 
 /-- The genus of a graph is its cycle rank: |E| - |V| + 1 -/
 def genus (G : CFGraph V) : ℤ :=
   Multiset.card G.edges - Fintype.card V + 1
 
--- Number of edges between two vertices as an integer
--- It is preferable to use this function to access the graph structrue rather than accessing G.edges directly, in case the implementation changes.
-def num_edges (G : CFGraph V) (v w : V) : ℕ :=
-  Multiset.card (G.edges.filter (λ e => e = (v, w) ∨ e = (w, v)))
+/-- Number of edges between two vertices is non-negative. -/
+lemma num_edges_nonneg (G : CFGraph V) (v w : V) :
+  num_edges G v w ≥ 0 := by
+  exact Nat.zero_le (num_edges G v w)
 
-def graph_connected (G : CFGraph V) : Prop :=
-  ∀ S : Finset V, (∃ (v w : V), v ∈ S ∧ w ∉ S) →
-    (∃ v ∈ S, ∃ w ∉ S, num_edges G v w > 0)
+/-- Number of edges is symmetric -/
+lemma num_edges_symmetric (G : CFGraph V) (v w : V) :
+  num_edges G v w = num_edges G w v := by
+  unfold num_edges
+  simp [Or.comm]
 
--- Divisor as a function from vertices to integers
+/-- Numerical version of *loopless*: num_edges v v = 0. -/
+@[simp] lemma num_edges_self_zero (G : CFGraph V) (v : V) :
+  num_edges G v v = 0 := by
+  unfold num_edges
+  rw [Multiset.card_eq_zero]
+  apply Multiset.filter_eq_nil.mpr
+  intro a h_inE h_eq_loop
+  rw [or_self] at h_eq_loop
+  rw [h_eq_loop] at h_inE
+  exact G.loopless v h_inE
+
+/-- Degree (valence) of a vertex as an integer (defined as the sum of incident edge multiplicities) -/
+def vertex_degree (G : CFGraph V) (v : V) : ℤ :=
+  ∑ u : V, (num_edges G v u : ℤ)
+
+/-- Vertex degree is non-negative -/
+lemma vertex_degree_nonneg (G : CFGraph V) (v : V) :
+  vertex_degree G v ≥ 0 := by
+  unfold vertex_degree
+  apply Finset.sum_nonneg
+  intro u _
+  exact Int.ofNat_nonneg _
+
+/-!
+## The divisor group on a chip-firing graph
+-/
+
+/-- A *divisor* is a function from vertices to integers. -/
 def CFDiv (V : Type) := V → ℤ
+
+/-- CFDiv V forms an Additive Commutative Group. -/
+instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
 /-- A divisor with one chip at a specified vertex `v_chip` and zero chips elsewhere. -/
 def one_chip (v_chip : V) : CFDiv V :=
   fun v => if v = v_chip then 1 else 0
 
+-- Canonical simplications for evaluations of one_chip.
 @[simp] lemma one_chip_apply_v (v : V) : one_chip v v = 1 := by
   dsimp [one_chip]
   rw [if_pos rfl]
-
 @[simp] lemma one_chip_apply_other (v w : V) : v ≠ w → one_chip v w = 0 := by
   simp [one_chip]
   intro h
   contrapose! h
   rw [h]
-
 @[simp] lemma one_chip_apply_other' (v w : V) : w ≠ v → one_chip v w = 0 := by
   simp [one_chip]
 
--- Make CFDiv an Additive Commutative Group
-instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
 
 -- Properties of divisor arithmetic
 @[simp] lemma add_apply (D₁ D₂ : CFDiv V) (v : V) :
@@ -77,7 +121,7 @@ instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
   simp [sub_apply, add_apply]
   ring
 
-@[simp] lemma add_sub_distrib (D₁ D₂ D₃ : CFDiv V) :
+lemma add_sub_distrib (D₁ D₂ D₃ : CFDiv V) :
   (D₁ + D₂) - D₃ = (D₁ - D₃) + D₂ := by
   funext x
   simp [sub_apply, add_apply]
@@ -87,106 +131,23 @@ instance : AddCommGroup (CFDiv V) := Pi.addCommGroup
   (n • D) v = n * (D v) := by
   rfl
 
-/-- Lemma: Lambda form of divisor subtraction equals standard form -/
-lemma divisor_sub_eq_lambda (G : CFGraph V) (D₁ D₂ : CFDiv V) :
-  (D₁ - D₂) = D₁ - D₂ := by
-  funext v
-  simp [sub_apply]
-
--- Lemma: Number of edges is non-negative
-lemma num_edges_nonneg (G : CFGraph V) (v w : V) :
-  num_edges G v w ≥ 0 := by
-  exact Nat.zero_le (num_edges G v w)
-
--- Lemma: Number of edges is symmetric
-lemma num_edges_symmetric (G : CFGraph V) (v w : V) :
-  num_edges G v w = num_edges G w v := by
-  unfold num_edges
-  simp [Or.comm]
-
-lemma num_edges_self_zero (G : CFGraph V) (v : V) :
-  num_edges G v v = 0 := by
-  unfold num_edges
-  rw [Multiset.card_eq_zero]
-  apply Multiset.filter_eq_nil.mpr
-  intro a h_inE h_eq_loop
-  rw [or_self] at h_eq_loop
-  rw [h_eq_loop] at h_inE
-  exact G.loopless v h_inE
-
-
-
--- degree (valence) of a vertex as an integer (defined as the sum of incident edge multiplicities)
-def vertex_degree (G : CFGraph V) (v : V) : ℤ :=
-  ∑ u : V, (num_edges G v u : ℤ)
-
--- Vertex degree equals the same sum by definition
-@[simp]
-lemma vertex_degree_eq_sum_num_edges (G : CFGraph V) (v : V) :
-  vertex_degree G v = ∑ u : V, (num_edges G v u : ℤ) := by
-  rfl
-
--- Vertex degree is non-negative
-lemma vertex_degree_nonneg (G : CFGraph V) (v : V) :
-  vertex_degree G v ≥ 0 := by
-  unfold vertex_degree
-  apply Finset.sum_nonneg
-  intro u _
-  exact Int.ofNat_nonneg _
-
--- An edge cannot connect a vertex to itself in a loopless graph, so there are zero such edges.
-lemma num_edges_self_eq_zero (G : CFGraph V) (v : V) :
-  num_edges G v v = 0 := by
-  unfold num_edges
-  rw [Multiset.card_eq_zero] -- Goal: filter ... = 0
-  apply Multiset.filter_eq_nil.mpr
-  intro e h_edge_in_G_edges h_edge_is_loop_form -- e ∈ G.edges and e = (v,v) ∨ e = (v,v)
-  simp only [or_self] at h_edge_is_loop_form -- e = (v,v)
-  rw [h_edge_is_loop_form] at h_edge_in_G_edges -- (v,v) ∈ G.edges
-  exact G.loopless v h_edge_in_G_edges -- Contradiction: (v,v) ∈ G.edges and isLoopless_prop
-
--- Vertex degree equals the sum over neighbours other than the vertex itself.
-lemma vertex_degree_eq_sum_incident_edges (G : CFGraph V) (v : V) :
-  (vertex_degree G v : ℤ) = ∑ w in Finset.univ.erase v, (num_edges G v w : ℤ) := by
-  unfold vertex_degree
-  rw [Finset.sum_eq_add_sum_diff_singleton (Finset.mem_univ v) (f := λ w => (num_edges G v w : ℤ))]
-  rw [num_edges_self_eq_zero G v]
-  rw [Nat.cast_zero] -- Cast 0 from ℕ to ℤ
-  rw [zero_add]
-  rw [Finset.sdiff_singleton_eq_erase]
-
--- Definition of the graph Laplacian map
--- Maps a firing vector (V → ℤ) to a principal divisor (CFDiv V)
-def laplacian_map (G : CFGraph V) (x : V → ℤ) : CFDiv V :=
-  λ v => (vertex_degree G v : ℤ) * x v - ∑ u : V, ↑(num_edges G v u) * x u
-
--- Set of principal divisors, defined as the image of the Laplacian map
-def principal_divisors_laplacian (G : CFGraph V) : AddSubgroup (CFDiv V) :=
-  AddSubgroup.closure (Set.range (laplacian_map G))
-
--- Firing move at a vertex
+/-- Firing move at a vertex -/
 def firing_move (G : CFGraph V) (D : CFDiv V) (v : V) : CFDiv V :=
   λ w => if w = v then D v - vertex_degree G v else D w + num_edges G v w
 
--- Borrowing move at a vertex
+/-- Borrowing move at a vertex -/
 def borrowing_move (G : CFGraph V) (D : CFDiv V) (v : V) : CFDiv V :=
   λ w => if w = v then D v + vertex_degree G v else D w - num_edges G v w
 
--- Define finset_sum using Finset.fold
-def finset_sum {α β} [AddCommMonoid β] (s : Finset α) (f : α → β) : β :=
-  s.fold (· + ·) 0 f
-
--- Define set_firing to use finset_sum with consistent types
+/-- Result of firing a set S on a vertex D -/
 def set_firing (G : CFGraph V) (D : CFDiv V) (S : Finset V) : CFDiv V :=
-  λ w => D w + finset_sum S (λ v => if w = v then -vertex_degree G v else num_edges G v w)
+  λ w => D w + ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
 
--- Define the group structure on CFDiv V
-instance : AddGroup (CFDiv V) := Pi.addGroup
-
--- Define the firing vector for a single vertex
+/-- The principal divisor associated to firing a single vertex -/
 def firing_vector (G : CFGraph V) (v : V) : CFDiv V :=
   λ w => if w = v then -vertex_degree G v else num_edges G v w
 
+/-- Applying a firing move is equivalent to adding the firing vector. -/
 lemma firing_move_eq_add_firing_vector (G : CFGraph V) (D : CFDiv V) (v : V) :
   firing_move G D v = D + firing_vector G v := by
   unfold firing_move firing_vector
@@ -199,32 +160,36 @@ lemma firing_move_eq_add_firing_vector (G : CFGraph V) (D : CFDiv V) (v : V) :
   · -- Case w ≠ v
     simp [h_eq]
 
--- Define the firing vector for a set of vertices
+/-- The firing vector for a set of vertices -/
 def set_firing_vector (G : CFGraph V) (D : CFDiv V) (S : Finset V) : CFDiv V :=
-  λ w => finset_sum S (λ v => if w = v then -vertex_degree G v else num_edges G v w)
+  λ w => ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
 
--- Lemma: Set firing equals adding the set firing vector
+/-- Set firing equals adding the set firing vector. -/
 lemma set_firing_eq_add_set_firing_vector (G : CFGraph V) (D : CFDiv V) (S : Finset V) :
   set_firing G D S = D + set_firing_vector G D S := by
   unfold set_firing set_firing_vector
   funext w
   dsimp
 
--- Define the principal divisors generated by firing moves at vertices
+/-!
+## Principal divisors and linear equivalence
+-/
+
+/-- The subgroup of principal divisors is generated by firing vectors at individual vertices. -/
 def principal_divisors (G : CFGraph V) : AddSubgroup (CFDiv V) :=
   AddSubgroup.closure (Set.range (firing_vector G))
 
--- Lemma: Principal divisors contain the firing vector at a vertex
+/-- Two divisors are *linearly equivalent* if their difference is a principal divisor. -/
+def linear_equiv (G : CFGraph V) (D D' : CFDiv V) : Prop :=
+  D' - D ∈ principal_divisors G
+
+/-- Lemma: Principal divisors contain the firing vector at a vertex -/
 lemma mem_principal_divisors_firing_vector (G : CFGraph V) (v : V) :
   firing_vector G v ∈ principal_divisors G := by
   apply AddSubgroup.subset_closure
   apply Set.mem_range_self
 
--- Define linear equivalence of divisors
-def linear_equiv (G : CFGraph V) (D D' : CFDiv V) : Prop :=
-  D' - D ∈ principal_divisors G
-
--- [Proven] Proposition: Linear equivalence is an equivalence relation on Div(G)
+/-- Linear equivalence is an equivalence relation on Div(G). -/
 theorem linear_equiv_is_equivalence (G : CFGraph V) : Equivalence (linear_equiv G) := by
   apply Equivalence.mk
   -- Reflexivity
@@ -248,47 +213,45 @@ theorem linear_equiv_is_equivalence (G : CFGraph V) : Equivalence (linear_equiv 
     rw [h_trans]
     exact AddSubgroup.add_mem _ h2 h1
 
--- Define divisor class determined by a divisor
-def divisor_class (G : CFGraph V) (D : CFDiv V) : Set (CFDiv V) :=
-  {D' : CFDiv V | linear_equiv G D D'}
 
--- Give CFDiv V the structure of a poset
-instance : PartialOrder (CFDiv V) :=
-  {
-    le := λ D₁ D₂ => ∀ v : V, D₁ v ≤ D₂ v,
-    le_refl := by
-      intro D v
-      exact le_refl <| D v,
-    le_trans := by
-      intro D₁ D₂ D₃ h₁₂ h₂₃ v
-      exact le_trans (h₁₂ v) (h₂₃ v),
-    le_antisymm := by
-      intro D₁ D₂ h₁₂ h₂₁
-      funext v
-      exact le_antisymm (h₁₂ v) (h₂₁ v)
-  }
+/-!
+## Effective divisors and the ≤ relation on divisors
+-/
 
+/-- Divisors form a poset, where D₁ ≤ D₂ means that for all vertices v, D₁(v) ≤ D₂(v). -/
+instance : PartialOrder (CFDiv V) := Pi.partialOrder
 
--- Define effective divisors (in terms of equivalent Prop)
+/-- A divisor is *effective* if it assigns a nonnegative integer to every vertex. Equivalently, it is ≥ 0.-/
 def effective (D : CFDiv V) : Prop :=
   ∀ v : V, D v ≥ 0
-  -- alternative: just say D ≥ 0. Requires changes elsewhere,
 
--- Simple example: one_chip is effective.
--- [TODO] Is this somewhere else in the code already?
+
+/-- The submonoid of Effective divisors is denoted Eff V. -/
+def Eff (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] : AddSubmonoid (CFDiv V) :=
+  { carrier := {D : CFDiv V | effective D},
+    zero_mem' := by
+      intro v
+      simp,
+    add_mem' := by
+      intros D₁ D₂ h_eff1 h_eff2 v
+      specialize h_eff1 v
+      specialize h_eff2 v
+      simp [add_apply]
+      linarith }
+
+@[simp] lemma mem_Eff {D : CFDiv V} : D ∈ Eff V ↔ effective D := Iff.rfl
+
+/-- A one-chip divisor is effective. -/
 def eff_one_chip (v : V) : effective (one_chip v) := by
   intro w
   dsimp [one_chip]
-  by_cases h_eq : w = v
-  · -- Case w = v
-    rw [h_eq]
-    simp
-  · -- Case w ≠ v
-    simp [h_eq]
+  by_cases h_eq : w = v <;> simp [h_eq]
 
+/-- D is effective iff D ≥ 0. -/
 lemma eff_iff_geq_zero (D : CFDiv V) : effective D ↔ D ≥ 0:= by
   rfl
 
+/-- D₁ - D₂ is effective iff D₁ ≥ D₂. -/
 lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ := by
   rw [eff_iff_geq_zero]
   constructor
@@ -301,42 +264,15 @@ lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ �
   simp
   linarith
 
-lemma eff_of_eff_add_eff (D₁ D₂ : CFDiv V) :
-  effective D₁ → effective D₂ → effective (D₁ + D₂) := by
-  intro h_eff1 h_eff2 v
-  unfold effective at *
-  specialize h_eff1 v
-  specialize h_eff2 v
-  simp [add_apply]
-  linarith
-
-
-
-lemma eff_of_smul_eff (n : ℕ) (D : CFDiv V) :
-  effective D → effective (n • D) := by
-  intro h_eff v
-  unfold effective at *
-  specialize h_eff v
-  simp [smul_apply]
-  apply Int.mul_nonneg
-  · exact Int.ofNat_nonneg n
-  · exact h_eff
-
--- Define the set of effective divisors
--- Note: We use the Prop returned by `effective` in set comprehension
-def Div_plus (G : CFGraph V) : Set (CFDiv V) :=
-  {D : CFDiv V | effective D}
-
--- Define winnable divisor
--- Note: We use the Prop returned by `linear_equiv` in set comprehension
+/-- A divisor is winnable if it is linearly equivalent to an effective divisor. -/
 def winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
-  ∃ D' ∈ Div_plus G, linear_equiv G D D'
+  ∃ D' ∈ Eff V, linear_equiv G D D'
 
--- Define the complete linear system of divisors
-def complete_linear_system (G: CFGraph V) (D: CFDiv V) : Set (CFDiv V) :=
-  {D' : CFDiv V | linear_equiv G D D' ∧ effective D'}
+/-!
+## The degree homomorphism
+-/
 
--- Degree of a divisor
+/-- Degree of a divisor is the sum of its values at all vertices. -/
 def deg : CFDiv V →+ ℤ := {
   toFun := λ D => ∑ v, D v,
   map_zero' := by
@@ -357,6 +293,7 @@ def deg : CFDiv V →+ ℤ := {
   rw [h_filter_eq_erase]
   simp
 
+/-- Effective divisors have nonnegative degree. -/
 lemma deg_of_eff_nonneg (D : CFDiv V) :
   effective D → deg D ≥ 0 := by
   intro h_eff
@@ -411,7 +348,7 @@ lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
   have h_filter_eq_erase : Finset.filter (fun x => ¬x = v_fire) univ = Finset.univ.erase v_fire := by
     ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
   rw [h_filter_eq_erase]
-  rw [← vertex_degree_eq_sum_incident_edges G v_fire]
+  dsimp [vertex_degree]
   simp
 
 theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
@@ -466,25 +403,6 @@ def prin (G : CFGraph V) : firing_script V →+ CFDiv V :=
       ring,
   }
 
-lemma prin_eq_neg_laplacian_map (G : CFGraph V) (σ : firing_script V) :
-  prin G σ = -laplacian_map G σ := by
-  unfold prin laplacian_map
-  funext v
-  dsimp
-  simp [sub_mul]
-  apply sub_eq_sub_iff_sub_eq_sub.mp
-  -- change goal to showing that both sides of the equation are equal to 0
-  have h : ∑ x : V, σ x * ↑(num_edges G v x) - ∑ u : V, ↑(num_edges G v u) * σ u= 0 := by
-    rw [sub_eq_zero.mpr]
-    apply sum_congr rfl
-    intro u _
-    ring
-  rw [h,sub_eq_zero.mpr]
-  rw [sum_mul]
-  apply sum_congr rfl
-  intro u _
-  ring
-
 lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
   D ∈ principal_divisors G ↔ ∃ σ : firing_script V, D = prin G σ := by
   unfold principal_divisors
@@ -498,13 +416,17 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
       rcases h_firing with ⟨v, rfl⟩
       let σ : firing_script V := λ u => if u = v then 1 else 0
       use σ
-      rw [prin_eq_neg_laplacian_map G σ]
-      unfold laplacian_map firing_vector
+      unfold firing_vector prin
       funext w
       dsimp [σ]
       by_cases h_eq : w = v
       . -- Case w = v
-        simp [h_eq, num_edges_self_eq_zero G v]
+        simp [h_eq, num_edges_self_zero G v]
+        unfold vertex_degree
+        rw [← Finset.sum_neg_distrib]
+        apply Finset.sum_congr rfl
+        intro u _
+        by_cases h_eq2 : u = v <;> simp [h_eq2]
       . -- Case w ≠ v
         simp [h_eq, num_edges_symmetric G v w]
     . -- Case 2: h_inp is zero divisor
@@ -543,32 +465,20 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
       rw [Finset.sum_apply]
       simp
       have: ∀ (u : V), (σ u - σ v) * ↑(num_edges G v u) = σ u * ↑(num_edges G v u) - σ v * ↑(num_edges G v u) := by intro u; ring
-      simp [this]
-      rw [← Finset.mul_sum]
-      simp [← vertex_degree_eq_sum_num_edges]
+      simp only [this]
 
-      have h (v : V): vertex_degree G v = ∑ x : V, if v = x then vertex_degree G v else 0 := by
-        rw [Finset.sum_ite]
-        rw [Finset.sum_const_zero,add_zero]
-        have : Finset.filter (Eq v) univ = {v} := by
-          ext x; simp [eq_comm]
-        rw [this, Finset.sum_singleton]
-      rw [h v]
-      rw [Finset.mul_sum]
-      -- Combine the right side into a single sum again
-      rw [← Finset.sum_sub_distrib]
-      apply sum_congr rfl
-      intro u _
-      by_cases h_eq : v = u
-      · -- Case v = u
-        rw [h_eq]
-        have : num_edges G u u = 0 := num_edges_self_eq_zero G u
+      have h (x : V) : (if v = x then -(σ x * vertex_degree G x) else σ x * ↑(num_edges G x v) ) = σ x * (↑(num_edges G x v) ) - σ x * ( (if v = x then vertex_degree G x else 0))  := by
+        by_cases h : v = x <;> simp [h]
+
+      simp only [h]
+      rw [Finset.sum_sub_distrib, Finset.sum_sub_distrib]
+      suffices ∑ x : V, σ x * (if v = x then vertex_degree G x else 0) = ∑ x : V, (σ v * ↑(num_edges G v x)) by
         rw [this]
-        simp
-      · -- Case v ≠ u
-        simp [h_eq]
-        left
-        rw [num_edges_symmetric G v u]
+        simp [num_edges_symmetric]
+
+      dsimp [vertex_degree]
+      rw [← Finset.mul_sum]
+      simp
     rw [← D_eq]
     exact D1_principal
 
@@ -602,7 +512,7 @@ lemma degree_of_firing_vector_is_zero (G : CFGraph V) (v_node : V) :
   unfold deg; simp
   unfold firing_vector
   simp only [Finset.sum_ite]
-  rw [vertex_degree_eq_sum_incident_edges G v_node]
+  dsimp [vertex_degree]
   have h_filter_eq_diff : Finset.filter (fun x => ¬x = v_node) Finset.univ = Finset.univ \ {v_node} := by
     ext x
     simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_sdiff, Finset.mem_singleton]

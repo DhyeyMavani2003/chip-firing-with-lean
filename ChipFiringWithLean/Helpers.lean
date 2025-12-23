@@ -580,7 +580,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
       use E₁ + one_chip v, E₂
       -- Check E₁ + one_chip v is effective
       constructor
-      apply eff_of_eff_add_eff
+      apply (Eff V).add_mem
       -- E₁ is effective
       exact h_E1_eff
       -- one_chip v is effective
