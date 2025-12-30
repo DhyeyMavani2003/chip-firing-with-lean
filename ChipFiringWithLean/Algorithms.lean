@@ -9,16 +9,6 @@ namespace CF
 
 open Finset BigOperators List
 
-/-- Perform a borrowing move at vertex `v`. Inverse of `firing_move`.
-`v` gains `deg(v)` chips, neighbors `w` lose `num_edges G v w` chips. -/
-@[simp]
-noncomputable def borrowing_move (G : CFGraph V) (D : CFDiv V) (v : V) : CFDiv V :=
-  fun w =>
-    if _ : w = v then -- Use underscore for unused hypothesis
-      D v + vertex_degree G v -- Use vertex_degree function
-    else
-      D w - num_edges G v w
-
 /-- Check if a divisor is effective (all vertices non-negative). From Basic.lean -/
 @[simp]
 def is_effective (D : CFDiv V) : Bool := decide (∀ v, D v ≥ 0)

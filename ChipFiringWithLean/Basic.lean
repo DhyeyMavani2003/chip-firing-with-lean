@@ -213,172 +213,6 @@ theorem linear_equiv_is_equivalence (G : CFGraph V) : Equivalence (linear_equiv 
     rw [h_trans]
     exact AddSubgroup.add_mem _ h2 h1
 
-
-/-!
-## Effective divisors and the ≤ relation on divisors
--/
-
-/-- Divisors form a poset, where D₁ ≤ D₂ means that for all vertices v, D₁(v) ≤ D₂(v). -/
-instance : PartialOrder (CFDiv V) := Pi.partialOrder
-
-/-- A divisor is *effective* if it assigns a nonnegative integer to every vertex. Equivalently, it is ≥ 0.-/
-def effective (D : CFDiv V) : Prop :=
-  ∀ v : V, D v ≥ 0
-
-
-/-- The submonoid of Effective divisors is denoted Eff V. -/
-def Eff (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] : AddSubmonoid (CFDiv V) :=
-  { carrier := {D : CFDiv V | effective D},
-    zero_mem' := by
-      intro v
-      simp,
-    add_mem' := by
-      intros D₁ D₂ h_eff1 h_eff2 v
-      specialize h_eff1 v
-      specialize h_eff2 v
-      simp [add_apply]
-      linarith }
-
-@[simp] lemma mem_Eff {D : CFDiv V} : D ∈ Eff V ↔ effective D := Iff.rfl
-
-/-- A one-chip divisor is effective. -/
-def eff_one_chip (v : V) : effective (one_chip v) := by
-  intro w
-  dsimp [one_chip]
-  by_cases h_eq : w = v <;> simp [h_eq]
-
-/-- D is effective iff D ≥ 0. -/
-lemma eff_iff_geq_zero (D : CFDiv V) : effective D ↔ D ≥ 0:= by
-  rfl
-
-/-- D₁ - D₂ is effective iff D₁ ≥ D₂. -/
-lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ := by
-  rw [eff_iff_geq_zero]
-  constructor
-  intro h v
-  specialize h v
-  simp at h
-  linarith
-  intro h v
-  specialize h v
-  simp
-  linarith
-
-/-- A divisor is winnable if it is linearly equivalent to an effective divisor. -/
-def winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
-  ∃ D' ∈ Eff V, linear_equiv G D D'
-
-/-!
-## The degree homomorphism
--/
-
-/-- Degree of a divisor is the sum of its values at all vertices. -/
-def deg : CFDiv V →+ ℤ := {
-  toFun := λ D => ∑ v, D v,
-  map_zero' := by
-    simp [Finset.sum_const_zero],
-  map_add' := by
-    intro D₁ D₂
-    simp [Finset.sum_add_distrib],
-}
-
-@[simp] lemma deg_one_chip (v : V) : deg (one_chip v) = 1 := by
-  dsimp [deg, one_chip]
-  rw [Finset.sum_ite]
-  have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
-    ext x; simp [eq_comm]
-  rw [h_filter_eq_single, Finset.sum_singleton]
-  have h_filter_eq_erase : Finset.filter (fun x => ¬x = v) Finset.univ = Finset.univ.erase v := by
-    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
-  rw [h_filter_eq_erase]
-  simp
-
-/-- Effective divisors have nonnegative degree. -/
-lemma deg_of_eff_nonneg (D : CFDiv V) :
-  effective D → deg D ≥ 0 := by
-  intro h_eff
-  refine Finset.sum_nonneg ?_
-  intro v _
-  specialize h_eff v
-  exact h_eff
-
--- [TODO]: this proof can probably be simplified
-lemma eff_degree_zero (D : CFDiv V) : effective D → deg D = 0 → D = 0 := by
-  intro h_eff h_deg_
-  funext v; simp
-  by_contra h_chip
-  have h_chip_pos : D v ≥ 1 := by
-    have trich := lt_trichotomy (D v) 0
-    rcases trich with h_neg | h_zero | h_pos
-    · -- Case D v < 0
-      exfalso
-      linarith [h_eff v]
-    · -- Case D v = 0
-      exfalso
-      exact h_chip h_zero
-    · -- Case D v > 0
-      exact Int.pos_iff_one_le.mp h_pos
-  let D' := D - one_chip v
-  have D'_eff : effective D' := by
-    intro w
-    by_cases h_eq : w = v
-    · -- Case w = v
-      rw [h_eq]
-      dsimp [D']
-      simp [one_chip]
-      exact h_chip_pos
-    · -- Case w ≠ v
-      dsimp [D']
-      simp [one_chip, h_eq]
-      exact h_eff w
-  have h_deg_D' : deg D' = -1 := by
-    dsimp [D']
-    simp
-    rw [h_deg_]
-  have h_nonneg := deg_of_eff_nonneg D' D'_eff
-  linarith
-
-lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
-  deg (firing_vector G v_fire) = 0 := by
-  dsimp [deg, firing_vector]
-  rw [Finset.sum_ite]
-  have h_filter_eq_single : Finset.filter (fun x => x = v_fire) univ = {v_fire} := by
-    ext x; simp [eq_comm]
-  rw [h_filter_eq_single, Finset.sum_singleton]
-  have h_filter_eq_erase : Finset.filter (fun x => ¬x = v_fire) univ = Finset.univ.erase v_fire := by
-    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
-  rw [h_filter_eq_erase]
-  dsimp [vertex_degree]
-  simp
-
-theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
-  deg D = deg D' := by
-  unfold linear_equiv at h_equiv
-  have h_deg_diff_zero : deg (D' - D) = 0 := by
-    refine AddSubgroup.closure_induction h_equiv ?_ ?_ ?_ ?_
-    · -- Case 1: Elements from S = Set.range (firing_vector G)
-      intro x hx_in_S -- hx_in_S : x ∈ Set.range (firing_vector G)
-      -- Goal: deg x = 0
-      rcases hx_in_S with ⟨v, rfl⟩ -- Destructure hx_in_S to get v and substitute x = firing_vector G v
-      exact deg_firing_vector_eq_zero G v
-    · -- Case 2: The zero element
-      -- Goal: deg 0 = 0
-      simp
-    · -- Case 3: Sum of two elements satisfying the property
-      intro x y hx_deg_zero hy_deg_zero -- hx_deg_zero: deg x = 0, hy_deg_zero: deg y = 0
-      -- Goal: deg (x + y) = 0
-      rw [deg.map_add, hx_deg_zero, hy_deg_zero, add_zero]
-    · -- Case 4: Negative of an element satisfying the property
-      intro x hx_deg_zero -- hx_deg_zero: deg x = 0
-      -- Goal: deg (-x) = 0
-      rw [deg.map_neg, hx_deg_zero, neg_zero]
-
-  have h_deg_sub_eq_sub_deg : deg (D' - D) = deg D' - deg D := by
-    simp [sub_eq_add_neg, deg.map_add, deg.map_neg]
-
-  rw [h_deg_sub_eq_sub_deg] at h_deg_diff_zero
-  linarith [h_deg_diff_zero]
-
 -- Define a firing script as a function from vertices to integers
 def firing_script (V : Type) := V → ℤ
 
@@ -482,22 +316,176 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
     rw [← D_eq]
     exact D1_principal
 
+/-!
+## Effective divisors and the ≤ relation on divisors
+-/
 
--- Define Laplacian matrix as an |V| x |V| integer matrix
+/-- Divisors form a poset, where D₁ ≤ D₂ means that for all vertices v, D₁(v) ≤ D₂(v). -/
+instance : PartialOrder (CFDiv V) := Pi.partialOrder
+
+/-- A divisor is *effective* if it assigns a nonnegative integer to every vertex. Equivalently, it is ≥ 0.-/
+def effective (D : CFDiv V) : Prop :=
+  ∀ v : V, D v ≥ 0
+
+
+/-- The submonoid of Effective divisors is denoted Eff V. -/
+def Eff (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] : AddSubmonoid (CFDiv V) :=
+  { carrier := {D : CFDiv V | effective D},
+    zero_mem' := by
+      intro v
+      simp,
+    add_mem' := by
+      intros D₁ D₂ h_eff1 h_eff2 v
+      specialize h_eff1 v
+      specialize h_eff2 v
+      simp [add_apply]
+      linarith }
+
+@[simp] lemma mem_Eff {D : CFDiv V} : D ∈ Eff V ↔ effective D := Iff.rfl
+
+/-- A one-chip divisor is effective. -/
+def eff_one_chip (v : V) : effective (one_chip v) := by
+  intro w
+  dsimp [one_chip]
+  by_cases h_eq : w = v <;> simp [h_eq]
+
+/-- D is effective iff D ≥ 0. -/
+lemma eff_iff_geq_zero (D : CFDiv V) : effective D ↔ D ≥ 0:= by
+  rfl
+
+/-- D₁ - D₂ is effective iff D₁ ≥ D₂. -/
+lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ := by
+  rw [eff_iff_geq_zero]
+  constructor
+  intro h v
+  specialize h v
+  simp at h
+  linarith
+  intro h v
+  specialize h v
+  simp
+  linarith
+
+/-- A divisor is winnable if it is linearly equivalent to an effective divisor. -/
+def winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
+  ∃ D' ∈ Eff V, linear_equiv G D D'
+
+/-!
+## The degree homomorphism
+-/
+
+/-- Degree of a divisor is the sum of its values at all vertices. -/
+def deg : CFDiv V →+ ℤ := {
+  toFun := λ D => ∑ v, D v,
+  map_zero' := by
+    simp [Finset.sum_const_zero],
+  map_add' := by
+    intro D₁ D₂
+    simp [Finset.sum_add_distrib],
+}
+
+@[simp] lemma deg_one_chip (v : V) : deg (one_chip v) = 1 := by
+  dsimp [deg, one_chip]
+  rw [Finset.sum_ite]
+  have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
+    ext x; simp [eq_comm]
+  rw [h_filter_eq_single, Finset.sum_singleton]
+  have h_filter_eq_erase : Finset.filter (fun x => ¬x = v) Finset.univ = Finset.univ.erase v := by
+    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
+  rw [h_filter_eq_erase]
+  simp
+
+/-- Effective divisors have nonnegative degree. -/
+lemma deg_of_eff_nonneg (D : CFDiv V) :
+  effective D → deg D ≥ 0 := by
+  intro h_eff
+  refine Finset.sum_nonneg ?_
+  intro v _
+  specialize h_eff v
+  exact h_eff
+
+/-- The only effective divisor of degree 0 is 0. -/
+lemma eff_degree_zero (D : CFDiv V) : effective D → deg D = 0 → D = 0 := by
+  intro h_eff h_deg
+  have h_sum : ∑ (v : V), D v = ∑ (v : V), 0 := by
+    simp
+    apply h_deg
+  have h_ineq : ∀ (v : V), D v ≥ 0 := by
+    dsimp [effective] at h_eff
+    exact h_eff
+  funext v; simp
+  suffices 0 = D v by apply Eq.symm this
+  contrapose! h_sum with h_neq
+  have : 0 < D v := lt_of_le_of_ne (h_ineq v) h_neq
+  have : ∑ v : V, D v > ∑ v : V, 0 := by
+    apply Finset.sum_lt_sum
+    simp [h_ineq]
+    use v
+    simp [this]
+  linarith
+
+/-- The degree of a firing vector is zero. -/
+lemma deg_firing_vector_eq_zero (G : CFGraph V) (v_fire : V) :
+  deg (firing_vector G v_fire) = 0 := by
+  dsimp [deg, firing_vector]
+  rw [Finset.sum_ite]
+  have h_filter_eq_single : Finset.filter (fun x => x = v_fire) univ = {v_fire} := by
+    ext x; simp [eq_comm]
+  rw [h_filter_eq_single, Finset.sum_singleton]
+  have h_filter_eq_erase : Finset.filter (fun x => ¬x = v_fire) univ = Finset.univ.erase v_fire := by
+    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
+  rw [h_filter_eq_erase]
+  dsimp [vertex_degree]
+  simp
+
+/-- Linearly equivalent divisors have the same degree. -/
+theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
+  deg D = deg D' := by
+  unfold linear_equiv at h_equiv
+  have h_deg_diff_zero : deg (D' - D) = 0 := by
+    refine AddSubgroup.closure_induction h_equiv ?_ ?_ ?_ ?_
+    · -- Case 1: Elements from S = Set.range (firing_vector G)
+      intro x hx_in_S -- hx_in_S : x ∈ Set.range (firing_vector G)
+      -- Goal: deg x = 0
+      rcases hx_in_S with ⟨v, rfl⟩ -- Destructure hx_in_S to get v and substitute x = firing_vector G v
+      exact deg_firing_vector_eq_zero G v
+    · -- Case 2: The zero element
+      -- Goal: deg 0 = 0
+      simp
+    · -- Case 3: Sum of two elements satisfying the property
+      intro x y hx_deg_zero hy_deg_zero -- hx_deg_zero: deg x = 0, hy_deg_zero: deg y = 0
+      -- Goal: deg (x + y) = 0
+      rw [deg.map_add, hx_deg_zero, hy_deg_zero, add_zero]
+    · -- Case 4: Negative of an element satisfying the property
+      intro x hx_deg_zero -- hx_deg_zero: deg x = 0
+      -- Goal: deg (-x) = 0
+      rw [deg.map_neg, hx_deg_zero, neg_zero]
+
+  have h_deg_sub_eq_sub_deg : deg (D' - D) = deg D' - deg D := by
+    simp [sub_eq_add_neg, deg.map_add, deg.map_neg]
+
+  rw [h_deg_sub_eq_sub_deg] at h_deg_diff_zero
+  linarith [h_deg_diff_zero]
+
 open Matrix
 variable [Fintype V]
 
+/-- The Laplacian matrix of a CFGraph. -/
 def laplacian_matrix (G : CFGraph V) : Matrix V V ℤ :=
   λ i j => if i = j then vertex_degree G i else - (num_edges G i j)
 
 -- Note: The Laplacian matrix L is given by Deg(G) - A, where Deg(G) is the diagonal matrix of degrees and A is the adjacency matrix.
 -- This matrix can be used to represent the effect of a firing script on a divisor.
 
--- Apply the Laplacian matrix to a firing script, and current divisor to get a new divisor
+/-- Apply the Laplacian matrix to a firing script, and current divisor to get a new divisor. -/
 def apply_laplacian (G : CFGraph V) (σ : firing_script V) (D: CFDiv V) : CFDiv V :=
   fun v => (D v) - (laplacian_matrix G).mulVec σ v
 
--- Define q-reduced divisors
+/-!
+## q-reduced divisors
+-/
+
+/-- A divisior is q-reduced if it is effective away from q, but firing any vertex set disjoint from q puts some vertex into debt. -/
 def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
   (∀ v ∈ {v | v ≠ q}, D v ≥ 0) ∧
   (∀ S : Finset V, S ⊆ (Finset.univ.filter (λ v => v ≠ q)) → S.Nonempty →
@@ -507,6 +495,7 @@ def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
 def legal_set_firing (G : CFGraph V) (D : CFDiv V) (S : Finset V) : Prop :=
   ∀ v ∈ S, set_firing G D S v ≥ 0
 
+/-- The divisor of firing a single vertex has degree 0. -/
 lemma degree_of_firing_vector_is_zero (G : CFGraph V) (v_node : V) :
   deg (firing_vector G v_node) = 0 := by
   unfold deg; simp
@@ -911,7 +900,7 @@ lemma reduces_to_antisymmetric {G : CFGraph V} (h_conn : graph_connected G) (q :
   rw [h_D2_eq]
   simp
 
--- A vertex is called ``dormant'' if it can never be fired in a firing script from D to a q-effective divisor.
+/-- A vertex is called ``active'' if there exists a firing script that leaves the divisor effective away from q, does not fire q, and fires at least once at that vertex. -/
 def active (G : CFGraph V) (q : V) (D : CFDiv V) (v : V) : Prop :=
   ∃ σ : firing_script V, q_reducer G q σ ∧ q_effective q (D + prin G σ) ∧ σ q < σ v
 
