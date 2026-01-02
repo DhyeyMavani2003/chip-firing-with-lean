@@ -14,29 +14,6 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
--- [Proven] Lemma: effectiveness is preserved under legal firing (Additional)
-lemma legal_firing_preserves_effective (G : CFGraph V) (D : CFDiv V) (S : Finset V) :
-  legal_set_firing G D S → effective D → effective (set_firing G D S) := by
-  intros h_legal h_eff v
-  simp [set_firing]
-  by_cases hv : v ∈ S
-  -- Case 1: v ∈ S
-  · exact h_legal v hv
-  -- Case 2: v ∉ S
-  · have h1 : D v ≥ 0 := h_eff v
-    have h2 : ∑ (v' ∈ S), (if v = v' then -vertex_degree G v' else num_edges G v' v) ≥ 0 := by
-      apply Finset.sum_nonneg
-      intro x hx
-      -- Split on whether v = x
-      by_cases hveq : v = x
-      · -- If v = x, contradiction with v ∉ S
-        rw [hveq] at hv
-        contradiction
-      · -- If v ≠ x, then we get num_edges which is non-negative
-        simp [hveq]
-    exact add_nonneg h1 h2
-
-
 /-- [Proven] Lemma 4.1.10: An acyclic orientation is uniquely determined by its indegree sequence -/
 theorem acyclic_orientation_unique_by_indeg {G : CFGraph V}
   (O O' : CFOrientation G)
