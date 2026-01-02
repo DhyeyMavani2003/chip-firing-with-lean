@@ -16,28 +16,6 @@ variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 # Helpers for Proposition 3.2.4
 -/
 
--- Lemma: Firing a vertex results in a linearly equivalent divisor.
-lemma firing_move_linear_equiv (G : CFGraph V) (D : CFDiv V) (v : V) :
-  linear_equiv G D (firing_move G D v) := by
-  unfold linear_equiv
-  have h_diff_eq_firing_vector : (firing_move G D v) - D = firing_vector G v := by
-    funext w
-    simp only [sub_apply, firing_move, firing_vector] -- Basic definition unfolding
-    by_cases H : w = v
-    · simp [H] -- Simplifies if_true branches
-    · simp [H] -- Simplifies if_false branches
-  rw [h_diff_eq_firing_vector]
-  exact AddSubgroup.subset_closure (Set.mem_range_self v)
-
--- Helper for well-founded recursion: measure the sum of negativities outside q
-def sum_negativity_outside_q (q : V) (D : CFDiv V) : ℕ :=
-  (Finset.univ.erase q).sum (λ v => if D v < 0 then (-D v).toNat else 0)
-
--- Helper for well-founded recursion: measure the sum of negativities outside q
--- This is the same as the sum_negativity_outside_q function, but using a list instead of a Finset
-noncomputable def sum_negativity_outside_q_list (q : V) (D : CFDiv V) : List ℕ :=
-  (Finset.univ.erase q).toList.map (λ v => if D v < 0 then (-D v).toNat else 0)
-
 /- Theorem: Existence of a q-reduced representative within a divisor class -/
 theorem exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' :=
@@ -128,46 +106,10 @@ lemma effective_of_winnable_and_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) 
   have h_equiv' : linear_equiv G E D := by
     exact (linear_equiv_is_equivalence G).symm h_equiv
   exact helper_q_reduced_of_effective_is_effective G q E D h_eff_E h_equiv' h_qred
+
 /-
 # Helpers for Lemma 4.1.10
 -/
-
-
-
-lemma orientation_edges_loopless (G : CFGraph V) (O : CFOrientation G) :
-    ∀ v : V, (v,v) ∉ O.directed_edges := by
-  intro v
-  have h_g_no_loop_at_v : (v,v) ∉ G.edges := by
-    exact G.loopless v
-
-  have h_g_count_loop_eq_zero : Multiset.count (v,v) G.edges = 0 := by
-    exact Multiset.count_eq_zero_of_not_mem h_g_no_loop_at_v
-
-  have h_count_preserving := O.count_preserving v v
-  rw [show ∀ (m : Multiset (V×V)) (p : V×V), Multiset.count p m + Multiset.count p m = 2 * Multiset.count p m by intros; rw [two_mul]] at h_count_preserving
-
-  rw [num_edges_self_zero G v] at h_count_preserving
-  -- Now: h_count_preserving is `0 = 2 * Multiset.count (v,v) O.directed_edges`
-
-  have h_o_count_loop_eq_zero : Multiset.count (v,v) O.directed_edges = 0 := by
-    cases hv_count_o_edges : (Multiset.count (v,v) O.directed_edges) with
-    | zero => rfl
-    | succ n => -- Here, hv_count_o_edges is `count (v,v) O.directed_edges = Nat.succ n`
-      rw [hv_count_o_edges] at h_count_preserving -- h_count_preserving becomes `0 = 2 * (Nat.succ n)`
-      linarith [Nat.mul_pos (by decide : 2 > 0) (Nat.succ_pos n)] -- `0 = 2 * Nat.succ n` and `2 * Nat.succ n > 0` is a contradiction
-
-  exact (Multiset.count_eq_zero).mp h_o_count_loop_eq_zero
-
-/-- Helper lemma: Two orientations are equal if they have the same directed edges -/
-lemma helper_orientation_eq_of_directed_edges {G : CFGraph V}
-  (O O' : CFOrientation G) :
-  O.directed_edges = O'.directed_edges → O = O' := by
-  intro h
-  -- Use cases to construct the equality proof
-  cases O with | mk edges consistent =>
-  cases O' with | mk edges' consistent' =>
-  -- Create congr_arg to show fields are equal
-  congr
 
 /-- Lemma: Given a list of disjoint vertex sets that form a partition of V,
     an acyclic orientation is uniquely determined by this partition where
@@ -614,17 +556,6 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
 # Helpers for Corollary 4.2.3 + Handshaking Theorem
 -/
 
-/-- Helper lemma: Every divisor can be decomposed into a principal divisor and an effective divisor -/
-lemma eq_nil_of_card_eq_zero {α : Type _} {m : Multiset α}
-    (h : Multiset.card m = 0) : m = ∅ := by
-  induction m using Multiset.induction_on with
-  | empty => rfl
-  | cons a s ih =>
-    simp only [Multiset.card_cons] at h
-    -- card s + 1 = 0 is impossible for natural numbers
-    have : ¬(Multiset.card s + 1 = 0) := Nat.succ_ne_zero (Multiset.card s)
-    contradiction
-
 /-- Helper lemma: In a loopless graph, each edge has distinct endpoints -/
 lemma edge_endpoints_distinct (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
     e.1 ≠ e.2 := by
@@ -674,6 +605,84 @@ lemma map_inc_eq_map_two_nat (G : CFGraph V) :
   rw [Multiset.map_congr rfl h_congr] -- Use map_congr with rfl
   -- Apply rewrites step-by-step
   rw [Multiset.map_const', Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
+
+/-- Helper lemma to rewrite (in-)degree in terms of edge counts from each direction.
+This proof is quite clunky, and I suspect it can be simplified. -/
+lemma degree_eq_total_flow : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, e.1 ≠ e.2) →
+  ∑ u : V, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) = Multiset.card (S.filter (λ e => e.fst = v ∨ e.snd = v)) := by
+  -- Induct on the multiset S
+  intro S v h_loopless
+  induction S using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
+  | cons e_head s_tail ih_s_tail =>
+    -- Rewrite both sides using the head and tail
+    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
+    rw [ih_s_tail]
+    -- Cancel the like terms in a + b = a + c
+    suffices h : ∑ x : V, Multiset.card (if e_head = (v, x) ∨ e_head = (x, v) then {e_head} else 0) = Multiset.card (if e_head.1 = v ∨ e_head.2 = v then {e_head} else 0) by linarith
+
+    by_cases h_head : (e_head.fst = v ∨ e_head.snd = v)
+    · -- Case: e_head is incident to v
+      simp only [if_pos h_head, add_comm, Multiset.card_singleton, Multiset.card_eq_one]
+      obtain ⟨e,f⟩ := e_head
+      rcases h_head with h_left  | h_right
+      -- Subcase: e = v
+      have e_eq_v : e =v  := h_left
+      have f_neq_v : f ≠ v := by
+        contrapose! h_left
+        simp [h_left]
+        rw [← h_left]
+        exact h_loopless ⟨e,f⟩ (by simp)
+      simp [e_eq_v, f_neq_v]
+      -- Now only one term in this sum is nonzero
+      have h (x:V): Multiset.card (if f = x then {(v, f)} else 0) = (if x = f then 1 else 0) := by
+        by_cases h_x : x = f
+        · simp [h_x]
+        · simp [h_x]
+          contrapose! h_x
+          rw [h_x]
+      simp [h]
+      -- Subcase: f = v
+      -- Similar argument
+      have f_eq_v : f = v := h_right
+      have e_neq_v : e ≠ v := by
+        contrapose! h_right
+        simp [h_right]
+        rw [← h_right]
+        have := h_loopless ⟨e,f⟩ (by simp)
+        intro h_bad
+        rw [h_bad] at this
+        apply absurd this
+        simp
+
+      simp [f_eq_v, e_neq_v]
+      -- Now only one term in this sum is nonzero
+      have h (x:V): Multiset.card (if e = x then {(e,v)} else 0) = (if x = e then 1 else 0) := by
+        by_cases h_x : x = e
+        · simp [h_x]
+        · simp [h_x]
+          contrapose! h_x
+          rw [h_x]
+      simp [h]
+    · -- Case: e_head is not incident to v
+      simp only [if_neg h_head]
+      apply Finset.sum_eq_zero
+      intro x _
+      simp [h_head]
+      push_neg at h_head
+      contrapose! h_head
+      intro h'
+      have h'': e_head ≠ ⟨v,x⟩ := by
+        contrapose! h'
+        simp [h']
+      apply h_head at h''
+      simp [h'']
+    intro e
+    specialize h_loopless e
+    intro h_tail
+    apply h_loopless
+    simp [h_tail]
 
 -- Key lemma for handshaking theorem: Sum of edge counts equals incident edge count
 lemma sum_num_edges_eq_filter_count (G : CFGraph V) (v : V) :
@@ -978,29 +987,6 @@ lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
 # Helpers for Proposition 4.1.13 Part (2)
 -/
 
-/-- Helper theorem: Linear equivalence preserves winnability -/
-theorem helper_linear_equiv_preserves_winnability (G : CFGraph V) (D₁ D₂ : CFDiv V) :
-  linear_equiv G D₁ D₂ → (winnable G D₁ ↔ winnable G D₂) := by
-  intro h_equiv
-  constructor
-  -- Forward direction: D₁ winnable → D₂ winnable
-  { intro h_win₁
-    rcases h_win₁ with ⟨D₁', h_eff₁, h_equiv₁⟩
-    exists D₁'
-    constructor
-    · exact h_eff₁
-    · -- Use transitivity: D₂ ~ D₁ ~ D₁'
-      exact linear_equiv_is_equivalence G |>.trans
-        (linear_equiv_is_equivalence G |>.symm h_equiv) h_equiv₁ }
-  -- Reverse direction: D₂ winnable → D₁ winnable
-  { intro h_win₂
-    rcases h_win₂ with ⟨D₂', h_eff₂, h_equiv₂⟩
-    exists D₂'
-    constructor
-    · exact h_eff₂
-    · -- Use transitivity: D₁ ~ D₂ ~ D₂'
-      exact linear_equiv_is_equivalence G |>.trans h_equiv h_equiv₂ }
-
 /-
 # Helpers for Proposition 4.1.14
 -/
@@ -1081,7 +1067,7 @@ lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   apply winnable_equiv_winnable G D' D h_winnable_D'
   apply (linear_equiv_is_equivalence G).symm h_equiv
 
--- [Proven] Proposition 3.2.4: q-reduced and effective implies winnable
+/-- Proposition 3.2.4: q-reduced and effective implies winnable -/
 theorem winnable_iff_q_reduced_effective {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
   constructor
@@ -1234,16 +1220,6 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : g
 /-
 # Helpers for RRG's Corollary 4.4.3
 -/
-
-/-- Helper lemma: Effective divisors have non-negative degree -/
-lemma effective_nonneg_deg
-  (D : CFDiv V) (h : effective D) : deg D ≥ 0 := by
-  -- Definition of effective means all entries are non-negative
-  unfold effective at h
-  -- Definition of degree as sum of entries
-  unfold deg
-  -- Non-negative sum of non-negative numbers is non-negative
-  exact sum_nonneg (λ v _ ↦ h v)
 
 -- Lemma: Rank of zero divisor is zero
 lemma zero_divisor_rank (G : CFGraph V) : rank G (0:CFDiv V) = 0 := by

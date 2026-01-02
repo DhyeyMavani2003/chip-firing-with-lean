@@ -193,24 +193,6 @@ lemma config_eff {q : V} (d : ℤ) (c : Config V q) : effective (toDiv d c) ↔ 
     simp [h_v]
     exact c.non_negative v
 
--- lemma config_degree_eq_div_degree {q : V} (c : Config V q) : config_degree c = deg (c : CFDiv V)  := by
---   dsimp [config_degree, deg, toDiv]
---   -- Split the right sum into the sum over v ≠ q and the term at v = q
---   have h_split (f : V → ℤ): ∑ v :V , f v = ∑ v in (univ.filter (λ v => v ≠ q)), f v + f q := by
---     have h: q ∈ univ := by simp
---     rw [Finset.sum_eq_sum_diff_singleton_add h f]
---     apply (add_left_inj (f q)).mpr
---     have same_domain: univ \ {q} = univ.filter (λ v => v ≠ q) := by
---       ext v
---       simp
---     rw [same_domain]
---   rw [h_split (λ v => if v = q then 0 else c.vertex_degree v)]
---   simp
---   apply Finset.sum_congr rfl
---   intro v hv
---   simp at hv
---   simp [hv]
-
 /-- Ordering on configurations: c ≥ c' if c(v) ≥ c'(v) for all v ∈ V.
     This is a pointwise comparison of the number of chips at each vertex.
     It also compares degree at v = q, but this is not a problem since that is always assumed zero.
@@ -266,30 +248,6 @@ instance : PartialOrder (Config V q) := {
 
     exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
 }
-
-
--- lemma config_ge_iff_div_ge {q : V} (d : ℤ) (c c' : Config V q) :
---   config_ge c c' ↔ (c : CFDiv V)  ≥ (c' : CFDiv V) := by
---   dsimp [config_ge, toDiv]
---   constructor
---   intro h_c v
---   specialize h_c v
---   by_cases hv : v = q
---   · -- Case v = q
---     rw [hv]
---     dsimp [toDiv]
---     simp
---   . -- Case v ≠ q
---     dsimp [toDiv]
---     simp [hv]
---     exact h_c hv
---   -- Converse direction
---   intro h_c v hv_ne_q
---   specialize h_c v
---   dsimp [toDiv] at h_c
---   simp [hv_ne_q] at h_c
---   exact h_c
-
 
 -- Definition of the out-degree of a vertex v ∈ S with respect to a subset S ⊆ V \ {q}
 -- This counts edges from v to vertices *outside* S.
@@ -382,23 +340,6 @@ lemma linear_equiv_add_congr_right_local (G : CFGraph V) (D_add : CFDiv V) {D1 D
   have h_eq : (D2 + D_add) - (D1 + D_add) = D2 - D1 := by abel
   rw [h_eq]
   exact h
-
--- Helper lemma: Winnability is preserved under linear equivalence
-lemma winnable_congr_local (G : CFGraph V) {D1 D2 : CFDiv V} (h_equiv : linear_equiv G D1 D2) :
-  winnable G D1 ↔ winnable G D2 := by
-  unfold winnable
-  simp only [Eff, Set.mem_setOf_eq]
-  apply Iff.intro
-  { intro hw1
-    rcases hw1 with ⟨E, hE_effective, hD1E_equiv⟩
-    use E
-    exact ⟨hE_effective, (linear_equiv_is_equivalence G).trans ((linear_equiv_is_equivalence G).symm h_equiv) hD1E_equiv⟩
-  }
-  { intro hw2
-    rcases hw2 with ⟨E, hE_effective, hD2E_equiv⟩
-    use E
-    exact ⟨hE_effective, (linear_equiv_is_equivalence G).trans h_equiv hD2E_equiv⟩
-  }
 
 /-- Definition: A burn list for a Configuraton c is a list [v_1, v_2, ..., v_n, q] of distinct vertices ending at q,
   where the following condition holds at each vertex *except q* (which plays a special role):

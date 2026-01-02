@@ -9,7 +9,7 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
-/-- [Proven] The main Riemann-Roch theorem for graphs -/
+/-- The Riemann-Roch theorem for graphs -/
 theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
@@ -39,7 +39,7 @@ theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D 
     rw [this] at h_ineq_rev
     linarith
 
-/-- [Proven] Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
+/-- Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
 theorem maximal_unwinnable_symmetry
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
@@ -96,7 +96,7 @@ theorem maximal_unwinnable_symmetry
         linarith [rank_geq_neg_one G (K - E)]
       _ = 0 := by linarith[h_deg_E]
 
-/-- [Proven] Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
+/-- Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
              and K-D also having non-negative rank, the rank of D is at most half its degree. -/
 theorem clifford_theorem
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V)
@@ -172,7 +172,7 @@ theorem clifford_theorem
 
   exact h5
 
-/-- [Proven] RRG's Corollary 4.4.3 establishing divisor degree to rank correspondence  -/
+/-- Corollary 4.4.3 establishing divisor degree to rank correspondence  -/
 theorem riemann_roch_deg_to_rank_corollary
   {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   -- Part 1
@@ -193,7 +193,7 @@ theorem riemann_roch_deg_to_rank_corollary
       exact linear_equiv_preserves_deg G D D' h_equiv
     -- Effective divisors have non-negative degree
     have h_D'_nonneg : deg D' ≥ 0 := by
-      exact effective_nonneg_deg D' h_eff
+      exact deg_of_eff_nonneg D' h_eff
     -- Contradiction: D has negative degree but is equivalent to non-negative degree divisor
     rw [←h_deg_eq] at h_D'_nonneg
     exact not_le_of_gt h_deg_neg h_D'_nonneg
@@ -278,7 +278,7 @@ theorem riemann_roch_deg_to_rank_corollary
       obtain ⟨E, h_eff, h_equiv⟩ := winnable_iff_exists_effective G _ |>.mp h_win
       have h_deg_eq := linear_equiv_preserves_deg G _ E h_equiv
       -- But effective divisors have non-negative degree
-      have h_E_nonneg := effective_nonneg_deg E h_eff
+      have h_E_nonneg := deg_of_eff_nonneg E h_eff
       rw [←h_deg_eq] at h_E_nonneg
       -- Contradiction: K-D has negative degree
       exact not_le_of_gt h_KD_neg h_E_nonneg

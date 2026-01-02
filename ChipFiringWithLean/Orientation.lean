@@ -167,28 +167,8 @@ def is_source (G : CFGraph V) (O : CFOrientation G) (v : V) : Prop :=
 def is_sink (G : CFGraph V) (O : CFOrientation G) (v : V) : Prop :=
   outdeg G O v = 0
 
-/-- Helper function to check if two consecutive vertices form a directed edge -/
-def is_directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
-  (u, v) ∈ O.directed_edges
-
--- Proposition verson of is_directed_edge
 def directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
   (u, v) ∈ O.directed_edges
-
-lemma nonsource_has_parent {G : CFGraph V} (O : CFOrientation G) (v : V) :
-  ¬ is_source G O v → ∃ u : V, directed_edge G O u v := by
-  intro h_not_source
-  contrapose! h_not_source with h_no_parents
-  dsimp [is_source]
-  dsimp [indeg]
-  simp
-  apply Multiset.eq_zero_iff_forall_not_mem.mpr
-  intro ⟨u,w⟩ h_uv_in_edges
-  simp at h_uv_in_edges
-  obtain ⟨h_mem, h_eq_wv⟩ := h_uv_in_edges
-  rw [h_eq_wv] at h_mem
-  specialize h_no_parents u
-  contradiction
 
 /-- Helper function for safe list access -/
 def list_get_safe {α : Type} (l : List α) (i : Nat) : Option α :=
@@ -221,7 +201,7 @@ def is_acyclic (G : CFGraph V) (O : CFOrientation G) : Prop :=
 
 /-- The set of ancestors of a vertex v (nodes x such that there is a path x -> ... -> v) -/
 noncomputable def ancestors (G : CFGraph V) (O : CFOrientation G) (v : V) : Finset V :=
-  let R : V → V → Prop := fun a b => is_directed_edge G O a b = true
+  let R : V → V → Prop := fun a b => directed_edge G O a b
   open Classical in univ.filter (fun x => Relation.TransGen R x v)
 
 /-- Measure for vertex_level termination: number of ancestors. -/

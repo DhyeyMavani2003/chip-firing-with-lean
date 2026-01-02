@@ -115,11 +115,8 @@ theorem maximal_superstable_config_prop (G : CFGraph V) (q : V) (c : Config V q)
   constructor
   { -- Forward direction: maximal_superstable → degree = g
     intro h_max
-    -- Use degree bound and maximality
-    have h_bound := helper_superstable_degree_bound G q c h_super
-    have h_geq := helper_maximal_superstable_degree_lower_bound G q c h_super h_max
-    -- Combine bounds to get equality
-    exact le_antisymm h_bound h_geq }
+    exact degree_max_superstable c h_max
+  }
   { -- Reverse direction: degree = g → maximal_superstable
     intro h_deg
     -- Apply the lemma that degree g implies maximality
@@ -219,8 +216,8 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
           exact h_D_equiv_D'
 
         -- Contradiction: W is winnable, hence D' + one_chip v is winnable.
-        rw [helper_linear_equiv_preserves_winnability G W (D' + one_chip v) W_equiv_D'_plus_one] at W_win
-        exact h_unwin_D'_plus_one W_win
+        apply winnable_equiv_winnable G W (D'+one_chip v)  at W_win
+        exact h_unwin_D'_plus_one (W_win W_equiv_D'_plus_one)
 
       -- Now relate c and c' using D' = D''
       have h_lambda_eq : (c.vertex_degree - one_chip q) = (c'.vertex_degree - one_chip q) := by
@@ -269,7 +266,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
       intro h_win_D -- Assume 'winnable G D' for contradiction
       -- Use linear equivalence to transfer winnability from D to D'
       have h_win_D' : winnable G D' :=
-        (helper_linear_equiv_preserves_winnability G D D' h_D_equiv_D').mp h_win_D
+        winnable_equiv_winnable G D D' h_win_D h_D_equiv_D'
 
       -- The divisor form derived from a maximal superstable config is unwinnable
       have h_unwin_form : ¬(winnable G (λ v => c.vertex_degree v - if v = q then 1 else 0)) :=
@@ -314,7 +311,8 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
         exact h_D_equiv_D' -- Use the rewritten hypothesis
 
       -- Since D + δᵥ is linearly equivalent to a winnable divisor (D'_form + δᵥ), it must be winnable.
-      exact (helper_linear_equiv_preserves_winnability G D_plus_delta_v D'_form_plus_delta_v h_equiv_plus_delta).mpr h_win_D'_form_plus_delta_v
+      apply winnable_equiv_winnable G D'_form_plus_delta_v D_plus_delta_v h_win_D'_form_plus_delta_v
+      exact (linear_equiv_is_equivalence G).symm h_equiv_plus_delta
     }
   }
 
