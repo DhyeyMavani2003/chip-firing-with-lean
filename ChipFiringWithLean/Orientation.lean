@@ -13,17 +13,17 @@ variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 /-- An orientation of a graph assigns a direction to each edge.
     The consistent field ensures each undirected edge corresponds to exactly
     one directed edge in the orientation. -/
-structure CFOrientation (G : CFGraph V) :=
+structure CFOrientation (G : CFGraph V) where
   /-- The set of directed edges in the orientation -/
-  (directed_edges : Multiset (V × V))
+  directed_edges : Multiset (V × V)
   /-- Preserves edge counts between vertex pairs -/
-  (count_preserving : ∀ v w,
+  count_preserving : ∀ v w,
     num_edges G v w =
-    Multiset.count (v, w) directed_edges + Multiset.count (w, v) directed_edges)
+    Multiset.count (v, w) directed_edges + Multiset.count (w, v) directed_edges
   /-- No bidirectional edges in the orientation -/
-  (no_bidirectional : ∀ v w,
+  no_bidirectional : ∀ v w,
     Multiset.count (v, w) directed_edges = 0 ∨
-    Multiset.count (w, v) directed_edges = 0)
+    Multiset.count (w, v) directed_edges = 0
 
 abbrev flow {G: CFGraph V} (O : CFOrientation G) (u v : V) : ℕ :=
   Multiset.count (u,v) O.directed_edges
@@ -172,7 +172,7 @@ def directed_edge (G : CFGraph V) (O : CFOrientation G) (u v : V) : Prop :=
 
 /-- Helper function for safe list access -/
 def list_get_safe {α : Type} (l : List α) (i : Nat) : Option α :=
-  l.get? i
+  if h: i < l.length then some (l.get ⟨i, h⟩) else none
 
 /-- A directed path in a graph under an orientation -/
 structure DirectedPath {G : CFGraph V} (O : CFOrientation G) where
@@ -181,7 +181,7 @@ structure DirectedPath {G : CFGraph V} (O : CFOrientation G) where
   /-- Path must not be empty (at least one vertex) -/
   non_empty : vertices.length > 0
   /-- Every consecutive pair forms a directed edge -/
-  valid_edges : List.Chain' (directed_edge G O) vertices
+  valid_edges : List.IsChain (directed_edge G O) vertices
 
 def non_repeating {G: CFGraph V} {O : CFOrientation G} (p : DirectedPath O) : Prop :=
   p.vertices.Nodup
@@ -234,7 +234,7 @@ def config_of_source {G : CFGraph V} {O : CFOrientation G} {q : V}
     q_zero := by simp
     non_negative := by
       intro v
-      simp [vertex_degree]
+      simp
       split_ifs with h_eq
       · linarith
       · have h_not_source : ¬ is_source G O v := by
@@ -348,8 +348,7 @@ lemma subset_source (G : CFGraph V) (O : CFOrientation G) (S : Finset V):
         vertices := [v],
         non_empty := by
           simp,
-        valid_edges := by
-          simp
+        valid_edges := List.isChain_singleton v
       }
       simp
       intro u h_u_in_path
@@ -376,11 +375,11 @@ lemma subset_source (G : CFGraph V) (O : CFOrientation G) (S : Finset V):
             rw [List.length_cons]
             exact Nat.succ_pos _,
           valid_edges := by
-            dsimp [new_path, List.Chain']
+            dsimp [new_path, List.IsChain]
             cases h_case : p.vertices with
             | nil =>
               -- Path was just [v], so new path is [u, v]
-              simp [hp]
+              simp
             | cons v' vs =>
               have eq_vv': v = v' := by
                 rw [h_case] at hp
@@ -393,7 +392,7 @@ lemma subset_source (G : CFGraph V) (O : CFOrientation G) (S : Finset V):
               have := h_u.2
               dsimp [flow] at this
               contrapose! this with h_no_edge
-              simp [h_no_edge]
+              simp
               exact h_no_edge
               -- Now show the rest of the path is valid
               have h_rec := p.valid_edges
@@ -549,7 +548,7 @@ lemma ordiv_unwinnable (G : CFGraph V) (O : CFOrientation G) :
     specialize h_max u
     suffices σ u < σ v_max by linarith
     apply lt_of_le_of_ne h_max
-    simp [S, Set.mem_toFinset] at h_u
+    simp [S] at h_u
     exact h_u
 
   suffices h_v : ∃ v ∈ S, ∀ w : V, flow O w v > 0 → w ∉ S by
@@ -715,7 +714,7 @@ def CFOrientation.reverse (G : CFGraph V) (O : CFOrientation G) : CFOrientation 
       rw [Multiset.count_eq_card_filter_eq] -- Or Multiset.count, Multiset.countP_eq_card_filter
       apply congr_arg Multiset.card
       ext e
-      simp only [Multiset.mem_filter, and_congr_left_iff, Prod.ext_iff, Prod.fst_swap, Prod.snd_swap, eq_comm, and_comm]
+      simp only [Prod.ext_iff, Prod.fst_swap, Prod.snd_swap, eq_comm, and_comm]
 
     have h_wv_rev_eq_vw_orig :
         Multiset.count (w,v) (O.directed_edges.map Prod.swap) = Multiset.count (v,w) O.directed_edges := by
@@ -723,7 +722,7 @@ def CFOrientation.reverse (G : CFGraph V) (O : CFOrientation G) : CFOrientation 
       rw [Multiset.count_eq_card_filter_eq]
       apply congr_arg Multiset.card
       ext e
-      simp only [Multiset.mem_filter, and_congr_left_iff, Prod.ext_iff, Prod.fst_swap, Prod.snd_swap, eq_comm, and_comm]
+      simp only [Prod.ext_iff, Prod.fst_swap, Prod.snd_swap, eq_comm, and_comm]
 
     conv_rhs =>
       congr
@@ -789,7 +788,7 @@ lemma indeg_reverse_eq_outdeg (G : CFGraph V) (O : CFOrientation G) (v : V) :
   let O_rev_edges_def : (CFOrientation.reverse G O).directed_edges = O.directed_edges.map Prod.swap := by rfl
   conv_lhs => rw [O_rev_edges_def]
   rw [Multiset.countP_map]
-  simp only [Function.comp_apply, Prod.snd_swap]
+  simp only [Prod.snd_swap]
   simp only [Multiset.countP_eq_card_filter]
 
 /- Helper: If an orientation is acyclic, its reverse is also acyclic -/
@@ -800,31 +799,18 @@ lemma is_acyclic_reverse_of_is_acyclic (G : CFGraph V) (O : CFOrientation G)
   let q : DirectedPath O := {
     vertices := p.vertices.reverse,
     non_empty := by
-      rw [List.length_reverse p.vertices]
+      rw [List.length_reverse]
       exact p.non_empty,
     valid_edges := by
       have p_valid := p.valid_edges
-      have hyp := List.chain'_reverse.mpr p_valid
-      have repl: (directed_edge G O) = (λ a b => (b,a) ∈ (CFOrientation.reverse G O).directed_edges) := by
-        funext a b
-        simp
-        constructor
-        -- Forward direction
-        intro h_a_b
-        dsimp [CFOrientation.reverse]
-        simp
-        use a, b
-        exact ⟨h_a_b, rfl, rfl⟩
-        -- Backward direction
-        intro h_b_a_rev
-        dsimp [CFOrientation.reverse] at h_b_a_rev
-        simp at h_b_a_rev
-        rcases h_b_a_rev with ⟨a1,b1, h⟩
-        obtain ⟨h_ba_in_O, swap_b, swap_a⟩ := h
-        rw [← swap_a, ← swap_b]
-        exact h_ba_in_O
-      rw [← repl] at hyp
-      exact hyp
+      have hyp := List.isChain_reverse.mpr p_valid
+      -- hyp : List.IsChain (flip (directed_edge G (CFOrientation.reverse G O))) p.vertices
+      -- Need to show: List.IsChain (directed_edge G (CFOrientation.reverse G O)) p.vertices.reverse
+      -- Since isChain_reverse gives us the flipped relation, we need to show
+      -- flip (directed_edge G (CFOrientation.reverse G O)) = directed_edge G O
+      convert hyp using 2
+      ext a
+      simp [directed_edge, CFOrientation.reverse, Multiset.mem_map]
   }
   have h_non_repeating_q : non_repeating q := h_acyclic q
   exact List.nodup_reverse.mp h_non_repeating_q
@@ -970,8 +956,8 @@ lemma dec_iff_dec' (L : List ℕ) : dec L ↔ dec' L := by
 
 -- This proof is a tangled mess. It can probably be simplified.
 lemma dp_dec {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ (v :V), v ∈ L.list) (p : DirectedPath (burn_orientation L h_full)) :
-  dec (p.vertices.map (λ v => L.list.indexOf v)) := by
-  suffices h_dec' : dec' (p.vertices.map (λ v => L.list.indexOf v)) by
+  dec (p.vertices.map (λ v => List.idxOf v L.list)) := by
+  suffices h_dec' : dec' (p.vertices.map (λ v => List.idxOf v L.list)) by
     rw [← dec_iff_dec'] at h_dec'
     exact h_dec'
   cases h : p.vertices with
@@ -1001,8 +987,9 @@ lemma dp_dec {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_ful
       constructor
       · -- Show first element greater than second
         by_contra! h_not_gt
-        have : ¬ ( v ∈ L.list ∧ List.indexOf v' L.list < List.indexOf v L.list) := by
-          simp [h_not_gt]
+        have : ¬ ( v ∈ L.list ∧ List.idxOf v' L.list < List.idxOf v L.list) := by
+          intro ⟨_, h_lt⟩
+          omega
         simp [this] at h_edge
       · -- Show rest is decreasing
         let p' : DirectedPath (burn_orientation L h_full) := {
@@ -1029,9 +1016,9 @@ decreasing_by
   simp
 
 lemma burn_nodup {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ (v :V), v ∈ L.list) (p : DirectedPath (burn_orientation L h_full)) : p.vertices.Nodup := by
-  let q : List ℕ := p.vertices.map (λ v => L.list.indexOf v)
+  let q : List ℕ := p.vertices.map (λ v => List.idxOf v L.list)
   suffices q.Nodup by
-    exact nodup_of_map_nodup _ _ p.vertices (λ v => L.list.indexOf v) this
+    exact nodup_of_map_nodup _ _ p.vertices (λ v => List.idxOf v L.list) this
   -- Now prove that q is nodup
   have h_dec := dp_dec L h_full p
   exact nodup_of_dec q h_dec

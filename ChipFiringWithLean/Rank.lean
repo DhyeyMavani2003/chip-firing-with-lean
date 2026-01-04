@@ -21,7 +21,10 @@ lemma winnable_equiv_winnable (G : CFGraph V) (D1 D2 : CFDiv V) :
   · -- Show that D2 is linearly equivalent to D1'
     have : linear_equiv G D2 D1 := by
       exact (linear_equiv_is_equivalence G).symm h_lequiv
-    exact (linear_equiv_is_equivalence G).transitive this h_lequiv1
+    apply (linear_equiv_is_equivalence G).transitive
+    exact this
+    exact h_lequiv1
+
 
 /-- A divisor is maximal unwinnable if it is unwinnable but adding
     a chip to any vertex makes it winnable -/
@@ -252,8 +255,7 @@ lemma rank_nonneg_iff_winnable (G : CFGraph V) (D : CFDiv V) :
     dsimp [effective]
     norm_num
   · -- Backward direction
-    intro h_winnable
-    intro E h_E
+    intro h_winnable E h_E
     rcases h_E with ⟨h_eff_E, h_deg_E⟩
     have E_zero := eff_degree_zero _ h_eff_E h_deg_E
     simp [E_zero]

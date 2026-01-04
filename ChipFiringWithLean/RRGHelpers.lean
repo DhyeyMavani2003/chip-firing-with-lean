@@ -3,7 +3,6 @@ import ChipFiringWithLean.Config
 import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Rank
 import ChipFiringWithLean.Helpers
-import Mathlib.Algebra.Ring.Int
 import Paperproof
 
 set_option linter.unusedVariables false
@@ -53,7 +52,7 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
   -- Injectivity
   { -- Prove injective f using injective f_raw
     intros O₁_sub O₂_sub h_f_eq -- h_f_eq : f O₁_sub = f O₂_sub
-    have h_f_raw_eq : f_raw O₁_sub = f_raw O₂_sub := by simp [f] at h_f_eq; exact h_f_eq
+    have h_f_raw_eq : f_raw O₁_sub = f_raw O₂_sub := by simp at h_f_eq; exact h_f_eq
 
     -- Reuse original injectivity proof structure, ensuring types match
     let ⟨O₁, h₁⟩ := O₁_sub
@@ -75,7 +74,7 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
     have h_max   : maximal_superstable G c := by
       rw [← h_eq₁]; exact helper_orientation_config_maximal G O₁ q h₁.1 h₁.2
 
-    apply Subtype.eq
+    apply Subtype.ext
     -- Call helper_config_to_orientation_unique with the original h_eq₁ and h_eq₂
     exact (helper_config_to_orientation_unique G q c h_super h_max
       O₁ O₂ h₁.1 h₂.1 h_src₁ h_src₂ h₁.2 h₂.2 h_eq₁ h_eq₂)
@@ -100,7 +99,7 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
     use x
 
     -- Show f x = y using Subtype.eq
-    apply Subtype.eq
+    apply Subtype.ext
     -- Goal: (f x).val = y.val
     -- Need to show: f_raw x = c_target
     -- This is exactly h_config_eq_target
@@ -153,7 +152,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
       -- Show D'' is q-reduced (from correspondence with superstable c')
       have D''_toDiv : D'' = toDiv (deg D'') c' := by
         dsimp [toDiv,D'']
-        simp [c'.q_zero, config_degree]
+        simp [config_degree]
         rw [sub_eq_add_neg]
       have h_qred_D'' := (q_reduced_superstable_correspondence G q D'').mpr ⟨c', ⟨ h_max_c'.1, D''_toDiv⟩⟩
 
@@ -162,7 +161,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
         by_contra! h_win
         dsimp [winnable] at h_win
         rcases h_win with ⟨E, E_eff, E_equiv⟩
-        let E_equiv := (linear_equiv_is_equivalence G).symmetric E_equiv
+        let E_equiv := (linear_equiv_is_equivalence G).symm E_equiv
 
         have : effective D'' := helper_q_reduced_of_effective_is_effective G q E D'' E_eff E_equiv h_qred_D''
         dsimp [effective] at this
@@ -233,7 +232,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
         funext v
         have h_pointwise_eq := congr_fun h_lambda_eq v
         -- Use Int.sub_right_inj to simplify the equality
-        simp [map_sub] at h_pointwise_eq
+        simp at h_pointwise_eq
 
         -- rw [Int.sub_right_inj] at h_pointwise_eq
         exact h_pointwise_eq -- The hypothesis now matches the goal
@@ -488,7 +487,7 @@ theorem degree_of_canonical_divisor (G : CFGraph V) :
             ∑ v, vertex_degree G v - 2 * Fintype.card V := by
     unfold canonical_divisor
     rw [sum_sub_distrib]
-    simp [sum_const, nsmul_eq_mul]
+    simp [sum_const]
     ring
   dsimp [deg]
   rw [h1]
@@ -599,7 +598,7 @@ theorem rank_degree_inequality
       dsimp [config_degree, toConfig]
       rw [map_sub, map_sub]
       dsimp [orqed]
-      simp [degree_ordiv O, map_smul]
+      simp [degree_ordiv O]
       -- Now just show ordiv has degree -1 at source
       -- This is surely proved somewhere already??
       dsimp [ordiv]
@@ -632,7 +631,7 @@ theorem rank_degree_inequality
   have M'_eq : M' = canonical_divisor G - M := by
     rw [← divisor_reverse_orientation O]
     rw [h_M_O]
-    simp
+    abel
 
   have h_M'_unwin : ¬ (winnable G M') :=
     ordiv_unwinnable G O' O'_acyc

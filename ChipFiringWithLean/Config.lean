@@ -4,7 +4,6 @@ import Mathlib.Data.Multiset.Basic
 import Mathlib.Algebra.Group.Subgroup.Basic
 import Mathlib.Tactic.Abel
 import Mathlib.LinearAlgebra.Matrix.GeneralLinearGroup.Defs
-import Mathlib.Algebra.BigOperators.Group.Finset
 import ChipFiringWithLean.Basic
 import Paperproof
 
@@ -28,7 +27,7 @@ abbrev Vtilde (q : V) : Finset V :=
     * non_negative_except_q - Proof that all values except at q are non-negative
 
     For convenience, vertex_degree is defined on all of V, and set to be 0 at q itself. -/
-structure Config (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V) :=
+structure Config (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V) where
   /-- Assignment of integers to vertices representing the number of chips at each vertex -/
   (vertex_degree : CFDiv V)
   /-- Fix vertex_degree q = 0 for convenience -/
@@ -139,7 +138,7 @@ lemma qeff_divs_equal (D1 D2 : q_eff_div V q) :
   intro h_eq
   rcases D1 with ⟨D1_D, D1_h_eff⟩
   rcases D2 with ⟨D2_D, D2_h_eff⟩
-  simp [h_eq]
+  simp
   simp at h_eq
   exact h_eq
 
@@ -184,8 +183,7 @@ lemma config_eff {q : V} (d : ℤ) (c : Config V q) : effective (toDiv d c) ↔ 
   rw [eval_toDiv_q] at h
   linarith
   -- d ≥ config_degree implies effective
-  intro h_deg
-  intro v
+  intro h_deg v
   by_cases h_v : v = q
   · -- Case v = q
     simp [h_v, h_deg]
@@ -238,12 +236,10 @@ instance : PartialOrder (Config V q) := {
    ,
   le_trans := by
     intro c1 c2 c3 c1_le_c2 c2_le_c3
-    dsimp at *
     exact le_trans c1_le_c2 c2_le_c3
   ,
   le_antisymm := by
     intro c1 c2 h_le h_ge
-    dsimp at *
     have h_eq := le_antisymm h_le h_ge
 
     exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
@@ -255,7 +251,7 @@ instance : PartialOrder (Config V q) := {
 -- The definition does not enforce v ∈ S, though it is only used in that case.
 def outdeg_S (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
   -- Sum num_edges from v to w, where w is not in S
-  ∑ w in (univ \ S), (num_edges G v w : ℤ)
+  ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
 
 -- Standard definition of Superstability:
 -- A configuration c is superstable w.r.t. q if for every non-empty subset S of V \ {q},
@@ -381,7 +377,7 @@ lemma extend_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : supersta
     rcases h_exists_v with ⟨v, h_v_not_in_L⟩
     use v
     dsimp [S]
-    simp [h_v_not_in_L]
+    simp
     contrapose! h_v_not_in_L with h_raa
     simp [h_raa]
   have h_S_Vtilde : S ⊆ Vtilde q := by
@@ -414,7 +410,7 @@ lemma extend_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : supersta
     constructor
     . exact hv_outdeg
     constructor
-    simp [hv_in_S]
+    simp
     constructor
     intro h
     rw [h] at hv_in_S
@@ -423,7 +419,7 @@ lemma extend_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : supersta
     exact hv_in_S.2
     exact h_bl
 
-structure burn_list (G : CFGraph V) {q : V} (c : Config V q) :=
+structure burn_list (G : CFGraph V) {q : V} (c : Config V q) where
   (list : List V)
   (h_burn_list : is_burn_list G c list)
 
@@ -502,24 +498,24 @@ lemma superstable_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : sup
 -- The following lemmas establish the necessary properties of the orientation to be defined from the burn order.
 
 def burn_flow {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) : (V × V) → ℕ :=
-  λ e => if (e.1 ∈ L.list) ∧ (L.list.indexOf e.2 < L.list.indexOf e.1) then num_edges G e.1 e.2 else 0
+  λ e => if (e.1 ∈ L.list) ∧ (L.list.idxOf e.2 < L.list.idxOf e.1) then num_edges G e.1 e.2 else 0
 
 lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ v : V, v ∈ L.list) : ∀ (u v : V), (burn_flow L ⟨u, v⟩) + (burn_flow L ⟨v, u⟩) = num_edges G u v := by
   intro u v
   dsimp [burn_flow]
-  by_cases h_uv : L.list.indexOf v < L.list.indexOf u
+  by_cases h_uv : L.list.idxOf v < L.list.idxOf u
   . -- Case: indexOf v < indexOf u
     simp [h_uv, h_full u, h_full v]
     intro h
     linarith
   . -- Case: indexOf v ≥ indexOf u
-    by_cases h_eq : L.list.indexOf u = L.list.indexOf v
+    by_cases h_eq : L.list.idxOf u = L.list.idxOf v
     . -- Subcase: indexOf u < indexOf v
       simp [h_eq]
-      have : u = v := (List.indexOf_inj (h_full u) (h_full v)).mp h_eq
+      have : u = v := (List.idxOf_inj (h_full u)).mp h_eq
       rw [this, num_edges_self_zero G v]
     . -- Subcase: indexOf u > indexOf v
-      have h_uv' : L.list.indexOf u < L.list.indexOf v := by
+      have h_uv' : L.list.idxOf u < L.list.idxOf v := by
         simp at h_uv h_eq
         exact lt_of_le_of_ne h_uv h_eq
       simp [h_uv',h_uv, h_full v]
@@ -528,18 +524,18 @@ lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list 
 lemma burn_flow_directed {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ v : V, v ∈ L.list) : ∀ (u v : V), burn_flow L ⟨u,v⟩ = 0 ∨ burn_flow L ⟨v,u⟩ = 0 := by
   intro u v
   dsimp [burn_flow]
-  by_cases h_uv : L.list.indexOf v < L.list.indexOf u
+  by_cases h_uv : L.list.idxOf v < L.list.idxOf u
   . -- Case: indexOf v < indexOf u
     simp [h_uv, h_full u, h_full v]
     right
     intro h
     linarith
   . -- Case: indexOf v ≥ indexOf u
-    by_cases h_eq : L.list.indexOf u = L.list.indexOf v
+    by_cases h_eq : L.list.idxOf u = L.list.idxOf v
     . -- Subcase: indexOf u = indexOf v
       simp [h_eq]
     . -- Subcase: indexOf u > indexOf v
-      have h_uv' : L.list.indexOf u < L.list.indexOf v := by
+      have h_uv' : L.list.idxOf u < L.list.idxOf v := by
         simp at h_uv h_eq
         exact lt_of_le_of_ne h_uv h_eq
       simp [h_uv',h_uv, h_full v]
@@ -571,20 +567,19 @@ lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c)
         suffices ∑ (w : V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G q (univ \ (y :: rest').toFinset) v by
           linarith [this, h_bl.1]
         dsimp [burn_flow]
-        have ind_v : L.list.indexOf v = 0 := by
+        have ind_v : L.list.idxOf v = 0 := by
           rw [h_vx,h]
           simp
         simp only [ind_v]
         have h_ineq := h_bl.1
-        have h_above : ∀ (x : V), x ∈ L.list ∧ 0 < List.indexOf x L.list ↔ x ∈ rest := by
+        have h_above : ∀ (x : V), x ∈ L.list ∧ 0 < List.idxOf x L.list ↔ x ∈ rest := by
           intro w
           rw [← h'] at h
           rw [h]
           simp
-          have : 0 < List.indexOf w (x :: rest) ↔ 0 ≠ List.indexOf w (x :: rest) := by
+          have : 0 < List.idxOf w (x :: rest) ↔ 0 ≠ List.idxOf w (x :: rest) := by
             constructor
-            . intro h_pos
-              intro h_eq
+            . intro h_pos h_eq
               rw [h_eq] at h_pos
               linarith
             . intro h_neq
@@ -593,15 +588,15 @@ lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c)
               contrapose! h_neq with h_eq_zero
               rw [h_eq_zero]
           rw [this]
-          have : 0 ≠ List.indexOf w (x :: rest) ↔ w ≠ x := by
+          have : 0 ≠ List.idxOf w (x :: rest) ↔ w ≠ x := by
             constructor
             . intro h_neq
               contrapose! h_neq with h_eq
               rw [h_eq]
               simp
             . intro h_neq
-              rw [List.indexOf_cons_ne]
-              simp [h_neq]
+              rw [List.idxOf_cons_ne]
+              simp
               intro h
               rw [h] at h_neq
               contradiction
@@ -652,16 +647,20 @@ lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c)
             simp [this]
           intro w
           dsimp [burn_flow]
-          rw [← h'] at h ⊢
           rw [h]
-          rw [List.indexOf_cons_ne]
+          dsimp [L']
+          rw [← h'] at *
+          rw [List.idxOf_cons_ne]
           by_cases h_wx : w = x
           . -- Subcase: w = x
             rw [h_wx]
+            rw [h'] at h_x_nin_rest
+            dsimp [L']
             simp [h_x_nin_rest]
           . -- Subcase: w ≠ x
             simp [h_wx]
-            rw [List.indexOf_cons_ne]
+            repeat rw [List.idxOf_cons_ne]
+            dsimp [L']
             simp
             contrapose! h_wx
             rw [h_wx]

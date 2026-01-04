@@ -50,7 +50,7 @@ This counts the number of edges from `v` to vertices *outside* `S` (including `q
 `outdeg G S v = |{ w | ∃ edge (v, w) in G.edges and w ∉ S }|`
 -/
 def dhar_outdeg (G : CFGraph V) (S : Finset V) (v : V) : ℤ :=
-  ∑ w in Finset.univ.filter (λ w => w ∉ S), (num_edges G v w : ℤ)
+  ∑ w ∈ Finset.univ.filter (λ w => w ∉ S), (num_edges G v w : ℤ)
 
 /--
 Helper function for Dhar's burning loop. Finds a vertex `v` in `S` such that `c(v) < dhar_outdeg G S v`.
@@ -102,7 +102,7 @@ noncomputable def fireSet (G : CFGraph V) (D : CFDiv V) (S : Finset V) : CFDiv V
 /-- Calculates the degree of a divisor. -/
 @[simp]
 def degree (D : CFDiv V) : ℤ :=
-  ∑ v in Finset.univ, D v
+  ∑ v ∈ Finset.univ, D v
 
 /--
 Preprocessing Step for Algorithm 3/4: Fires `q` repeatedly until `D(v) ≥ 0` for all `v ≠ q`.
@@ -196,7 +196,7 @@ Helper to calculate incoming "burning" degree for vertex `v` from set `B`.
 Sums `num_edges` from `u` in `B` to `v`.
 -/
 def burning_indeg (G : CFGraph V) (B : Finset V) (v : V) : ℤ :=
-  ∑ u in B, (num_edges G u v : ℤ)
+  ∑ u ∈ B, (num_edges G u v : ℤ)
 
 /--
 Orientation-based Dhar's Algorithm (Algorithm 5).

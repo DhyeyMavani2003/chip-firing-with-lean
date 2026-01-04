@@ -52,8 +52,7 @@ theorem maximal_unwinnable_symmetry
     rw [sub_sub_self] at h
     exact h
   -- Now we can just prove the forward direction
-  intro D
-  intro h_max_unwin
+  intro D h_max_unwin
   -- Get rank = -1 from maximal unwinnable
   have h_rank_neg : rank G D = -1 := by
     rw [rank_neg_one_iff_unwinnable]
@@ -167,8 +166,9 @@ theorem clifford_theorem
       _  = (2 : ℚ) * (rank G D : ℚ) / 2 := by field_simp
       _  ≤ (deg D : ℚ) / 2 := by
           -- Use the fact that division by positive number preserves inequality
-          apply (div_le_div_right h_two_pos).mpr
+          apply div_le_div_of_nonneg_right
           exact h_cast
+          norm_num
 
   exact h5
 
@@ -242,11 +242,8 @@ theorem riemann_roch_deg_to_rank_corollary
       have h_bound : -1 ≤ deg D / 2 := by
         -- The division by 2 preserves non-negativity for deg D
         have h_div_nonneg : deg D / 2 ≥ 0 := by
-          have h_two_pos : (2 : ℤ) > 0 := by norm_num
-          rw [Int.div_nonneg_iff_of_pos h_two_pos]
-          -- Convert explicitly to the right type
           have h : deg D ≥ 0 := by exact_mod_cast h_deg_nonneg
-          exact h
+          omega
 
         linarith
       rw [h_rank_eq]
@@ -266,7 +263,7 @@ theorem riemann_roch_deg_to_rank_corollary
         deg (λ v => canonical_divisor G v - D v)
         _ = deg (canonical_divisor G) - deg D := by
           unfold deg
-          simp [sub_apply]
+          simp
         _ = 2 * genus G - 2 - deg D := by rw [h_canon]
         _ < 0 := by linarith
 

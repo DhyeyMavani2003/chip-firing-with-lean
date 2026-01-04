@@ -67,7 +67,9 @@ lemma helper_unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : 
     exact uniqueness_of_q_reduced_representative G q D y₁ y₂ h₁ h₂
 
   -- Combine existence and uniqueness using the standard constructor
-  exact exists_unique_of_exists_of_unique h_exists h_unique
+  obtain ⟨D', hD'⟩ := h_exists
+  refine ExistsUnique.intro D' hD' (fun y hy => ?_)
+  exact (h_unique D' y hD' hy).symm
 
 /-- Lemma: The q-reduced representative of an effective divisor is effective.
     This follows from the fact that the reduction process (like Dhar's algorithm or repeated
@@ -92,7 +94,7 @@ lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' :
     intro e _
     apply mul_nonneg
     linarith [h_σ e]
-    exact Int.ofNat_nonneg _
+    exact Int.natCast_nonneg _
   intro v
   by_cases hvq : v = q
   rw [hvq,eq_E', add_apply]
@@ -151,10 +153,9 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
     intro h
     dsimp [S] at h
     have h_pos_count : count e O.directed_edges > 0 := by
-      apply gt_of_gt_of_ge h
-      exact Nat.zero_le _
+      omega
     apply Multiset.count_pos.mp
-    linarith [h_pos_count]
+    exact h_pos_count
 
   -- We now must show that S is empty.
   -- Do so buy showing any element in S belongs to an infinite directd path
@@ -197,15 +198,14 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
   -- For contradiction, we can build an infinite directed path in G under O
   by_contra! h_S_nonempty
   rcases h_S_nonempty with ⟨e_start, h_e_start_in_S⟩
-  have S_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 2 ∧ List.Chain' (λ ( u v : V) => ⟨u,v⟩ ∈ S) p.vertices := by
+  have S_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 2 ∧ List.IsChain (λ ( u v : V) => ⟨u,v⟩ ∈ S) p.vertices := by
     induction' n with n ih
     . -- Base case: n = 0, i.e. length 2 path
       use {
         vertices := [e_start.1, e_start.2],
         non_empty := by simp,
         valid_edges := by
-          dsimp [List.Chain']
-          simp [h_e_start_in_S]
+          simp [List.isChain_cons]
           exact directed_edge_of_S e_start h_e_start_in_S
       }
       simp [h_e_start_in_S]
@@ -225,7 +225,7 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
             -- This case should not happen since p0.vertices has length n + 2 ≥ 2
             exfalso
             rw [h_p0,h_ws] at h_len
-            simp [h_p0] at h_len
+            simp at h_len
           | cons w rest =>
             use v, w, rest
       rcases this with ⟨v, w, rest, h_p0_eq⟩
@@ -233,9 +233,8 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
       specialize going_up ⟨v,w⟩
       have h_vw_in_S : ⟨v,w⟩ ∈ S := by
         -- From h_chain, we know that ⟨v,w⟩ ∈ S
-        dsimp [List.Chain'] at h_chain
         rw [h_p0_eq] at h_chain
-        simp at h_chain
+        simp [List.isChain_cons] at h_chain
         exact h_chain.left
       specialize going_up h_vw_in_S
       rcases going_up with ⟨f, h_f_in_S, h_f_to_v⟩
@@ -246,17 +245,18 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
           rw [List.length_cons]
           exact Nat.succ_pos _,
         valid_edges := by
-          dsimp [new_path_list, List.Chain']
+          dsimp [new_path_list]
           -- Check that the first edge is valid
           rw [h_p0_eq]
+          simp [List.isChain_cons]
           constructor
           have : f.2 = v := h_f_to_v
           rw [← this]
           exact directed_edge_of_S f h_f_in_S
           -- The rest of the path is valid from induction
           have h_ind := p0.valid_edges
-          dsimp [List.Chain'] at h_ind
-          simp only [h_p0_eq] at h_ind
+          rw [h_p0_eq] at h_ind
+          simp [List.isChain_cons] at h_ind
           exact h_ind
         }
       -- Now must verify that this new path has the right length
@@ -264,8 +264,8 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
       rw [List.length_cons]
       rw [h_len]
       -- Verify the chain property
-      dsimp [new_path_list, List.Chain']
-      simp [h_p0_eq]
+      dsimp [new_path_list]
+      simp [List.isChain_cons, h_p0_eq]
       -- Verify the first link is in S
       constructor
       have : f.2 = v := h_f_to_v
@@ -273,9 +273,8 @@ lemma helper_orientation_determined_by_levels {G : CFGraph V}
       exact h_f_in_S
       -- The rest of the chain follows from h_chain
       have h_ind := h_chain
-      dsimp [List.Chain'] at h_ind
       simp only [h_p0_eq] at h_ind
-      simp at h_ind
+      simp [List.isChain_cons] at h_ind
       exact h_ind
   specialize S_path (Fintype.card V)
   rcases S_path with ⟨p, h_len, _⟩
@@ -321,7 +320,7 @@ lemma helper_orientation_config_maximal (G : CFGraph V) (O : CFOrientation G) (q
   dsimp [maximal_superstable]
   let cO := orientation_to_config G O q h_acyc h_unique_source
   have h_ssO : superstable G q cO := helper_orientation_config_superstable G O q h_acyc h_unique_source
-  simp [h_ssO]
+  refine ⟨h_ssO, ?_⟩
   -- Goal is now just maximality of cO.
   -- Suppose another divisor is bigger. THere's an orientation divisor yet above that one.
   intro c h_ss h_ge
@@ -335,16 +334,14 @@ lemma helper_orientation_config_maximal (G : CFGraph V) (O : CFOrientation G) (q
     dsimp [deg]
     apply Finset.sum_le_sum
     intro v _
-    specialize h_ge v
-    simp [h_ge]
+    exact h_ge v
   have h_deg_le' : config_degree c ≤ config_degree c' := by
     rw [config_degree]
     rw [config_degree]
     dsimp [deg]
     apply Finset.sum_le_sum
     intro v _
-    specialize h_ge' v
-    simp [h_ge']
+    exact h_ge' v
   rw [config_degree_from_O] at h_deg_le h_deg_le'
   have h_deg : config_degree c = genus G := by
     linarith
@@ -416,7 +413,7 @@ lemma helper_maximal_superstable_exists (G : CFGraph V) (q : V) (c : Config V q)
     rcases superstable_dhar h_super with ⟨O, h_acyc, h_src, h_ge⟩
     let c' := orientation_to_config G O q h_acyc h_src
     use c'
-    simp [h_ge]
+    refine ⟨?_, h_ge⟩
     -- Remains to show c' is maximal superstable
     exact helper_orientation_config_maximal G O q h_acyc h_src
 
@@ -493,7 +490,6 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
         dsimp [deg] at h_sum
         dsimp [deg] at E_deg
         rw [h_sum] at E_deg
-        simp at E_deg
         linarith
       rcases ex_v with ⟨v, hv_ge_one⟩
       let E' := E - one_chip v
@@ -512,11 +508,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
           linarith
       specialize ha E' h_E'_effective
       have h_deg_E' : deg E' = a + b := by
-        dsimp [E']
-        simp
-        rw [E_deg]
-        simp
-        linarith
+        dsimp [E']; simp; omega
       apply ha at h_deg_E'
       rcases h_deg_E' with ⟨E₁, E₂, h_E1_eff, h_E2_eff, h_deg_E1, h_deg_E2, h_eq_split⟩
       use E₁ + one_chip v, E₂
@@ -624,14 +616,14 @@ lemma degree_eq_total_flow : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, 
 
     by_cases h_head : (e_head.fst = v ∨ e_head.snd = v)
     · -- Case: e_head is incident to v
-      simp only [if_pos h_head, add_comm, Multiset.card_singleton, Multiset.card_eq_one]
+      simp only [if_pos h_head, Multiset.card_singleton]
       obtain ⟨e,f⟩ := e_head
       rcases h_head with h_left  | h_right
       -- Subcase: e = v
       have e_eq_v : e =v  := h_left
       have f_neq_v : f ≠ v := by
         contrapose! h_left
-        simp [h_left]
+        simp
         rw [← h_left]
         exact h_loopless ⟨e,f⟩ (by simp)
       simp [e_eq_v, f_neq_v]
@@ -648,7 +640,7 @@ lemma degree_eq_total_flow : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, 
       have f_eq_v : f = v := h_right
       have e_neq_v : e ≠ v := by
         contrapose! h_right
-        simp [h_right]
+        simp
         rw [← h_right]
         have := h_loopless ⟨e,f⟩ (by simp)
         intro h_bad
@@ -669,7 +661,7 @@ lemma degree_eq_total_flow : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, 
       simp only [if_neg h_head]
       apply Finset.sum_eq_zero
       intro x _
-      simp [h_head]
+      simp
       push_neg at h_head
       contrapose! h_head
       intro h'
@@ -759,9 +751,8 @@ lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V)
           dsimp [c, toConfig]
           simp
           dsimp [one_chip]
-          simp
-          right
-          assumption
+          simp [hv_ne_q]
+          ring
         dsimp [c, toConfig]
         simp [hv_ne_q]
         -- Prove D v + 0 < outdeg_S G q S v from D v < outdeg_S G q S v
@@ -777,19 +768,15 @@ lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V)
       -- simp only [Config.vertex_degree] -- Unfold c.vertex_degree
       -- Goal: D v = c.vertex_degree v - if v = q then 1 else 0
       by_cases hv : v = q
-      · dsimp [toDiv,c, toConfig]
-        simp [hv]
-        dsimp [config_degree,one_chip]
-        simp [hv, if_true] -- Case v = q
+      · subst hv
+        dsimp [D_qed, toDiv,c, toConfig, config_degree, deg, one_chip]
+        simp
+        dsimp [one_chip]
+        simp
       · -- Case v ≠ q
-        dsimp [toDiv]
+        dsimp [toDiv, c, toConfig, one_chip]
         simp [hv]
-        dsimp [c, toConfig]
-        rw [one_chip_apply_other]
         ring
-        intro h
-        rw [h] at hv
-        contradiction -- Case v ≠ q
   -- Backward direction (∃ c, superstable ∧ D = c - δ_q → q_reduced)
   · intro h_exists
     rcases h_exists with ⟨c, h_super, h_D_eq⟩
@@ -896,7 +883,7 @@ lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : m
   rw [degree_ordiv]
   suffices (ordiv G O) q = -1 by
     rw [this]
-    simp [map_smul, deg_one_chip]
+    simp [deg_one_chip]
   -- Prove (ordiv G O) q = -1
   dsimp [ordiv]
   -- These lines look funny, but they just check that "q is a unique source" implies "q is a source."
@@ -1061,7 +1048,8 @@ lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
       dsimp [one_chip]
       split_ifs
       · simp [k_nonneg]
-      · simp [k_nonneg]
+      · simp
+    rw [smul_apply]
     linarith
   have h_winnable_D' : winnable G D' := winnable_of_effective G D' D'_eff
   apply winnable_equiv_winnable G D' D h_winnable_D'
@@ -1201,8 +1189,7 @@ lemma winnable_of_deg_ge_genus {G : CFGraph V} (h_conn : graph_connected G) (D :
 lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : graph_connected G) (q : V) (c' : Config V q) :
   maximal_superstable G c' →
   ∀ (v : V), winnable G (c'.vertex_degree- (one_chip q) + (one_chip v)) := by
-  intro h_max_superstable
-  intro v
+  intro h_max_superstable v
   let D' := c'.vertex_degree - one_chip q + one_chip v
   have deg_ineq : deg D' ≥ genus G := by
     dsimp [D']

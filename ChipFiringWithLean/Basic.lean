@@ -24,7 +24,7 @@ def isLoopless (edges : Multiset (V × V)) : Prop :=
 
 /-- A *chip-firing graph* is a loopless multigraph.
 It is not assumed connected by default, though many of our main theorems pertain to connected graphs. -/
-structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V]:=
+structure CFGraph (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] where
   (edges : Multiset (V × V))
   (loopless : isLoopless edges)
 
@@ -73,7 +73,7 @@ lemma vertex_degree_nonneg (G : CFGraph V) (v : V) :
   unfold vertex_degree
   apply Finset.sum_nonneg
   intro u _
-  exact Int.ofNat_nonneg _
+  exact Int.natCast_nonneg _
 
 /-!
 ## The divisor group on a chip-firing graph
@@ -202,7 +202,7 @@ theorem linear_equiv_is_equivalence (G : CFGraph V) : Equivalence (linear_equiv 
   -- Symmetry
   · intros D D' h
     unfold linear_equiv at *
-    have h_symm : D - D' = -(D' - D) := by simp [sub_eq_add_neg, neg_sub]
+    have h_symm : D - D' = -(D' - D) := by simp [sub_eq_add_neg]
     rw [h_symm]
     exact AddSubgroup.neg_mem _ h
 
@@ -244,7 +244,7 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
   · -- Forward direction
     intro h_inp
     -- Use the defining property of a subgroup closure
-    refine AddSubgroup.closure_induction h_inp ?_ ?_ ?_ ?_
+    refine AddSubgroup.closure_induction ?_ ?_ ?_ ?_ h_inp
     . -- Case 1: h_inp is a firing vector
       intro x h_firing
       rcases h_firing with ⟨v, rfl⟩
@@ -255,7 +255,7 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
       dsimp [σ]
       by_cases h_eq : w = v
       . -- Case w = v
-        simp [h_eq, num_edges_self_zero G v]
+        simp [h_eq]
         unfold vertex_degree
         rw [← Finset.sum_neg_distrib]
         apply Finset.sum_congr rfl
@@ -267,14 +267,14 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
       use 0
       simp
     . -- Case 3: h_inp is a sum of two principal divisors
-      intros x y h_x_prin h_y_prin
+      intros x y _ _ h_x_prin h_y_prin
       rcases h_x_prin with ⟨σ₁, h_x_eq⟩
       rcases h_y_prin with ⟨σ₂, h_y_eq⟩
       rw [h_x_eq, h_y_eq]
       use σ₁ + σ₂
       simp
     . -- Case 4: h_inp is negation of a principal divisor
-      intro x h_x_prin
+      intro x _ h_x_prin
       rcases h_x_prin with ⟨σ, h_x_eq⟩
       use -σ
       rw [h_x_eq]
@@ -443,7 +443,7 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
   intro h_mem_princ
   -- principal_divisors is AddSubgroup.closure (Set.range (firing_vector G))
   -- Use induction on the structure of the subgroup
-  refine AddSubgroup.closure_induction h_mem_princ ?_ ?_ ?_ ?_
+  refine AddSubgroup.closure_induction ?_ ?_ ?_ ?_ h_mem_princ
   · -- Case 1: h is in the range of firing_vector G
     intro x hx_in_range
     rcases hx_in_range with ⟨v, rfl⟩
@@ -451,11 +451,11 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
   · -- Case 2: h = 0 (the zero divisor)
     simp [deg]
   · -- Case 3: h = x + y where deg x = 0 and deg y = 0
-    intros x y h_deg_x_zero h_deg_y_zero
-    rw [deg.map_add, h_deg_x_zero, h_deg_y_zero, add_zero]
+    intros x y _ _ h_x_prin h_y_prin
+    rw [deg.map_add, h_x_prin, h_y_prin, add_zero]
   · -- Case 4: h = -x where deg x = 0
-    intros x h_deg_x_zero
-    rw [deg.map_neg, h_deg_x_zero, neg_zero]
+    intros x _ h_x_prin
+    rw [deg.map_neg, h_x_prin, neg_zero]
 
 /-- Linearly equivalent divisors have the same degree. -/
 theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
@@ -488,7 +488,7 @@ def q_effective (q : V) (D : CFDiv V) : Prop :=
   ∀ v : V, v ≠ q → D v ≥ 0
 
 /-- A divisor that is q-effective. -/
-structure q_eff_div (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V):=
+structure q_eff_div (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V) where
   (D : CFDiv V) (h_eff : q_effective q D)
 
 /-- A set of vertices is benevolent if it is possible to concentrate all debt on this set. -/
@@ -561,7 +561,8 @@ lemma benevolent_of_nonempty {G : CFGraph V} (h_conn : graph_connected G) (S : F
           simp [k]
           by_cases h : -(E1 w) ≥ 0
           . -- Case : E1 w nonpositive
-            have : max 0 (-(E1 w)) = -(E1 w) := by simp [h]
+            have : max 0 (-(E1 w)) = -(E1 w) := by
+              simp; linarith
             rw [this]
             have : E1 w + -E1 w * fire w = (-E1 w) * (fire w -1) := by ring
             rw [this]
@@ -658,7 +659,7 @@ lemma reduces_to_reflexive (G : CFGraph V) (q : V) (D : CFDiv V) :
     intro v
     repeat rw [Pi.zero_apply]
   · -- Show D = D + prin G 0
-    simp [prin]
+    rw [(prin G).map_zero]; simp
 
 lemma reduces_to_transitive (G : CFGraph V) (q : V) (D₁ D₂ D₃ : CFDiv V) :
   reduces_to G q D₁ D₂ → reduces_to G q D₂ D₃ → reduces_to G q D₁ D₃ := by
@@ -782,10 +783,10 @@ lemma reduces_to_antisymmetric {G : CFGraph V} (h_conn : graph_connected G) (q :
 def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
   q_effective q D ∧
   (∀ S : Finset V, S ⊆ (Finset.univ.filter (· ≠ q)) → S.Nonempty →
-    ∃ v ∈ S, D v < ∑ w in (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
+    ∃ v ∈ S, D v < ∑ w ∈  (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
 
 /-- Helper lemma: a firing script can be understood as first firing the set where the maximum occurs, and no debt is created at this step unless it will remain at the end. -/
-lemma maxset_of_script (G : CFGraph V) (σ : firing_script V) : ∃ S : Finset V, Nonempty S ∧ ∀ v ∈ S, (∀ w : V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w in (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
+lemma maxset_of_script (G : CFGraph V) (σ : firing_script V) : ∃ S : Finset V, Nonempty S ∧ ∀ v ∈ S, (∀ w : V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
   let max_exists := Finset.exists_max_image Finset.univ σ (by use Classical.arbitrary V; simp)
   rcases max_exists with ⟨w, ⟨_,w_argmax⟩⟩
   let S := Finset.univ.filter (σ · = σ w)
@@ -833,7 +834,8 @@ lemma maxset_of_script (G : CFGraph V) (σ : firing_script V) : ∃ S : Finset V
     suffices 1 ≤ σ x - σ u by
       rw [neg_mul_eq_neg_mul]
       simp [h, this]
-    apply Int.pos_iff_one_le.mp
+    suffices 0 < σ x - σ u by
+      exact Int.le_of_sub_one_lt this
     dsimp [S] at h_u_notin_S; simp at h_u_notin_S
     rw [h_x]
     specialize w_argmax u (by simp)
@@ -958,7 +960,7 @@ lemma q_reduced_of_maximal {G : CFGraph V} (h_conn : graph_connected G) {q : V} 
           apply Finset.sum_eq_zero
           intro y h_y
           have h_y_in_S : y ∈ S := by simp at h_y; exact h_y
-          simp [h_y_in_S, Int.zero_mul]
+          simp [h_y_in_S]
         rw [this, zero_add]
         have : ∑  x ∈ Finset.filter (fun x ↦ x ∉ S) univ, ((if x ∈ S then (1:ℤ) else 0) - 1) * ↑(num_edges G v x) = - ∑ x ∈ Finset.filter (fun x ↦ x ∉ S) univ, ↑(num_edges G v x) := by
           rw [← Finset.sum_neg_distrib]
@@ -1205,7 +1207,7 @@ theorem q_effective_to_q_reduced {G : CFGraph V} (h_conn : graph_connected G) {q
           linarith
         linarith
       · -- Show num_edges G x u ≥ 0
-        simp [num_edges_nonneg G x u]
+        simp
 
     have chips_to_inactive (x : V) : ¬ active G q D x → D x ≤ D' x := by
       -- Goal: 0 ≤ ∑ (σ u - σ x) * num_edges G x u
@@ -1303,7 +1305,7 @@ termination_by (reduction_excess G q D).toNat
 decreasing_by
   -- Some effort needed to deal with ℤ versus ℕ
   rw [Int.toNat_lt]
-  simp [reduction_excess_nonneg]
+  simp
   dsimp [D'] at h_smaller
   left
   exact h_smaller
