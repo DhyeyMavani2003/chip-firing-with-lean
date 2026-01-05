@@ -6,6 +6,5 @@ import ChipFiringWithLean.Config
 import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Algorithms
 import ChipFiringWithLean.Rank
-import ChipFiringWithLean.Helpers
 import ChipFiringWithLean.RRGHelpers
 import ChipFiringWithLean.RiemannRochForGraphs

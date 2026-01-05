@@ -937,6 +937,7 @@ lemma helper_orientation_config_superstable (G : CFGraph V) (O : CFOrientation G
 
 /-
 ## Reverse orientations and the link to the canonical divisor.
+This discussion requires the *handshakeing lemma* along the way, to compute the degree of the canonical divisor.
 -/
 
 /-- The canonical divisor assigns degree - 2 to each vertex.
@@ -1077,6 +1078,186 @@ lemma divisor_reverse_orientation {G : CFGraph V} (O : CFOrientation G)  : ordiv
   simp
   -- Goal is now: flow O' w v = flow O v w
   rw [flow_reverse O w v]
+
+/-- Helper lemma: In a loopless graph, each edge has distinct endpoints -/
+lemma edge_endpoints_distinct (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
+    e.1 ≠ e.2 := by
+  by_contra eq_endpoints
+  rcases e with ⟨u,v⟩
+  have : u = v := eq_endpoints
+  rw [this] at he
+  exact G.loopless v he
+
+/-- Helper lemma: Each edge is incident to exactly two vertices -/
+lemma edge_incident_vertices_count (G : CFGraph V) (e : V × V) (he : e ∈ G.edges) :
+    (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card = 2 := by
+  rw [Finset.card_eq_two]
+  exists e.1
+  exists e.2
+  constructor
+  · exact edge_endpoints_distinct G e he
+  · ext v
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+               Finset.mem_insert, Finset.mem_singleton]
+    -- The proof here can be simplified using Iff.intro and cases
+    apply Iff.intro
+    · intro h_mem_filter -- Goal: v ∈ {e.1, e.2}
+      cases h_mem_filter with
+      | inl h => exact Or.inl (Eq.symm h)
+      | inr h => exact Or.inr (Eq.symm h)
+    · intro h_mem_set -- Goal: e.1 = v ∨ e.2 = v
+      cases h_mem_set with
+      | inl h => exact Or.inl (Eq.symm h)
+      | inr h => exact Or.inr (Eq.symm h)
+
+
+/-- Helper lemma: Summing mapped incidence counts equals summing constant 2 (Nat version). -/
+lemma map_inc_eq_map_two_nat (G : CFGraph V) :
+  Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))
+    = 2 * (Multiset.card G.edges) := by
+  -- Define the function being mapped
+  let f : V × V → ℕ := λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card
+  -- Define the constant function 2
+  let g (_ : V × V) : ℕ := 2
+  -- Show f equals g for all edges in G.edges
+  have h_congr : ∀ e ∈ G.edges, f e = g e := by
+    intro e he
+    simp [f, g]
+    exact edge_incident_vertices_count G e he
+  -- Apply congruence to the map function itself first using map_congr with rfl
+  rw [Multiset.map_congr rfl h_congr] -- Use map_congr with rfl
+  -- Apply rewrites step-by-step
+  rw [Multiset.map_const', Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
+
+/-- Helper lemma to rewrite (in-)degree in terms of edge counts from each direction.
+This proof is quite clunky, and I suspect it can be simplified. -/
+lemma degree_eq_total_flow : ∀ (S : Multiset (V × V)) (v : V), (∀ e ∈ S, e.1 ≠ e.2) →
+  ∑ u : V, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) = Multiset.card (S.filter (λ e => e.fst = v ∨ e.snd = v)) := by
+  -- Induct on the multiset S
+  intro S v h_loopless
+  induction S using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
+  | cons e_head s_tail ih_s_tail =>
+    -- Rewrite both sides using the head and tail
+    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
+    rw [ih_s_tail]
+    -- Cancel the like terms in a + b = a + c
+    suffices h : ∑ x : V, Multiset.card (if e_head = (v, x) ∨ e_head = (x, v) then {e_head} else 0) = Multiset.card (if e_head.1 = v ∨ e_head.2 = v then {e_head} else 0) by linarith
+
+    by_cases h_head : (e_head.fst = v ∨ e_head.snd = v)
+    · -- Case: e_head is incident to v
+      simp only [if_pos h_head, Multiset.card_singleton]
+      obtain ⟨e,f⟩ := e_head
+      rcases h_head with h_left  | h_right
+      -- Subcase: e = v
+      have e_eq_v : e =v  := h_left
+      have f_neq_v : f ≠ v := by
+        contrapose! h_left
+        simp
+        rw [← h_left]
+        exact h_loopless ⟨e,f⟩ (by simp)
+      simp [e_eq_v, f_neq_v]
+      -- Now only one term in this sum is nonzero
+      have h (x:V): Multiset.card (if f = x then {(v, f)} else 0) = (if x = f then 1 else 0) := by
+        by_cases h_x : x = f
+        · simp [h_x]
+        · simp [h_x]
+          contrapose! h_x
+          rw [h_x]
+      simp [h]
+      -- Subcase: f = v
+      -- Similar argument
+      have f_eq_v : f = v := h_right
+      have e_neq_v : e ≠ v := by
+        contrapose! h_right
+        simp
+        rw [← h_right]
+        have := h_loopless ⟨e,f⟩ (by simp)
+        intro h_bad
+        rw [h_bad] at this
+        apply absurd this
+        simp
+
+      simp [f_eq_v, e_neq_v]
+      -- Now only one term in this sum is nonzero
+      have h (x:V): Multiset.card (if e = x then {(e,v)} else 0) = (if x = e then 1 else 0) := by
+        by_cases h_x : x = e
+        · simp [h_x]
+        · simp [h_x]
+          contrapose! h_x
+          rw [h_x]
+      simp [h]
+    · -- Case: e_head is not incident to v
+      simp only [if_neg h_head]
+      apply Finset.sum_eq_zero
+      intro x _
+      simp
+      push_neg at h_head
+      contrapose! h_head
+      intro h'
+      have h'': e_head ≠ ⟨v,x⟩ := by
+        contrapose! h'
+        simp [h']
+      apply h_head at h''
+      simp [h'']
+    intro e
+    specialize h_loopless e
+    intro h_tail
+    apply h_loopless
+    simp [h_tail]
+
+-- Key lemma for handshaking theorem: Sum of edge counts equals incident edge count
+lemma sum_num_edges_eq_filter_count (G : CFGraph V) (v : V) :
+  ∑ u, num_edges G v u = Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v)) := by
+  dsimp [num_edges]
+  have h_loopless: ∀ e ∈ G.edges, e.1 ≠ e.2 := by
+    intro e he
+    exact edge_endpoints_distinct G e he
+  exact degree_eq_total_flow G.edges v (h_loopless)
+
+/--
+**Handshaking Theorem:** In a loopless multigraph \(G\),
+the sum of the degrees of all vertices is twice the number of edges:
+
+\[
+  \sum_{v \in V} \deg(v) = 2 \cdot \#(\text{edges of }G).
+\]
+-/
+theorem helper_sum_vertex_degrees (G : CFGraph V) :
+    ∑ v, vertex_degree G v = 2 * ↑(Multiset.card G.edges) := by
+  -- The proof follows from the existing helper lemmas
+  calc ∑ v, vertex_degree G v
+    = ∑ v, ∑ u, (num_edges G v u : ℤ) := by simp_rw [vertex_degree]
+    _ = ∑ v, ↑(∑ u, num_edges G v u) := by simp_rw [← Nat.cast_sum]
+    _ = ∑ v, ↑(Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by simp_rw [sum_num_edges_eq_filter_count G]
+    _ = ↑(∑ v, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by rw [← Nat.cast_sum]
+    _ = ↑(Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))) := by rw [sum_filter_eq_map G (G.edges) (λ v e => e.fst = v ∨ e.snd = v)]
+    _ = ↑(2 * Multiset.card G.edges) := by rw [map_inc_eq_map_two_nat G]
+    _ = 2 * ↑(Multiset.card G.edges) := by rw [Nat.cast_mul, Nat.cast_two]
+
+-- Corollary 4.2.3: Degree of canonical divisor equals 2g - 2
+theorem degree_of_canonical_divisor (G : CFGraph V) :
+    deg (canonical_divisor G) = 2 * genus G - 2 := by
+  -- Use sum_sub_distrib to split the sum
+  have h1 : ∑ v, (canonical_divisor G v) =
+            ∑ v, vertex_degree G v - 2 * Fintype.card V := by
+    unfold canonical_divisor
+    rw [sum_sub_distrib]
+    simp [sum_const]
+    ring
+  dsimp [deg]
+  rw [h1]
+
+  -- Use the fact that sum of vertex degrees = 2|E|
+  have h2 : ∑ v, vertex_degree G v = 2 * Multiset.card G.edges := by
+    exact helper_sum_vertex_degrees G
+  rw [h2]
+
+  -- Use genus definition: g = |E| - |V| + 1
+  rw [genus]
+
+  ring
 
 /-
 ## Creating orientations from burn orders. Building blocks towards Dhar's algorithm.
@@ -1296,6 +1477,8 @@ lemma burn_unique_source {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list
   simp at ineq
   simp [ineq]
 
+
+
 /-
 ## The main construction of Dhar's algorithm, and its consequences for orientation divisors/configurations.
 -/
@@ -1382,3 +1565,78 @@ use O, h_acyc, h_src
 let c' := orientation_to_config G O q h_acyc h_src
 have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q h_acyc h_src) h_ge
 rw [← h_eq]
+
+/-- Proposition 4.1.11: Bijection between acyclic orientations with source q and maximal superstable configurations -/
+theorem orientation_superstable_bijection (G : CFGraph V) (q : V) :
+    let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)};
+    let β := {c : Config V q // maximal_superstable G c};
+    let f_raw : α → Config V q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2;
+    let f : α → β := λ O_sub => ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩;
+    Function.Bijective f := by
+  -- Define the domain and codomain types explicitly (can be removed if using let like above)
+  let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}
+  let β := {c : Config V q // maximal_superstable G c}
+  -- Define the function f_raw : α → Config V q
+  let f_raw : α → Config V q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2
+  -- Define the function f : α → β, showing the result is maximal superstable
+  let f : α → β := λ O_sub =>
+    ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩
+
+  constructor
+  -- Injectivity
+  { -- Prove injective f using injective f_raw
+    intros O₁_sub O₂_sub h_f_eq -- h_f_eq : f O₁_sub = f O₂_sub
+    have h_f_raw_eq : f_raw O₁_sub = f_raw O₂_sub := by simp at h_f_eq; exact h_f_eq
+
+    -- Reuse original injectivity proof structure, ensuring types match
+    let ⟨O₁, h₁⟩ := O₁_sub
+    let ⟨O₂, h₂⟩ := O₂_sub
+    -- Define c, h_eq₁, h_eq₂ based on orientation_to_config directly
+    let c := orientation_to_config G O₁ q h₁.1 h₁.2
+    have h_eq₁ : orientation_to_config G O₁ q h₁.1 h₁.2 = c := rfl
+    have h_eq₂ : orientation_to_config G O₂ q h₂.1 h₂.2 = c := by
+      exact h_f_raw_eq.symm.trans h_eq₁ -- Use transitivity
+
+    have h_src₁ : is_source G O₁ q := by
+      rcases acyclic_has_source G O₁ h₁.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₁.2 s hs; rwa [h_s_eq_q] at hs
+    have h_src₂ : is_source G O₂ q := by
+      rcases acyclic_has_source G O₂ h₂.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₂.2 s hs; rwa [h_s_eq_q] at hs
+
+    -- Define h_super and h_max in terms of c
+    have h_super : superstable G q c := by
+      rw [← h_eq₁]; exact helper_orientation_config_superstable G O₁ q h₁.1 h₁.2
+    have h_max   : maximal_superstable G c := by
+      rw [← h_eq₁]; exact orientation_config_maximal G O₁ q h₁.1 h₁.2
+
+    apply Subtype.ext
+    -- Call helper_config_to_orientation_unique with the original h_eq₁ and h_eq₂
+    exact (helper_config_to_orientation_unique G q c h_super h_max
+      O₁ O₂ h₁.1 h₂.1 h_src₁ h_src₂ h₁.2 h₂.2 h_eq₁ h_eq₂)
+  }
+
+  -- Surjectivity
+  { -- Prove Function.Surjective f
+    unfold Function.Surjective
+    intro y -- y should now have type β
+    -- Access components using .val and .property
+    let c_target : Config V q := y.val -- Explicitly type c_target
+    let h_target_max_superstable := y.property
+
+    -- Use the fact that every maximal superstable config comes from an orientation.
+    rcases maximal_superstable_orientation G q c_target h_target_max_superstable with
+      ⟨O, h_acyc, h_unique_source, h_config_eq_target⟩
+
+    -- Construct the required subtype element x : α (the pre-image)
+    let x : α := ⟨O, ⟨h_acyc, h_unique_source⟩⟩
+
+    -- Show that this x exists
+    use x
+
+    -- Show f x = y using Subtype.eq
+    apply Subtype.ext
+    -- Goal: (f x).val = y.val
+    -- Need to show: f_raw x = c_target
+    -- This is exactly h_config_eq_target
+    exact h_config_eq_target
+    -- Proof irrelevance handles the equality of the property components.
+  }

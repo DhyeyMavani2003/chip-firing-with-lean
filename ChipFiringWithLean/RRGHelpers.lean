@@ -1,8 +1,5 @@
-import ChipFiringWithLean.Basic
-import ChipFiringWithLean.Config
 import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Rank
-import ChipFiringWithLean.Helpers
 import Paperproof
 
 set_option linter.unusedVariables false
@@ -13,81 +10,214 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
-/-- [Proven] Proposition 4.1.11: Bijection between acyclic orientations with source q
-    and maximal superstable configurations -/
-theorem stable_bijection (G : CFGraph V) (q : V) :
-    let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)};
-    let β := {c : Config V q // maximal_superstable G c};
-    let f_raw : α → Config V q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2;
-    let f : α → β := λ O_sub => ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩;
-    Function.Bijective f := by
-  -- Define the domain and codomain types explicitly (can be removed if using let like above)
-  let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}
-  let β := {c : Config V q // maximal_superstable G c}
-  -- Define the function f_raw : α → Config V q
-  let f_raw : α → Config V q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2
-  -- Define the function f : α → β, showing the result is maximal superstable
-  let f : α → β := λ O_sub =>
-    ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩
+/-
+## Maximal superstable configurations, maximal unwinnable divisors, and the correspondences between them
+-/
 
+/-- Given any divisor D, there exists a superstable configuration c and an integer k such that
+    D is linearly equivalent to c + k * δ_q.
+    Proven using `exists_q_reduced_representative` and `q_reduced_superstable_correspondence`.
+-/
+lemma superstable_of_divisor {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
+  ∃ (c : Config V q) (k : ℤ),
+    linear_equiv G D (c.vertex_degree + k • (one_chip q)) ∧
+    superstable G q c := by
+  -- 1. Get the q-reduced representative D' for D using the lemma
+  rcases exists_q_reduced_representative h_conn q D with ⟨D', h_equiv_D_D', h_qred_D'⟩
+
+  -- 2. Use the correspondence lemma to get c from D'
+  rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_D'_eq_c_minus_delta_q⟩
+
+
+  unfold toDiv at h_D'_eq_c_minus_delta_q
+  let k := deg D' - config_degree c
+  use c
+  use k
   constructor
-  -- Injectivity
-  { -- Prove injective f using injective f_raw
-    intros O₁_sub O₂_sub h_f_eq -- h_f_eq : f O₁_sub = f O₂_sub
-    have h_f_raw_eq : f_raw O₁_sub = f_raw O₂_sub := by simp at h_f_eq; exact h_f_eq
+  · -- Prove linear equivalence: linear_equiv G D (λ v => c
+    have h := h_equiv_D_D'
+    rw [h_D'_eq_c_minus_delta_q] at h
+    exact h
+  · -- Prove superstable G q c
+    exact h_super_c
 
-    -- Reuse original injectivity proof structure, ensuring types match
-    let ⟨O₁, h₁⟩ := O₁_sub
-    let ⟨O₂, h₂⟩ := O₂_sub
-    -- Define c, h_eq₁, h_eq₂ based on orientation_to_config directly
-    let c := orientation_to_config G O₁ q h₁.1 h₁.2
-    have h_eq₁ : orientation_to_config G O₁ q h₁.1 h₁.2 = c := rfl
-    have h_eq₂ : orientation_to_config G O₂ q h₂.1 h₂.2 = c := by
-      exact h_f_raw_eq.symm.trans h_eq₁ -- Use transitivity
+/--
+A superstable configuration associated to an unwinnable divisor has negative degree at q.
+-/
+lemma superstable_of_divisor_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
+  ¬(winnable G D) →
+  ∀ (c : Config V q) (k : ℤ),
+    linear_equiv G D (c.vertex_degree + k • (one_chip q)) →
+    superstable G q c →
+    k < 0 := by
+  intro h_not_winnable c k h_equiv h_super
+  contrapose! h_not_winnable with k_nonneg
+  let D' := c.vertex_degree + k • (one_chip q)
+  have D'_eff : effective D' := by
+    intro v
+    dsimp [D']
+    have c_nonneg: c.vertex_degree v ≥ 0 := c.non_negative v
+    have oc_nonneg : k*one_chip q v ≥ 0 := by
+      dsimp [one_chip]
+      split_ifs
+      · simp [k_nonneg]
+      · simp
+    rw [smul_apply]
+    linarith
+  have h_winnable_D' : winnable G D' := winnable_of_effective G D' D'_eff
+  apply winnable_equiv_winnable G D' D h_winnable_D'
+  apply (linear_equiv_is_equivalence G).symm h_equiv
 
-    have h_src₁ : is_source G O₁ q := by
-      rcases acyclic_has_source G O₁ h₁.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₁.2 s hs; rwa [h_s_eq_q] at hs
-    have h_src₂ : is_source G O₂ q := by
-      rcases acyclic_has_source G O₂ h₂.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₂.2 s hs; rwa [h_s_eq_q] at hs
 
-    -- Define h_super and h_max in terms of c
-    have h_super : superstable G q c := by
-      rw [← h_eq₁]; exact helper_orientation_config_superstable G O₁ q h₁.1 h₁.2
-    have h_max   : maximal_superstable G c := by
-      rw [← h_eq₁]; exact orientation_config_maximal G O₁ q h₁.1 h₁.2
+lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph V) (q : V) (D : CFDiv V) :
+  maximal_unwinnable G D → q_reduced G q D → D q = -1 := by
+  intro h_max_unwin h_qred
+  have h_neg : D q < 0 := by
+    contrapose! h_max_unwin
+    unfold maximal_unwinnable
+    push_neg
+    intro h_unwin
+    absurd h_unwin
+    suffices effective D by
+      exact winnable_of_effective G D this
+    intro v
+    by_cases hv : v = q
+    · rw [hv]
+      exact h_max_unwin
+    · exact h_qred.1 v (by simp [hv])
+  have h_add_win : winnable G (D + one_chip q) := by exact (h_max_unwin.2 q)
+  have h_eff : effective (D + one_chip q) := by
+    apply effective_of_winnable_and_q_reduced G q (D + one_chip q) h_add_win
+    -- Prove q-reducedness of D + one_chip q
+    constructor
+    · intro v hv
+      have h_v_ne_q : v ≠ q := by
+        exact Set.mem_setOf.mp hv
+      rw [add_apply]
+      simp [h_v_ne_q]
+      apply h_qred.1 v hv
+    · intro S hS_subset hS_nonempty
+      -- Use the q_reducedness of D
+      have := h_qred.2
+      specialize this S hS_subset hS_nonempty
+      rcases this with ⟨v, hv_in_S, h_dv_lt_outdeg⟩
+      use v
+      simp [hv_in_S]
+      suffices one_chip q v = 0 by
+        rw [this]
+        simp [h_dv_lt_outdeg]
+      suffices q ≠ v by
+        rw [one_chip_apply_other]
+        exact this
+      intro h_absurd
+      rw [← h_absurd] at hv_in_S
+      apply hS_subset at hv_in_S
+      simp at hv_in_S
+  have h_nonneg : D q + 1 ≥ 0 := by
+    have h := h_eff q
+    rw [add_apply] at h
+    simp at h
+    exact h
+  linarith
 
-    apply Subtype.ext
-    -- Call helper_config_to_orientation_unique with the original h_eq₁ and h_eq₂
-    exact (helper_config_to_orientation_unique G q c h_super h_max
-      O₁ O₂ h₁.1 h₂.1 h_src₁ h_src₂ h₁.2 h₂.2 h_eq₁ h_eq₂)
-  }
+-- Configuration version of the above
+lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : maximal_superstable G c): config_degree c = genus G := by
+  have := maximal_superstable_orientation G q c h_max
+  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
+  rw [← h_orient_eq]
+  rw [config_and_divisor_from_O O h_acyc h_unique_source ]
+  dsimp [toConfig, config_degree]
+  rw [map_sub]
+  dsimp [orqed]
+  rw [degree_ordiv]
+  suffices (ordiv G O) q = -1 by
+    rw [this]
+    simp [deg_one_chip]
+  -- Prove (ordiv G O) q = -1
+  dsimp [ordiv]
+  -- These lines look funny, but they just check that "q is a unique source" implies "q is a source."
+  -- [TODO] consider making a helper lemma for this step, and/or giving a name to the "is a unique source" property.
+  have := acyclic_has_source G O h_acyc
+  rcases this with ⟨some_source, h_source⟩
+  specialize h_unique_source some_source h_source
+  rw [h_unique_source] at h_source
+  dsimp [is_source] at h_source
+  rw [h_source]
+  norm_num
 
-  -- Surjectivity
-  { -- Prove Function.Surjective f
-    unfold Function.Surjective
-    intro y -- y should now have type β
-    -- Access components using .val and .property
-    let c_target : Config V q := y.val -- Explicitly type c_target
-    let h_target_max_superstable := y.property
+-- An odd-looking lemma, a corollary of the above, that comes in handy in some later computations.
+lemma maximal_unwinnable_q_reduced_form (G : CFGraph V) (q : V) (D : CFDiv V) (c : Config V q) :
+  maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
+  intro h_max_unwinnable h_qred h_toDeg
+  funext v
+  by_cases hvq : q = v
+  · -- Case v = q
+    rw [← hvq]
+    rw [maximal_unwinnable_q_reduced_chips_at_q G q D h_max_unwinnable h_qred]
+    rw [sub_apply, one_chip_apply_v q, c.q_zero]
+    simp
+  · -- Case v ≠ q
+    rw [sub_apply, one_chip_apply_other q v hvq]
+    let h :=  h_toDeg
+    dsimp [toDiv] at h
+    apply (congrFun) at h
+    specialize h v
+    rw [add_apply, smul_apply] at h
+    simp [h,hvq]
 
-    -- Use the fact that every maximal superstable config comes from an orientation.
-    rcases maximal_superstable_orientation G q c_target h_target_max_superstable with
-      ⟨O, h_acyc, h_unique_source, h_config_eq_target⟩
+/-- Lemma: Superstable configuration degree is bounded by genus -/
+lemma helper_superstable_degree_bound (G : CFGraph V) (q : V) (c : Config V q) :
+  superstable G q c → config_degree c ≤ genus G := by
+  intro h_super
+  have := maximal_superstable_exists G q c h_super
+  rcases this with ⟨c_max, h_maximal, h_ge_c⟩
+  have h_genus_eq := degree_max_superstable c_max h_maximal
+  rw [← h_genus_eq]
+  dsimp [config_ge] at h_ge_c
+  dsimp [config_degree]
+  dsimp [deg]
+  apply Finset.sum_le_sum
+  intro v hv
+  specialize h_ge_c v
+  exact h_ge_c
 
-    -- Construct the required subtype element x : α (the pre-image)
-    let x : α := ⟨O, ⟨h_acyc, h_unique_source⟩⟩
+lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c : Config V q) :
+  superstable G q c → maximal_superstable G c → config_degree c ≥ genus G := by
+  intro h_super h_max
+  have := maximal_superstable_orientation G q c h_max
+  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
+  have h_genus_eq : config_degree c = genus G := by
+    exact degree_max_superstable c h_max
+  rw [← h_genus_eq]
 
-    -- Show that this x exists
-    use x
-
-    -- Show f x = y using Subtype.eq
-    apply Subtype.ext
-    -- Goal: (f x).val = y.val
-    -- Need to show: f_raw x = c_target
-    -- This is exactly h_config_eq_target
-    exact h_config_eq_target
-    -- Proof irrelevance handles the equality of the property components.
-  }
+/-- Lemma: If a superstable configuration has degree equal to g, it is maximal -/
+lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
+  superstable G q c → config_degree c = genus G → maximal_superstable G c := by
+  intro h_super h_deg_eq
+  -- Choose a maximal above c (we'll show it's equal to c)
+  have := maximal_superstable_exists G q c h_super
+  rcases this with ⟨c_max, h_maximal, h_ge_c⟩
+  have c_max_deg : config_degree c_max = genus G := by
+    exact degree_max_superstable c_max h_maximal
+  let E := c_max.vertex_degree - c.vertex_degree
+  have E_eff : E ≥ 0 := by
+    intro v
+    specialize h_ge_c v
+    dsimp [E]
+    linarith
+  have E_deg : deg E = 0 := by
+    dsimp [E]
+    rw [map_sub]
+    dsimp [config_degree] at h_deg_eq c_max_deg
+    rw [h_deg_eq, c_max_deg]
+    simp
+  have E_0 : E = 0 := eff_degree_zero E E_eff E_deg
+  dsimp [E] at E_0
+  have : c_max.vertex_degree = c.vertex_degree := by
+    rw [← sub_eq_zero, E_0]
+  have : c_max = c := (eq_config_iff_eq_vertex_degree c_max c).mpr this
+  rw [← this]
+  exact h_maximal
 
 /-- [Proven] Proposition 4.1.13 (1): Characterization of maximal superstable configurations by their degree -/
 theorem maximal_superstable_config_prop (G : CFGraph V) (q : V) (c : Config V q) :
@@ -102,6 +232,75 @@ theorem maximal_superstable_config_prop (G : CFGraph V) (q : V) (c : Config V q)
     intro h_deg
     -- Apply the lemma that degree g implies maximality
     exact helper_degree_g_implies_maximal G q c h_super h_deg }
+
+
+lemma winnable_of_deg_ge_genus {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) : deg D ≥ genus G → winnable G D := by
+  intro h_deg_ge_g
+  let q := Classical.arbitrary V
+  rcases (exists_q_reduced_representative h_conn q D) with ⟨D_qred, h_equiv, h_qred⟩
+  have := (q_reduced_superstable_correspondence G q D_qred).mp h_qred
+  rcases this with ⟨c, h_super, h_D_eq⟩
+  have := maximal_superstable_exists G q c h_super
+  rcases this with ⟨c_max, h_maximal, h_ge_c⟩
+  have h_deg_c : config_degree c ≤ genus G := by
+    have := degree_max_superstable c_max h_maximal
+    rw [← this]
+    dsimp [config_ge] at h_ge_c
+    apply Finset.sum_le_sum
+    intro v hv
+    specialize h_ge_c v
+    exact h_ge_c
+  have h_ineq := le_trans h_deg_c h_deg_ge_g
+  have D_deg : deg D = deg D_qred := linear_equiv_preserves_deg G D D_qred h_equiv
+  rw [D_deg] at h_ineq
+  have c_from_D : c = toConfig ⟨D_qred, h_qred.1⟩ := by
+    rw [eq_config_iff_eq_vertex_degree]
+    funext v
+    dsimp [toConfig]
+    dsimp [toDiv] at h_D_eq
+    rw [h_D_eq]
+    simp
+    by_cases hvq : v = q
+    · rw [hvq]
+      simp [c.q_zero]
+    · simp [hvq]
+  have deg_eq := config_degree_div_degree ⟨D_qred, h_qred.1⟩
+  simp at deg_eq
+  rw [← c_from_D] at deg_eq
+  rw [← D_deg] at deg_eq
+  have eff_q : D_qred q ≥ 0 := by
+    linarith [h_deg_ge_g, h_deg_c]
+  use D_qred
+  constructor
+  · -- Prove D_qred is effective
+    intro v
+    by_cases hvq : v = q
+    · rw [hvq]
+      exact eff_q
+    · -- v ≠ q
+      rw [h_D_eq]
+      dsimp [toDiv]
+      simp
+      rw [one_chip_apply_other q v]
+      simp [c.non_negative v]
+      intro h; rw [h] at hvq; contradiction
+  · -- Prove linear equivalence
+    exact h_equiv
+
+/-- Lemma: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable -/
+lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : graph_connected G) (q : V) (c' : Config V q) :
+  maximal_superstable G c' →
+  ∀ (v : V), winnable G (c'.vertex_degree- (one_chip q) + (one_chip v)) := by
+  intro h_max_superstable v
+  let D' := c'.vertex_degree - one_chip q + one_chip v
+  have deg_ineq : deg D' ≥ genus G := by
+    dsimp [D']
+    simp
+    have h := degree_max_superstable c' h_max_superstable
+    dsimp [config_degree] at h
+    rw [h]
+  exact winnable_of_deg_ge_genus h_conn D' deg_ineq
+
 
 /-- [Proven] Proposition 4.1.13 (2): Characterization of maximal unwinnable divisors -/
 theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
@@ -404,87 +603,14 @@ theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
     exact maximal_unwinnable_deg h_conn D hD
   }
 
-/-- [Proven] Corollary 4.2.2: Rank inequality for divisors -/
-theorem rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
-    (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
-    rank G (D+D') ≥ rank G D + rank G D' := by
-  -- Convert ranks to natural numbers
-  let k₁ := (rank G D).toNat
-  let k₂ := (rank G D').toNat
 
-  -- Show rank is ≥ k₁ + k₂ by proving rank_geq
-  have h_rank_geq : rank_geq G (D + D') (k₁ + k₂) := by
-    -- Take any effective divisor E'' of degree k₁ + k₂
-    intro E'' h_E''
-    have ⟨h_eff, h_deg⟩ := h_E''
 
-    -- Decompose E'' into E₁ and E₂ of degrees k₁ and k₂
-    have ⟨E₁, E₂, h_E₁_eff, h_E₂_eff, h_E₁_deg, h_E₂_deg, h_sum⟩ :=
-      helper_divisor_decomposition G E'' k₁ k₂ h_eff h_deg
 
-    -- Convert our nat-based hypotheses to ℤ-based ones
-    have h_D_nat : rank G D ≥ ↑k₁ := by
-      have h_conv : ↑((rank G D).toNat) = rank G D := Int.toNat_of_nonneg h_D
-      rw [←h_conv]
 
-    have h_D'_nat : rank G D' ≥ ↑k₂ := by
-      have h_conv : ↑((rank G D').toNat) = rank G D' := Int.toNat_of_nonneg h_D'
-      rw [←h_conv]
 
-    -- Get rank_geq properties
-    have h_D_rank_geq : rank_geq G D k₁ := (rank_geq_iff G D k₁).mpr h_D_nat
-    have h_D'_rank_geq : rank_geq G D' k₂ := (rank_geq_iff G D' k₂).mpr h_D'_nat
-
-    -- Apply rank_geq to get winnability for both parts
-    have h_D_win := h_D_rank_geq E₁ (by exact ⟨h_E₁_eff, h_E₁_deg⟩)
-    have h_D'_win := h_D'_rank_geq E₂ (by exact ⟨h_E₂_eff, h_E₂_deg⟩)
-
-    -- Show winnability of sum using helper_winnable_add and rearrangement
-    rw [h_sum]
-    have h := winnable_add_winnable G (D-E₁) (D'-E₂) h_D_win h_D'_win
-    have h_arr : D - E₁ + (D' - E₂) = (D + D') - (E₁ + E₂) := by
-      abel
-    rw [h_arr] at h
-    exact h
-
-  -- Connect k₁, k₂ back to original ranks
-  have h_k₁ : ↑k₁ = rank G D := by
-    exact Int.toNat_of_nonneg h_D
-
-  have h_k₂ : ↑k₂ = rank G D' := by
-    exact Int.toNat_of_nonneg h_D'
-
-  -- Show final inequality using transitivity
-  have h_final := (rank_geq_iff G (D+D') (k₁+k₂)).mp h_rank_geq
-
-  have h_sum : ↑(k₁ + k₂) = rank G D + rank G D' := by
-    simp only [Nat.cast_add]  -- Use Nat.cast_add instead of Int.coe_add
-    rw [h_k₁, h_k₂]
-
-  linarith
-
--- [Proven] Corollary 4.2.3: Degree of canonical divisor equals 2g - 2
-theorem degree_of_canonical_divisor (G : CFGraph V) :
-    deg (canonical_divisor G) = 2 * genus G - 2 := by
-  -- Use sum_sub_distrib to split the sum
-  have h1 : ∑ v, (canonical_divisor G v) =
-            ∑ v, vertex_degree G v - 2 * Fintype.card V := by
-    unfold canonical_divisor
-    rw [sum_sub_distrib]
-    simp [sum_const]
-    ring
-  dsimp [deg]
-  rw [h1]
-
-  -- Use the fact that sum of vertex degrees = 2|E|
-  have h2 : ∑ v, vertex_degree G v = 2 * Multiset.card G.edges := by
-    exact helper_sum_vertex_degrees G
-  rw [h2]
-
-  -- Use genus definition: g = |E| - |V| + 1
-  rw [genus]
-
-  ring
+/-
+## The main Riemann-Roch inequality.
+-/
 
 /-- [Proven] Rank Degree Inequality -/
 theorem rank_degree_inequality
@@ -500,15 +626,15 @@ theorem rank_degree_inequality
   let q := Classical.arbitrary V
 
   -- Apply Dhar's algorithm to D - E to get q-reduced form
-  rcases helper_dhar_algorithm h_conn q (D - E) with ⟨c, k, h_equiv, h_super⟩
+  rcases superstable_of_divisor h_conn q (D - E) with ⟨c, k, h_equiv, h_super⟩
 
-  have h_k_neg := helper_dhar_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
+  have h_k_neg := superstable_of_divisor_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
 
   -- Get maximal superstable c' ≥ c
   rcases maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
 
   -- Let O be corresponding acyclic orientation using the bijection
-  rcases stable_bijection G q with ⟨_, h_surj⟩
+  rcases orientation_superstable_bijection G q with ⟨_, h_surj⟩
   -- Apply h_surj to the subtype element ⟨c', h_max'⟩
   rcases h_surj ⟨c', h_max'⟩ with ⟨O_subtype, h_eq_c'⟩ -- O_subtype is {O // acyclic ∧ unique_source}
   let O := O_subtype.val

@@ -317,6 +317,9 @@ lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (d : ℤ) (c : Config V 
   rw [comp_eq S]
   exact hv_outdeg
 
+
+
+
 /-- Helper Lemma: Equivalence between q-reduced divisors and superstable configurations.
     A divisor D is q-reduced iff it can be written as c - δ_q for some superstable config c.
     [TODO] This is probably redundent with the above superstable_if_q_reduced lemma; revise to prove one using the other. -/
@@ -440,6 +443,55 @@ lemma linear_equiv_add_congr_right_local (G : CFGraph V) (D_add : CFDiv V) {D1 D
   have h_eq : (D2 + D_add) - (D1 + D_add) = D2 - D1 := by abel
   rw [h_eq]
   exact h
+
+
+/-- Subtracting a chip at q from a superstable configuration gives an unwinnable divisor. -/
+lemma helper_superstable_to_unwinnable {G : CFGraph V} (h_conn : graph_connected G) (q : V) (c : Config V q) :
+  maximal_superstable G c →
+  ¬winnable G (c.vertex_degree - one_chip q) := by
+  intro h_max_superstable
+  let D := c.vertex_degree - one_chip q
+  have h_red : q_reduced G q D := by
+    apply (q_reduced_superstable_correspondence G q D).mpr
+    use c
+    constructor
+    · -- Prove superstable G q c
+      exact h_max_superstable.1
+    · -- Prove D = c - δ_q
+      dsimp [toDiv]
+      have h_deg : deg D = config_degree c - 1 := by
+        dsimp [D]
+        rw [map_sub, deg_one_chip]
+        dsimp [config_degree]
+      rw [h_deg]
+      dsimp [D]
+      funext v
+      rw [sub_apply, add_apply, smul_apply]
+      linarith
+  by_contra! h_winnable
+  have := (winnable_iff_q_reduced_effective h_conn q D).mp
+  dsimp [D] at this
+  apply this at h_winnable
+  rcases h_winnable with ⟨D', h_equiv, h_qred', h_eff⟩
+  -- Use uniqueness of q-reduced forms to conclude D = D'
+  rcases unique_q_reduced h_conn q D with ⟨D'', h_equiv'', h_unique⟩
+  have h_eq : D = D'' := by
+    apply h_unique D
+    constructor
+    · exact (linear_equiv_is_equivalence G).refl D
+    . exact h_red
+  have h_eq' : D' = D'' := by
+    apply h_unique D'
+    constructor
+    · exact h_equiv
+    · exact h_qred'
+  rw [← h_eq'] at h_eq
+  rw [← h_eq] at h_eff
+  -- D is effective, contradicting its definition
+  have h_nonneg_q := h_eff q
+  dsimp [D] at h_nonneg_q
+  simp [c.q_zero] at h_nonneg_q
+
 
 /-
 ## Burn lists and their properties.

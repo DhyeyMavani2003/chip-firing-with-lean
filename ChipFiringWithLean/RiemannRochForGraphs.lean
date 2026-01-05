@@ -95,6 +95,65 @@ theorem maximal_unwinnable_symmetry
         linarith [rank_geq_neg_one G (K - E)]
       _ = 0 := by linarith[h_deg_E]
 
+/-- [Proven] Corollary 4.2.2: Rank inequality for divisors -/
+lemma rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
+    (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
+    rank G (D+D') ≥ rank G D + rank G D' := by
+  -- Convert ranks to natural numbers
+  let k₁ := (rank G D).toNat
+  let k₂ := (rank G D').toNat
+
+  -- Show rank is ≥ k₁ + k₂ by proving rank_geq
+  have h_rank_geq : rank_geq G (D + D') (k₁ + k₂) := by
+    -- Take any effective divisor E'' of degree k₁ + k₂
+    intro E'' h_E''
+    have ⟨h_eff, h_deg⟩ := h_E''
+
+    -- Decompose E'' into E₁ and E₂ of degrees k₁ and k₂
+    have ⟨E₁, E₂, h_E₁_eff, h_E₂_eff, h_E₁_deg, h_E₂_deg, h_sum⟩ :=
+      helper_divisor_decomposition G E'' k₁ k₂ h_eff h_deg
+
+    -- Convert our nat-based hypotheses to ℤ-based ones
+    have h_D_nat : rank G D ≥ ↑k₁ := by
+      have h_conv : ↑((rank G D).toNat) = rank G D := Int.toNat_of_nonneg h_D
+      rw [←h_conv]
+
+    have h_D'_nat : rank G D' ≥ ↑k₂ := by
+      have h_conv : ↑((rank G D').toNat) = rank G D' := Int.toNat_of_nonneg h_D'
+      rw [←h_conv]
+
+    -- Get rank_geq properties
+    have h_D_rank_geq : rank_geq G D k₁ := (rank_geq_iff G D k₁).mpr h_D_nat
+    have h_D'_rank_geq : rank_geq G D' k₂ := (rank_geq_iff G D' k₂).mpr h_D'_nat
+
+    -- Apply rank_geq to get winnability for both parts
+    have h_D_win := h_D_rank_geq E₁ (by exact ⟨h_E₁_eff, h_E₁_deg⟩)
+    have h_D'_win := h_D'_rank_geq E₂ (by exact ⟨h_E₂_eff, h_E₂_deg⟩)
+
+    -- Show winnability of sum using helper_winnable_add and rearrangement
+    rw [h_sum]
+    have h := winnable_add_winnable G (D-E₁) (D'-E₂) h_D_win h_D'_win
+    have h_arr : D - E₁ + (D' - E₂) = (D + D') - (E₁ + E₂) := by
+      abel
+    rw [h_arr] at h
+    exact h
+
+  -- Connect k₁, k₂ back to original ranks
+  have h_k₁ : ↑k₁ = rank G D := by
+    exact Int.toNat_of_nonneg h_D
+
+  have h_k₂ : ↑k₂ = rank G D' := by
+    exact Int.toNat_of_nonneg h_D'
+
+  -- Show final inequality using transitivity
+  have h_final := (rank_geq_iff G (D+D') (k₁+k₂)).mp h_rank_geq
+
+  have h_sum : ↑(k₁ + k₂) = rank G D + rank G D' := by
+    simp only [Nat.cast_add]  -- Use Nat.cast_add instead of Int.coe_add
+    rw [h_k₁, h_k₂]
+
+  linarith
+
 /-- Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
              and K-D also having non-negative rank, the rank of D is at most half its degree. -/
 theorem clifford_theorem
