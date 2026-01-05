@@ -13,538 +13,6 @@ variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
 
 /-
-# Helpers for Proposition 3.2.4
--/
-
-/- Theorem: Existence of a q-reduced representative within a divisor class -/
-theorem exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
-  ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' :=
-by
-  rcases q_effective_exists h_conn q D with ⟨D_eff, h_eff, h_equiv⟩
-  rcases q_effective_to_q_reduced h_conn h_eff with ⟨D_qred, h_qred, h_lequiv'⟩
-  use D_qred
-  constructor
-  · -- Show linear equivalence
-    have equiv_rel := linear_equiv_is_equivalence G
-    have h_equiv' : linear_equiv G D_eff D_qred := h_lequiv'
-    have h_equiv'' : linear_equiv G D D_eff := h_equiv
-    exact equiv_rel.trans h_equiv'' h_equiv'
-  · -- Show q-reduced property
-    exact h_qred
-
-/- Lemma: Uniqueness of the q-reduced representative within a divisor class -/
-lemma uniqueness_of_q_reduced_representative (G : CFGraph V) (q : V) (D : CFDiv V)
-  (D₁ D₂ : CFDiv V) (h₁ : linear_equiv G D D₁ ∧ q_reduced G q D₁)
-  (h₂ : linear_equiv G D D₂ ∧ q_reduced G q D₂) : D₁ = D₂ := by
-  -- Extract information from hypotheses
-  have h_equiv_D_D1 : linear_equiv G D D₁ := h₁.1
-  have h_qred_D1 : q_reduced G q D₁ := h₁.2
-  have h_equiv_D_D2 : linear_equiv G D D₂ := h₂.1
-  have h_qred_D2 : q_reduced G q D₂ := h₂.2
-
-  -- Use properties of the equivalence relation linear_equiv
-  let equiv_rel := linear_equiv_is_equivalence G
-  -- Symmetry: linear_equiv G D D₁ → linear_equiv G D₁ D
-  have h_equiv_D1_D : linear_equiv G D₁ D := equiv_rel.symm h_equiv_D_D1
-  -- Transitivity: linear_equiv G D₁ D ∧ linear_equiv G D D₂ → linear_equiv G D₁ D₂
-  have h_equiv_D1_D2 : linear_equiv G D₁ D₂ := equiv_rel.trans h_equiv_D1_D h_equiv_D_D2
-
-  -- Needs: q_reduced G q D₁, q_reduced G q D₂, linear_equiv G D₁ D₂
-  exact q_reduced_unique G q D₁ D₂ ⟨h_qred_D1, h_qred_D2, h_equiv_D1_D2⟩
-
-/- Lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
-lemma helper_unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
-  ∃! D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
-  -- Prove existence and uniqueness separately
-  have h_exists : ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
-    exact exists_q_reduced_representative h_conn q D
-
-  -- Uniqueness comes from the lemma proven above
-  have h_unique : ∀ (y₁ y₂ : CFDiv V),
-    (linear_equiv G D y₁ ∧ q_reduced G q y₁) →
-    (linear_equiv G D y₂ ∧ q_reduced G q y₂) → y₁ = y₂ := by
-    intro y₁ y₂ h₁ h₂
-    exact uniqueness_of_q_reduced_representative G q D y₁ y₂ h₁ h₂
-
-  -- Combine existence and uniqueness using the standard constructor
-  obtain ⟨D', hD'⟩ := h_exists
-  refine ExistsUnique.intro D' hD' (fun y hy => ?_)
-  exact (h_unique D' y hD' hy).symm
-
-/-- Lemma: The q-reduced representative of an effective divisor is effective.
-    This follows from the fact that the reduction process (like Dhar's algorithm or repeated
-    legal firings) preserves effectiveness when starting with an effective divisor. -/
-lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' : CFDiv V) :
-  effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
-  intro h_eff h_equiv h_qred
-  dsimp [linear_equiv] at h_equiv
-  have  := (principal_iff_eq_prin G (E'-E)).mp h_equiv
-  rcases this with ⟨σ, h_prin_eq⟩
-  have eq_E' : E' = E + prin G σ := by
-    rw [← sub_add_cancel E' E, h_prin_eq,add_comm]
-  have h_σ : q_reducer G q σ := by
-    apply q_reducer_of_add_princ_reduced G q E σ
-    rw [← eq_E']
-    exact h_qred
-    intro v _
-    exact h_eff v
-  have h_σ_toward_q : (prin G σ) q ≥ 0 := by
-    dsimp [prin]
-    apply Finset.sum_nonneg
-    intro e _
-    apply mul_nonneg
-    linarith [h_σ e]
-    exact Int.natCast_nonneg _
-  intro v
-  by_cases hvq : v = q
-  rw [hvq,eq_E', add_apply]
-  exact add_nonneg (h_eff q) h_σ_toward_q
-  exact h_qred.1 v hvq
-
-lemma effective_of_winnable_and_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :
-  winnable G D → q_reduced G q D → effective D := by
-  intro h_winnable h_qred
-  rcases h_winnable with ⟨E, h_eff_E, h_equiv⟩
-  have h_equiv' : linear_equiv G E D := by
-    exact (linear_equiv_is_equivalence G).symm h_equiv
-  exact helper_q_reduced_of_effective_is_effective G q E D h_eff_E h_equiv' h_qred
-
-/-
-# Helpers for Lemma 4.1.10
--/
-
-/-- Lemma: Given a list of disjoint vertex sets that form a partition of V,
-    an acyclic orientation is uniquely determined by this partition where
-    each set contains vertices with same indegree. -/
-lemma helper_orientation_determined_by_levels {G : CFGraph V}
-  (O O' : CFOrientation G) :
-  is_acyclic G O → is_acyclic G O' →
-  (∀ v : V, indeg G O v = indeg G O' v) →
-  O = O' := by
-  intro h_acyc h_acyc' h_indeg_eq
-
-  let S := { e : V × V | O.directed_edges.count e > O'.directed_edges.count e }
-  have suff_S_empty : S = ∅ → O = O' := by
-    intro h_S_empty
-    have h_ineq (u v : V) : flow O u v ≤ flow O' u v := by
-      have h_nin: ⟨u,v⟩ ∉ S := by
-        rw [h_S_empty]
-        simp
-      dsimp [S] at h_nin
-      linarith
-    simp [eq_orient O O']
-    intro u v
-    by_contra h_neq
-    have h_uv_le := h_ineq u v
-    have h_lt : flow O u v < flow O' u v := lt_of_le_of_ne h_uv_le h_neq
-    have h_indeg_contra : indeg G O v < indeg G O' v := by
-      rw [indeg_eq_sum_flow O v, indeg_eq_sum_flow O' v]
-      apply Finset.sum_lt_sum
-      intro x hx
-      exact h_ineq x v
-      use u
-      simp [h_lt]
-    linarith [h_indeg_eq v]
-  apply suff_S_empty
-
-  -- A small helper we'll need a couple time later
-  have directed_edge_of_S (e : V × V) : e ∈ S → directed_edge G O e.1 e.2 :=  by
-    dsimp [directed_edge]
-    intro h
-    dsimp [S] at h
-    have h_pos_count : count e O.directed_edges > 0 := by
-      omega
-    apply Multiset.count_pos.mp
-    exact h_pos_count
-
-  -- We now must show that S is empty.
-  -- Do so buy showing any element in S belongs to an infinite directd path
-  have going_up : ∀ e ∈ S, ∃ f ∈ S, f.2 = e.1 := by
-    intro e h_e_in_S
-    obtain ⟨u,v⟩ := e
-    by_contra! h_no_parent
-    have all_flow_le : ∀ (w : V) , flow O w u ≤ flow O' w u := by
-      intro w
-      by_contra h_flow_gt
-      apply lt_of_not_ge at h_flow_gt
-      specialize h_no_parent ⟨w,u⟩
-      simp at h_no_parent
-      exact h_no_parent h_flow_gt
-    have one_flow_lt : ∃ (w : V), flow O w u < flow O' w u := by
-      contrapose! h_e_in_S
-      dsimp [S]
-      suffices flow O u v ≤ flow O' u v by linarith
-      specialize h_e_in_S v
-      by_contra flow_lt
-      apply lt_of_not_ge at flow_lt
-      have edges_lt := add_lt_add_of_le_of_lt h_e_in_S flow_lt
-      rw [opp_flow O v u, opp_flow O' v u] at edges_lt
-      linarith
-
-    have h: ∑ (w : V), flow O w u < ∑ (w : V), flow O' w u := by
-      apply Finset.sum_lt_sum
-      intro i _
-      exact all_flow_le i
-      rcases one_flow_lt with ⟨w, h_flow_lt⟩
-      use w
-      constructor
-      simp
-      exact h_flow_lt
-
-    repeat rw [← indeg_eq_sum_flow] at h
-    specialize h_indeg_eq u
-    linarith
-
-  -- For contradiction, we can build an infinite directed path in G under O
-  by_contra! h_S_nonempty
-  rcases h_S_nonempty with ⟨e_start, h_e_start_in_S⟩
-  have S_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 2 ∧ List.IsChain (λ ( u v : V) => ⟨u,v⟩ ∈ S) p.vertices := by
-    induction' n with n ih
-    . -- Base case: n = 0, i.e. length 2 path
-      use {
-        vertices := [e_start.1, e_start.2],
-        non_empty := by simp,
-        valid_edges := by
-          simp [List.isChain_cons]
-          exact directed_edge_of_S e_start h_e_start_in_S
-      }
-      simp [h_e_start_in_S]
-    . -- Inductive step
-      rcases ih with ⟨p0, h_len, h_chain⟩
-      -- Write p0 as v :: w :: rest, using the fact that its length is at least 2
-      have : ∃ (v w : V) (rest : List V), p0.vertices = v :: w :: rest := by
-        cases h_p0 : p0.vertices with
-        | nil =>
-          -- This case should not happen since p0.vertices has length n + 2 ≥ 2
-          exfalso
-          rw [h_p0] at h_len
-          simp at h_len
-        | cons v ws =>
-          cases h_ws : ws with
-          | nil =>
-            -- This case should not happen since p0.vertices has length n + 2 ≥ 2
-            exfalso
-            rw [h_p0,h_ws] at h_len
-            simp at h_len
-          | cons w rest =>
-            use v, w, rest
-      rcases this with ⟨v, w, rest, h_p0_eq⟩
-      -- Now, p0.vertices = v :: w :: rest
-      specialize going_up ⟨v,w⟩
-      have h_vw_in_S : ⟨v,w⟩ ∈ S := by
-        -- From h_chain, we know that ⟨v,w⟩ ∈ S
-        rw [h_p0_eq] at h_chain
-        simp [List.isChain_cons] at h_chain
-        exact h_chain.left
-      specialize going_up h_vw_in_S
-      rcases going_up with ⟨f, h_f_in_S, h_f_to_v⟩
-      let new_path_list : List V := f.1 :: p0.vertices
-      use {
-        vertices := new_path_list,
-        non_empty := by
-          rw [List.length_cons]
-          exact Nat.succ_pos _,
-        valid_edges := by
-          dsimp [new_path_list]
-          -- Check that the first edge is valid
-          rw [h_p0_eq]
-          simp [List.isChain_cons]
-          constructor
-          have : f.2 = v := h_f_to_v
-          rw [← this]
-          exact directed_edge_of_S f h_f_in_S
-          -- The rest of the path is valid from induction
-          have h_ind := p0.valid_edges
-          rw [h_p0_eq] at h_ind
-          simp [List.isChain_cons] at h_ind
-          exact h_ind
-        }
-      -- Now must verify that this new path has the right length
-      constructor
-      rw [List.length_cons]
-      rw [h_len]
-      -- Verify the chain property
-      dsimp [new_path_list]
-      simp [List.isChain_cons, h_p0_eq]
-      -- Verify the first link is in S
-      constructor
-      have : f.2 = v := h_f_to_v
-      rw [← this]
-      exact h_f_in_S
-      -- The rest of the chain follows from h_chain
-      have h_ind := h_chain
-      simp only [h_p0_eq] at h_ind
-      simp [List.isChain_cons] at h_ind
-      exact h_ind
-  specialize S_path (Fintype.card V)
-  rcases S_path with ⟨p, h_len, _⟩
-  linarith  [path_length_bound p (h_acyc p)]
-
-/-
-# Helpers for Proposition 4.1.11
--/
-
-/-- Lemma: CFOrientation to config preserves indegrees -/
-lemma orientation_to_config_indeg (G : CFGraph V) (O : CFOrientation G) (q : V)
-    (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) (v : V) :
-    (orientation_to_config G O q h_acyclic h_unique_source).vertex_degree v =
-    if v = q then 0 else (indeg G O v : ℤ) - 1 := by
-  -- This follows directly from the definition of config_of_source
-  simp only [orientation_to_config] at *
-  -- Use the definition of config_of_source
-  exact rfl
-
-lemma helper_orientation_config_superstable (G : CFGraph V) (O : CFOrientation G) (q : V)
-    (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-    superstable G q (orientation_to_config G O q h_acyc h_unique_source) := by
-    let c := orientation_to_config G O q h_acyc h_unique_source
-    apply (superstable_iff_q_reduced G q (genus G -1) c).mpr
-
-    have h_c := config_and_divisor_from_O O h_acyc h_unique_source
-    dsimp [c]
-    rw [h_c]
-    have : genus G - 1 = deg ((orqed O h_acyc h_unique_source).D) := by
-      dsimp [orqed]
-      rw [degree_ordiv O]
-    rw [this]
-    rw [div_of_config_of_div (orqed O h_acyc h_unique_source)]
-    dsimp [orqed]
-    exact ordiv_q_reduced O h_acyc h_unique_source
-
-/- Lemma: Defining a reusable block for a configuration from an acyclic orientation with source q being maximal superstable
-          Only to be used to define a maximal superstable configuration from an acyclic orientation with source q as a Prop.
--/
-lemma helper_orientation_config_maximal (G : CFGraph V) (O : CFOrientation G) (q : V)
-    (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-    maximal_superstable G (orientation_to_config G O q h_acyc h_unique_source) := by
-  dsimp [maximal_superstable]
-  let cO := orientation_to_config G O q h_acyc h_unique_source
-  have h_ssO : superstable G q cO := helper_orientation_config_superstable G O q h_acyc h_unique_source
-  refine ⟨h_ssO, ?_⟩
-  -- Goal is now just maximality of cO.
-  -- Suppose another divisor is bigger. THere's an orientation divisor yet above that one.
-  intro c h_ss h_ge
-  rcases superstable_dhar h_ss with ⟨O', h_acyc', h_src', h_ge'⟩
-  let c' := orientation_to_config G O' q h_acyc' h_src'
-  -- Sandwich c between cO and c', which have the same degree
-  -- These two blocks are repetitive; could factor them out
-  have h_deg_le : config_degree cO ≤ config_degree c := by
-    rw [config_degree]
-    rw [config_degree]
-    dsimp [deg]
-    apply Finset.sum_le_sum
-    intro v _
-    exact h_ge v
-  have h_deg_le' : config_degree c ≤ config_degree c' := by
-    rw [config_degree]
-    rw [config_degree]
-    dsimp [deg]
-    apply Finset.sum_le_sum
-    intro v _
-    exact h_ge' v
-  rw [config_degree_from_O] at h_deg_le h_deg_le'
-  have h_deg : config_degree c = genus G := by
-    linarith
-  have h_deg : config_degree c = config_degree cO := by
-    rw [config_degree_from_O]
-    exact h_deg
-  -- Now apply config equality from degree and ge
-  exact config_eq_of_ge_and_degree h_ge h_deg
-
-/-- Lemma: Two acyclic orientations with same indegrees are equal -/
-lemma orientation_unique_by_indeg {G : CFGraph V} (O₁ O₂ : CFOrientation G)
-    (h_acyc₁ : is_acyclic G O₁) (h_acyc₂ : is_acyclic G O₂)
-    (h_indeg : ∀ v : V, indeg G O₁ v = indeg G O₂ v) : O₁ = O₂ := by
-  -- Apply the helper statement directly since we have exactly matching hypotheses
-  exact helper_orientation_determined_by_levels O₁ O₂ h_acyc₁ h_acyc₂ h_indeg
-
-/-- Lemma proving uniqueness of orientations giving same config -/
-theorem helper_config_to_orientation_unique (G : CFGraph V) (q : V)
-    (c : Config V q)
-    (h_super : superstable G q c)
-    (h_max : maximal_superstable G c)
-    (O₁ O₂ : CFOrientation G)
-    (h_acyc₁ : is_acyclic G O₁)
-    (h_acyc₂ : is_acyclic G O₂)
-    (h_src₁ : is_source G O₁ q)
-    (h_src₂ : is_source G O₂ q)
-    (h_unique_source₁ : ∀ w, is_source G O₁ w → w = q)
-    (h_unique_source₂ : ∀ w, is_source G O₂ w → w = q)
-    (h_eq₁ : orientation_to_config G O₁ q h_acyc₁ h_unique_source₁ = c)
-    (h_eq₂ : orientation_to_config G O₂ q h_acyc₂ h_unique_source₂ = c) :
-    O₁ = O₂ := by
-  apply orientation_unique_by_indeg O₁ O₂ h_acyc₁ h_acyc₂
-  intro v
-
-  have h_deg₁ := orientation_to_config_indeg G O₁ q h_acyc₁ h_unique_source₁ v
-  have h_deg₂ := orientation_to_config_indeg G O₂ q h_acyc₂ h_unique_source₂ v
-
-  have h_config_eq : (orientation_to_config G O₁ q h_acyc₁ h_unique_source₁).vertex_degree v =
-                     (orientation_to_config G O₂ q h_acyc₂ h_unique_source₂).vertex_degree v := by
-    rw [h_eq₁, h_eq₂]
-
-  by_cases hv : v = q
-  · -- Case v = q: Both vertices are sources, so indegree is 0
-    rw [hv]
-    -- Use the explicit source assumptions h_src₁ and h_src₂
-    rw [h_src₁, h_src₂]
-  · -- Case v ≠ q: use vertex degree equality
-    rw [h_deg₁, h_deg₂] at h_config_eq
-    simp only [if_neg hv] at h_config_eq
-    -- From config degrees being equal, show indegrees are equal
-    have h := congr_arg (fun x => x + 1) h_config_eq
-    simp only [sub_add_cancel] at h
-    -- Use nat cast injection
-    exact (Nat.cast_inj.mp h)
-
-/-- Lemma to convert between configuration equality forms -/
-lemma helper_config_eq_of_subtype_eq {G : CFGraph V} {q : V}
-    {O₁ O₂ : {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}}
-    (h : orientation_to_config G O₁.val q O₁.prop.1 O₁.prop.2 =
-         orientation_to_config G O₂.val q O₂.prop.1 O₂.prop.2) :
-    orientation_to_config G O₂.val q O₂.prop.1 O₂.prop.2 =
-    orientation_to_config G O₁.val q O₁.prop.1 O₁.prop.2 := by
-  exact h.symm
-
-/-- Lemma: Every superstable configuration extends to a maximal superstable configuration -/
-lemma helper_maximal_superstable_exists (G : CFGraph V) (q : V) (c : Config V q)
-    (h_super : superstable G q c) :
-    ∃ c' : Config V q, maximal_superstable G c' ∧ config_ge c' c := by
-    rcases superstable_dhar h_super with ⟨O, h_acyc, h_src, h_ge⟩
-    let c' := orientation_to_config G O q h_acyc h_src
-    use c'
-    refine ⟨?_, h_ge⟩
-    -- Remains to show c' is maximal superstable
-    exact helper_orientation_config_maximal G O q h_acyc h_src
-
-/-- Lemma: Every maximal superstable configuration comes from an acyclic orientation -/
-lemma helper_maximal_superstable_orientation (G : CFGraph V) (q : V) (c : Config V q)
-    (h_max : maximal_superstable G c) :
-    ∃ (O : CFOrientation G) (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q),
-      orientation_to_config G O q h_acyc h_unique_source = c := by
-rcases superstable_dhar h_max.1 with ⟨O, h_acyc, h_src, h_ge⟩
-use O, h_acyc, h_src
-let c' := orientation_to_config G O q h_acyc h_src
-have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q h_acyc h_src) h_ge
-rw [← h_eq]
-
-
-/-
-# Helpers for Corollary 4.2.2
--/
-
-/-- Lemma: A divisor can be decomposed into parts of specific degrees. -/
-lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : ℕ)
-  (h_effective : effective E'') (h_deg : deg E'' = k₁ + k₂) :
-  ∃ (E₁ E₂ : CFDiv V),
-    effective E₁ ∧ effective E₂ ∧
-    deg E₁ = k₁ ∧ deg E₂ = k₂ ∧
-    E'' = E₁ + E₂ := by
-
-  let can_split (E : CFDiv V) (a b : ℕ): Prop :=
-    ∃ (E₁ E₂ : CFDiv V),
-      effective E₁ ∧ effective E₂ ∧
-      deg E₁ = a ∧ deg E₂ = b ∧
-      E = E₁ + E₂
-
-  let P (a b : ℕ) : Prop := ∀ (E : CFDiv V),
-    effective E → deg E = a + b → can_split E a b
-
-  have h_ind (a b : ℕ): P a b := by
-    induction' a with a ha
-    . -- Base case: a = 0
-      intro E h_eff h_deg
-      use (0 : CFDiv V), E
-      constructor
-      -- E₁ is effective
-      dsimp [effective]
-      intro v
-      linarith
-      -- E₂ is effective
-      constructor
-      exact h_eff
-      -- deg E₁ = 0
-      constructor
-      simp
-      -- deg E₂ = b
-      constructor
-      rw[h_deg]
-      simp
-      -- E = 0 + E
-      simp
-    . -- Inductive step: assume P a b holds, prove P (a+1) b
-      dsimp [P] at *
-      intro E E_effective E_deg
-      have ex_v : ∃ (v : V), E v ≥ 1 := by
-        by_contra h_contra
-        push_neg at h_contra
-        have h_sum : deg E = 0 := by
-          dsimp [deg, deg]
-          refine Finset.sum_eq_zero ?_
-          intro v hv
-          specialize h_contra v
-          have h_nonneg : E v ≥ 0 := by
-            specialize E_effective v
-            assumption
-          linarith
-        dsimp [deg] at h_sum
-        dsimp [deg] at E_deg
-        rw [h_sum] at E_deg
-        linarith
-      rcases ex_v with ⟨v, hv_ge_one⟩
-      let E' := E - one_chip v
-      have h_E'_effective : effective E' := by
-        intro w
-        dsimp [E']
-        by_cases hw : w = v
-        · rw [hw]
-          specialize hv_ge_one
-          dsimp [one_chip]
-          simp
-          linarith
-        · specialize E_effective w
-          dsimp [one_chip]
-          simp [hw]
-          linarith
-      specialize ha E' h_E'_effective
-      have h_deg_E' : deg E' = a + b := by
-        dsimp [E']; simp; omega
-      apply ha at h_deg_E'
-      rcases h_deg_E' with ⟨E₁, E₂, h_E1_eff, h_E2_eff, h_deg_E1, h_deg_E2, h_eq_split⟩
-      use E₁ + one_chip v, E₂
-      -- Check E₁ + one_chip v is effective
-      constructor
-      apply (Eff V).add_mem
-      -- E₁ is effective
-      exact h_E1_eff
-      -- one_chip v is effective
-      intro w
-      dsimp [one_chip]
-      simp
-      by_cases hw : w = v
-      rw [hw]
-      simp
-      simp [hw]
-      -- E₂ is effective
-      constructor
-      exact h_E2_eff
-      -- deg (E₁ + one_chip v) = a + 1
-      constructor
-      simp
-      simp at h_deg_E1 h_deg_E2
-      rw [h_deg_E1]
-      -- deg E₂ = b
-      constructor
-      exact h_deg_E2
-      -- E = (E₁ + one_chip v) + E₂
-      dsimp [E'] at h_eq_split
-      rw [add_assoc, add_comm (one_chip v), ← add_assoc, ← h_eq_split]
-      abel
-
-  exact h_ind k₁ k₂ E'' h_effective h_deg
-
-
-/-
 # Helpers for Corollary 4.2.3 + Handshaking Theorem
 -/
 
@@ -715,109 +183,7 @@ theorem helper_sum_vertex_degrees (G : CFGraph V) :
 -/
 
 
-/-- Helper Lemma: Equivalence between q-reduced divisors and superstable configurations.
-    A divisor D is q-reduced iff it can be written as c - δ_q for some superstable config c.
-    Relies on the updated definition of q_reduced in Basic.lean matching outdeg_S. -/
-lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V) :
-  q_reduced G q D ↔ ∃ c : Config V q, superstable G q c ∧
-  D = toDiv (deg D) c := by
-  constructor
-  . -- Forward direction (q_reduced → ∃ c, superstable ∧ D = c - δ_q)
-    intro h_qred
-    let D_qed : q_eff_div V q := {
-      D := D,
-      h_eff := by
-        intro v h_v
-        exact  h_qred.1 v h_v
-    }
-    let c := toConfig D_qed
-    use c
-    constructor
-    -- Prove c is superstable
-    · unfold superstable Config.vertex_degree -- Unfold definitions
-      intro S hS_subset hS_nonempty
-      -- Use the second part of the q_reduced definition
-      rcases h_qred.2 S hS_subset hS_nonempty with ⟨v, hv_in_S, h_dv_lt_outdeg⟩
-      -- We need to show ∃ v' ∈ S, c_func v' < outdeg_S G q S v'
-      use v -- Use the same vertex found from q_reduced
-      constructor
-      · exact hv_in_S
-      · -- Show c_func v < outdeg_S G q S v
-        -- Since v ∈ S and S ⊆ filter (≠ q), we know v ≠ q
-        have hv_ne_q : v ≠ q := by
-          exact Finset.mem_filter.mp (hS_subset hv_in_S) |>.right
-        -- Simplify c_func v for v ≠ q
-        have hc_func_v : c.1 v = D v + 0 := by
-          dsimp [c, toConfig]
-          simp
-          dsimp [one_chip]
-          simp [hv_ne_q]
-          ring
-        dsimp [c, toConfig]
-        simp [hv_ne_q]
-        -- Prove D v + 0 < outdeg_S G q S v from D v < outdeg_S G q S v
-        dsimp [outdeg_S]
-        have : Finset.filter (fun x ↦ x ∉ S) univ = univ \ S := by
-          ext
-          simp
-        rw [← this]
-        exact h_dv_lt_outdeg
-    -- Prove D = c - δ_q
-    · funext v -- Prove equality for all v
 
-      -- simp only [Config.vertex_degree] -- Unfold c.vertex_degree
-      -- Goal: D v = c.vertex_degree v - if v = q then 1 else 0
-      by_cases hv : v = q
-      · subst hv
-        dsimp [D_qed, toDiv,c, toConfig, config_degree, deg, one_chip]
-        simp
-        dsimp [one_chip]
-        simp
-      · -- Case v ≠ q
-        dsimp [toDiv, c, toConfig, one_chip]
-        simp [hv]
-        ring
-  -- Backward direction (∃ c, superstable ∧ D = c - δ_q → q_reduced)
-  · intro h_exists
-    rcases h_exists with ⟨c, h_super, h_D_eq⟩
-    -- Prove q_reduced G q D
-    constructor
-    -- Prove first part of q_reduced: ∀ v ∈ {v | v ≠ q}, D v ≥ 0
-    · intro v hv_in_set
-      have hv_ne_q : v ≠ q := by exact Set.mem_setOf.mp hv_in_set
-      -- Use the definition of D
-      rw [h_D_eq]
-      dsimp [toDiv]
-      simp [hv_ne_q]
-      apply c.non_negative
-    -- Prove second part of q_reduced: ∀ S ..., ∃ v ...
-    · intro S hS_subset hS_nonempty
-      -- Use the fact that c is superstable
-      rcases h_super S hS_subset hS_nonempty with ⟨v, hv_in_S, hc_lt_outdeg⟩
-      -- We need to show ∃ v' ∈ S, D v' < outdeg_S G q S v'
-      use v -- Use the same vertex v
-      constructor
-      · exact hv_in_S
-      · -- Show D v < outdeg_S G q S v
-        -- Since v ∈ S and S ⊆ filter (≠ q), we know v ≠ q
-        have hv_ne_q : v ≠ q := by
-          exact Finset.mem_filter.mp (hS_subset hv_in_S) |>.right
-        -- Use the definition of D
-        rw [h_D_eq]
-        dsimp [toDiv]
-        simp [hv_ne_q]
-
-        -- simp only [if_neg hv_ne_q] -- Simplify for v ≠ q
-        -- Goal: c.vertex_degree v - 0 < outdeg_S G q S v
-        -- This is exactly hc_lt_outdeg
-        -- Prove c.vertex_degree v - 0 < ... from c.vertex_degree v < ...
-        -- simp only [sub_zero]
-        apply lt_of_lt_of_le hc_lt_outdeg
-        unfold outdeg_S
-        have same_domain : Finset.filter (fun x ↦ x ∉ S) univ = univ \ S := by
-          ext
-          simp
-        rw [← same_domain]
 
 
 lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph V) (q : V) (D : CFDiv V) :
@@ -873,7 +239,7 @@ lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph V) (q : V) (D : CFDiv
 
 -- Configuration version of the above
 lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : maximal_superstable G c): config_degree c = genus G := by
-  have := helper_maximal_superstable_orientation G q c h_max
+  have := maximal_superstable_orientation G q c h_max
   rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
   rw [← h_orient_eq]
   rw [config_and_divisor_from_O O h_acyc h_unique_source ]
@@ -888,7 +254,7 @@ lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : m
   dsimp [ordiv]
   -- These lines look funny, but they just check that "q is a unique source" implies "q is a source."
   -- [TODO] consider making a helper lemma for this step, and/or giving a name to the "is a unique source" property.
-  have := helper_acyclic_has_source G O h_acyc
+  have := acyclic_has_source G O h_acyc
   rcases this with ⟨some_source, h_source⟩
   specialize h_unique_source some_source h_source
   rw [h_unique_source] at h_source
@@ -920,7 +286,7 @@ lemma maximal_unwinnable_q_reduced_form (G : CFGraph V) (q : V) (D : CFDiv V) (c
 lemma helper_superstable_degree_bound (G : CFGraph V) (q : V) (c : Config V q) :
   superstable G q c → config_degree c ≤ genus G := by
   intro h_super
-  have := helper_maximal_superstable_exists G q c h_super
+  have := maximal_superstable_exists G q c h_super
   rcases this with ⟨c_max, h_maximal, h_ge_c⟩
   have h_genus_eq := degree_max_superstable c_max h_maximal
   rw [← h_genus_eq]
@@ -935,7 +301,7 @@ lemma helper_superstable_degree_bound (G : CFGraph V) (q : V) (c : Config V q) :
 lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c : Config V q) :
   superstable G q c → maximal_superstable G c → config_degree c ≥ genus G := by
   intro h_super h_max
-  have := helper_maximal_superstable_orientation G q c h_max
+  have := maximal_superstable_orientation G q c h_max
   rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
   have h_genus_eq : config_degree c = genus G := by
     exact degree_max_superstable c h_max
@@ -946,7 +312,7 @@ lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
   superstable G q c → config_degree c = genus G → maximal_superstable G c := by
   intro h_super h_deg_eq
   -- Choose a maximal above c (we'll show it's equal to c)
-  have := helper_maximal_superstable_exists G q c h_super
+  have := maximal_superstable_exists G q c h_super
   rcases this with ⟨c_max, h_maximal, h_ge_c⟩
   have c_max_deg : config_degree c_max = genus G := by
     exact degree_max_superstable c_max h_maximal
@@ -970,20 +336,6 @@ lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
   rw [← this]
   exact h_maximal
 
-/-
-# Helpers for Proposition 4.1.13 Part (2)
--/
-
-/-
-# Helpers for Proposition 4.1.14
--/
-
-/-- Helper lemma: Source vertices have equal indegree (zero) when v = q -/
-lemma helper_source_indeg_eq_at_q (G : CFGraph V) (O₁ O₂ : CFOrientation G) (q v : V)
-    (h_src₁ : is_source G O₁ q) (h_src₂ : is_source G O₂ q)
-    (hv : v = q) :
-    indeg G O₁ v = indeg G O₂ v := by
-  rw [hv, h_src₁, h_src₂]
 
 /-
 # Helpers for Rank Degree Inequality used in RRG
@@ -1055,32 +407,7 @@ lemma helper_dhar_negative_k (G : CFGraph V) (q : V) (D : CFDiv V) :
   apply winnable_equiv_winnable G D' D h_winnable_D'
   apply (linear_equiv_is_equivalence G).symm h_equiv
 
-/-- Proposition 3.2.4: q-reduced and effective implies winnable -/
-theorem winnable_iff_q_reduced_effective {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
-  winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
-  constructor
-  { -- Forward direction
-    intro h_win
-    rcases h_win with ⟨E, h_eff, h_equiv⟩
-    rcases helper_unique_q_reduced h_conn q D with ⟨D', h_D'⟩
-    use D'
-    constructor
-    · exact h_D'.1.1  -- D is linearly equivalent to D'
-    constructor
-    · exact h_D'.1.2  -- D' is q-reduced
-    · -- Show D' is effective using:
-      -- First get E ~ D' by transitivity through D
-      have h_equiv_symm : linear_equiv G E D := (linear_equiv_is_equivalence G).symm h_equiv -- E ~ D
-      have h_equiv_E_D' : linear_equiv G E D' := (linear_equiv_is_equivalence G).trans h_equiv_symm h_D'.1.1 -- E ~ D ~ D' => E ~ D'
-      -- Now use the lemma that q-reduced form of an effective divisor is effective
-      exact helper_q_reduced_of_effective_is_effective G q E D' h_eff h_equiv_E_D' h_D'.1.2
-  }
-  { -- Reverse direction
-    intro h
-    rcases h with ⟨D', h_equiv, h_qred, h_eff⟩
-    use D'
-    exact ⟨h_eff, h_equiv⟩
-  }
+
 
 /-- Lemma: Given a graph G and a vertex q, there exists a maximal superstable divisor
     c' that is greater than or equal to any superstable divisor c. This is a key
@@ -1114,7 +441,7 @@ lemma helper_superstable_to_unwinnable {G : CFGraph V} (h_conn : graph_connected
   apply this at h_winnable
   rcases h_winnable with ⟨D', h_equiv, h_qred', h_eff⟩
   -- Use uniqueness of q-reduced forms to conclude D = D'
-  rcases helper_unique_q_reduced h_conn q D with ⟨D'', h_equiv'', h_unique⟩
+  rcases unique_q_reduced h_conn q D with ⟨D'', h_equiv'', h_unique⟩
   have h_eq : D = D'' := by
     apply h_unique D
     constructor
@@ -1138,7 +465,7 @@ lemma winnable_of_deg_ge_genus {G : CFGraph V} (h_conn : graph_connected G) (D :
   rcases (exists_q_reduced_representative h_conn q D) with ⟨D_qred, h_equiv, h_qred⟩
   have := (q_reduced_superstable_correspondence G q D_qred).mp h_qred
   rcases this with ⟨c, h_super, h_D_eq⟩
-  have := helper_maximal_superstable_exists G q c h_super
+  have := maximal_superstable_exists G q c h_super
   rcases this with ⟨c_max, h_maximal, h_ge_c⟩
   have h_deg_c : config_degree c ≤ genus G := by
     have := degree_max_superstable c_max h_maximal
@@ -1198,27 +525,3 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : g
     dsimp [config_degree] at h
     rw [h]
   exact winnable_of_deg_ge_genus h_conn D' deg_ineq
-
-/-
-# Helpers for RRG's Corollary 4.4.1
--/
-
-
-/-
-# Helpers for RRG's Corollary 4.4.3
--/
-
--- Lemma: Rank of zero divisor is zero
-lemma zero_divisor_rank (G : CFGraph V) : rank G (0:CFDiv V) = 0 := by
-  rw [← rank_eq_iff]
-  constructor
-  -- Forward direction: rank G 0 ≥ 0
-  have h_eff : effective (0:CFDiv V) := by
-    intro v
-    simp
-  rw [rank_nonneg_iff_winnable G (0:CFDiv V)]
-  exact winnable_of_effective G (0:CFDiv V) h_eff
-  -- Reverse direction: rank G 0 < 1
-  have ineq := rank_le_degree G (0:CFDiv V) 1 (by norm_num)
-  simp [deg] at ineq
-  exact ineq

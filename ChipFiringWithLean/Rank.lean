@@ -397,3 +397,18 @@ lemma rank_geq_neg_one (G : CFGraph V) (D : CFDiv V) : rank G D ≥ -1 := by
     linarith
   have h_rank_neg_one := rank_neg_one_of_not_nonneg G D h_not_nonneg
   linarith
+
+-- Lemma: Rank of zero divisor is zero
+lemma zero_divisor_rank (G : CFGraph V) : rank G (0:CFDiv V) = 0 := by
+  rw [← rank_eq_iff]
+  constructor
+  -- Forward direction: rank G 0 ≥ 0
+  have h_eff : effective (0:CFDiv V) := by
+    intro v
+    simp
+  rw [rank_nonneg_iff_winnable G (0:CFDiv V)]
+  exact winnable_of_effective G (0:CFDiv V) h_eff
+  -- Reverse direction: rank G 0 < 1
+  have ineq := rank_le_degree G (0:CFDiv V) 1 (by norm_num)
+  simp [deg] at ineq
+  exact ineq

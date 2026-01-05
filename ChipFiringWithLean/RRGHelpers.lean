@@ -13,31 +13,13 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
-/-- [Proven] Lemma 4.1.10: An acyclic orientation is uniquely determined by its indegree sequence -/
-theorem acyclic_orientation_unique_by_indeg {G : CFGraph V}
-  (O O' : CFOrientation G)
-  (h_acyclic : is_acyclic G O)
-  (h_acyclic' : is_acyclic G O')
-  (h_indeg : ∀ v : V, indeg G O v = indeg G O' v) :
-  O = O' := by
-  -- Apply the helper_orientation_determined_by_levels lemma directly
-  exact helper_orientation_determined_by_levels O O' h_acyclic h_acyclic' h_indeg
-
-/-- [Proven] Lemma 4.1.10 (Alternative Form): Two acyclic orientations with same indegree sequences are equal -/
-theorem acyclic_equal_of_same_indeg {G : CFGraph V} (O O' : CFOrientation G)
-    (h_acyclic : is_acyclic G O) (h_acyclic' : is_acyclic G O')
-    (h_indeg : ∀ v : V, indeg G O v = indeg G O' v) :
-    O = O' := by
-  -- Use previously defined theorem about uniqueness by indegree
-  exact acyclic_orientation_unique_by_indeg O O' h_acyclic h_acyclic' h_indeg
-
 /-- [Proven] Proposition 4.1.11: Bijection between acyclic orientations with source q
     and maximal superstable configurations -/
 theorem stable_bijection (G : CFGraph V) (q : V) :
     let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)};
     let β := {c : Config V q // maximal_superstable G c};
     let f_raw : α → Config V q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2;
-    let f : α → β := λ O_sub => ⟨f_raw O_sub, helper_orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩;
+    let f : α → β := λ O_sub => ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩;
     Function.Bijective f := by
   -- Define the domain and codomain types explicitly (can be removed if using let like above)
   let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}
@@ -46,7 +28,7 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
   let f_raw : α → Config V q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2
   -- Define the function f : α → β, showing the result is maximal superstable
   let f : α → β := λ O_sub =>
-    ⟨f_raw O_sub, helper_orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩
+    ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩
 
   constructor
   -- Injectivity
@@ -64,15 +46,15 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
       exact h_f_raw_eq.symm.trans h_eq₁ -- Use transitivity
 
     have h_src₁ : is_source G O₁ q := by
-      rcases helper_acyclic_has_source G O₁ h₁.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₁.2 s hs; rwa [h_s_eq_q] at hs
+      rcases acyclic_has_source G O₁ h₁.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₁.2 s hs; rwa [h_s_eq_q] at hs
     have h_src₂ : is_source G O₂ q := by
-      rcases helper_acyclic_has_source G O₂ h₂.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₂.2 s hs; rwa [h_s_eq_q] at hs
+      rcases acyclic_has_source G O₂ h₂.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₂.2 s hs; rwa [h_s_eq_q] at hs
 
     -- Define h_super and h_max in terms of c
     have h_super : superstable G q c := by
       rw [← h_eq₁]; exact helper_orientation_config_superstable G O₁ q h₁.1 h₁.2
     have h_max   : maximal_superstable G c := by
-      rw [← h_eq₁]; exact helper_orientation_config_maximal G O₁ q h₁.1 h₁.2
+      rw [← h_eq₁]; exact orientation_config_maximal G O₁ q h₁.1 h₁.2
 
     apply Subtype.ext
     -- Call helper_config_to_orientation_unique with the original h_eq₁ and h_eq₂
@@ -89,7 +71,7 @@ theorem stable_bijection (G : CFGraph V) (q : V) :
     let h_target_max_superstable := y.property
 
     -- Use the fact that every maximal superstable config comes from an orientation.
-    rcases helper_maximal_superstable_orientation G q c_target h_target_max_superstable with
+    rcases maximal_superstable_orientation G q c_target h_target_max_superstable with
       ⟨O, h_acyc, h_unique_source, h_config_eq_target⟩
 
     -- Construct the required subtype element x : α (the pre-image)
@@ -131,7 +113,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
   { -- Forward direction (⇒)
     intro h_max_unwinnable_D -- Assume D is maximal unwinnable
     -- Get the unique q-reduced representative D' for D
-    rcases helper_unique_q_reduced h_conn q D with ⟨D', ⟨h_D_equiv_D', h_qred_D'⟩, _⟩
+    rcases unique_q_reduced h_conn q D with ⟨D', ⟨h_D_equiv_D', h_qred_D'⟩, _⟩
     -- Show D' corresponds to some superstable c
     rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_form_D'_eq_c⟩
 
@@ -146,7 +128,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
       -- Prove by contradiction: Assume c is not maximal superstable
       by_contra h_not_max_c
       -- If c is superstable but not maximal, there exists a strictly dominating maximal c'
-      rcases helper_maximal_superstable_exists G q c h_super_c with ⟨c', h_max_c', h_ge_c'_c⟩
+      rcases maximal_superstable_exists G q c h_super_c with ⟨c', h_max_c', h_ge_c'_c⟩
       -- Define D'' based on the maximal superstable c'
       let D'' := c'.vertex_degree - one_chip q
       -- Show D'' is q-reduced (from correspondence with superstable c')
@@ -366,7 +348,7 @@ theorem maximal_unwinnable_deg
         rw [h_sum_c]
     _ = genus G - 1 := by
         -- Since c is maximal superstable, it corresponds to an orientation
-        rcases helper_maximal_superstable_orientation G q c h_c_max_super with
+        rcases maximal_superstable_orientation G q c h_c_max_super with
           ⟨O, h_acyc, h_unique_source, h_c_eq_orient_config⟩
 
         -- The configuration derived from an orientation has 0 at q
@@ -409,10 +391,12 @@ theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
       intro v
       have := congr_fun h_eq v
       by_cases hv : v = q
-      · exact helper_source_indeg_eq_at_q G O₁.val O₂.val q v O₁.prop.2 O₂.prop.2 hv
+      · have h₁ := O₁.prop.2; have h₂ := O₂.prop.2
+        dsimp [is_source] at h₁ h₂
+        rw [hv, h₁, h₂]
       · simp [hv] at this
         exact this
-    exact Subtype.ext (acyclic_orientation_unique_by_indeg O₁.val O₂.val O₁.prop.1 O₂.prop.1 h_indeg)
+    exact Subtype.ext (orientation_determined_by_indegrees O₁.val O₂.val O₁.prop.1 O₂.prop.1 h_indeg)
   }
   { -- Part 2: Degree characterization
     -- This now correctly refers to the theorem defined above
@@ -521,7 +505,7 @@ theorem rank_degree_inequality
   have h_k_neg := helper_dhar_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
 
   -- Get maximal superstable c' ≥ c
-  rcases helper_maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
+  rcases maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
 
   -- Let O be corresponding acyclic orientation using the bijection
   rcases stable_bijection G q with ⟨_, h_surj⟩
@@ -606,7 +590,7 @@ theorem rank_degree_inequality
         dsimp [is_source] at this
         rw [this]; simp
       -- Show q is a source in O... [TODO] bubble this off as a lemma
-      rcases helper_acyclic_has_source G O O_acyc with ⟨s, hs⟩
+      rcases acyclic_has_source G O O_acyc with ⟨s, hs⟩
       specialize O_unique_source s hs
       rw [O_unique_source] at hs
       exact hs

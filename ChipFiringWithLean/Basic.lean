@@ -370,6 +370,7 @@ lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ �
 def winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
   ∃ D' ∈ Eff V, linear_equiv G D D'
 
+
 /-!
 ## The degree homomorphism
 -/
@@ -464,6 +465,115 @@ theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : l
   apply degree_of_principal_divisor_is_zero at h_equiv
   rw [map_sub] at h_equiv
   linarith
+
+lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : ℕ)
+  (h_effective : effective E'') (h_deg : deg E'' = k₁ + k₂) :
+  ∃ (E₁ E₂ : CFDiv V),
+    effective E₁ ∧ effective E₂ ∧
+    deg E₁ = k₁ ∧ deg E₂ = k₂ ∧
+    E'' = E₁ + E₂ := by
+
+  let can_split (E : CFDiv V) (a b : ℕ): Prop :=
+    ∃ (E₁ E₂ : CFDiv V),
+      effective E₁ ∧ effective E₂ ∧
+      deg E₁ = a ∧ deg E₂ = b ∧
+      E = E₁ + E₂
+
+  let P (a b : ℕ) : Prop := ∀ (E : CFDiv V),
+    effective E → deg E = a + b → can_split E a b
+
+  have h_ind (a b : ℕ): P a b := by
+    induction' a with a ha
+    . -- Base case: a = 0
+      intro E h_eff h_deg
+      use (0 : CFDiv V), E
+      constructor
+      -- E₁ is effective
+      dsimp [effective]
+      intro v
+      linarith
+      -- E₂ is effective
+      constructor
+      exact h_eff
+      -- deg E₁ = 0
+      constructor
+      simp
+      -- deg E₂ = b
+      constructor
+      rw[h_deg]
+      simp
+      -- E = 0 + E
+      simp
+    . -- Inductive step: assume P a b holds, prove P (a+1) b
+      dsimp [P] at *
+      intro E E_effective E_deg
+      have ex_v : ∃ (v : V), E v ≥ 1 := by
+        by_contra h_contra
+        push_neg at h_contra
+        have h_sum : deg E = 0 := by
+          dsimp [deg, deg]
+          refine Finset.sum_eq_zero ?_
+          intro v hv
+          specialize h_contra v
+          have h_nonneg : E v ≥ 0 := by
+            specialize E_effective v
+            assumption
+          linarith
+        dsimp [deg] at h_sum
+        dsimp [deg] at E_deg
+        rw [h_sum] at E_deg
+        linarith
+      rcases ex_v with ⟨v, hv_ge_one⟩
+      let E' := E - one_chip v
+      have h_E'_effective : effective E' := by
+        intro w
+        dsimp [E']
+        by_cases hw : w = v
+        · rw [hw]
+          specialize hv_ge_one
+          dsimp [one_chip]
+          simp
+          linarith
+        · specialize E_effective w
+          dsimp [one_chip]
+          simp [hw]
+          linarith
+      specialize ha E' h_E'_effective
+      have h_deg_E' : deg E' = a + b := by
+        dsimp [E']; simp; omega
+      apply ha at h_deg_E'
+      rcases h_deg_E' with ⟨E₁, E₂, h_E1_eff, h_E2_eff, h_deg_E1, h_deg_E2, h_eq_split⟩
+      use E₁ + one_chip v, E₂
+      -- Check E₁ + one_chip v is effective
+      constructor
+      apply (Eff V).add_mem
+      -- E₁ is effective
+      exact h_E1_eff
+      -- one_chip v is effective
+      intro w
+      dsimp [one_chip]
+      simp
+      by_cases hw : w = v
+      rw [hw]
+      simp
+      simp [hw]
+      -- E₂ is effective
+      constructor
+      exact h_E2_eff
+      -- deg (E₁ + one_chip v) = a + 1
+      constructor
+      simp
+      simp at h_deg_E1 h_deg_E2
+      rw [h_deg_E1]
+      -- deg E₂ = b
+      constructor
+      exact h_deg_E2
+      -- E = (E₁ + one_chip v) + E₂
+      dsimp [E'] at h_eq_split
+      rw [add_assoc, add_comm (one_chip v), ← add_assoc, ← h_eq_split]
+      abel
+
+  exact h_ind k₁ k₂ E'' h_effective h_deg
 
 open Matrix
 variable [Fintype V]
@@ -785,6 +895,8 @@ def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
   (∀ S : Finset V, S ⊆ (Finset.univ.filter (· ≠ q)) → S.Nonempty →
     ∃ v ∈ S, D v < ∑ w ∈  (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
 
+
+
 /-- Helper lemma: a firing script can be understood as first firing the set where the maximum occurs, and no debt is created at this step unless it will remain at the end. -/
 lemma maxset_of_script (G : CFGraph V) (σ : firing_script V) : ∃ S : Finset V, Nonempty S ∧ ∀ v ∈ S, (∀ w : V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
   let max_exists := Finset.exists_max_image Finset.univ σ (by use Classical.arbitrary V; simp)
@@ -993,6 +1105,44 @@ lemma q_reduced_of_maximal {G : CFGraph V} (h_conn : graph_connected G) {q : V} 
       dsimp [σ] at prin_zero
       simp [q_nin_S, v_S] at prin_zero
 
+/-- Lemma: The q-reduced representative of an effective divisor is effective.
+    This follows from the fact that the reduction process (like Dhar's algorithm or repeated
+    legal firings) preserves effectiveness when starting with an effective divisor. -/
+lemma helper_q_reduced_of_effective_is_effective (G : CFGraph V) (q : V) (E E' : CFDiv V) :
+  effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
+  intro h_eff h_equiv h_qred
+  dsimp [linear_equiv] at h_equiv
+  have  := (principal_iff_eq_prin G (E'-E)).mp h_equiv
+  rcases this with ⟨σ, h_prin_eq⟩
+  have eq_E' : E' = E + prin G σ := by
+    rw [← sub_add_cancel E' E, h_prin_eq,add_comm]
+  have h_σ : q_reducer G q σ := by
+    apply q_reducer_of_add_princ_reduced G q E σ
+    rw [← eq_E']
+    exact h_qred
+    intro v _
+    exact h_eff v
+  have h_σ_toward_q : (prin G σ) q ≥ 0 := by
+    dsimp [prin]
+    apply Finset.sum_nonneg
+    intro e _
+    apply mul_nonneg
+    linarith [h_σ e]
+    exact Int.natCast_nonneg _
+  intro v
+  by_cases hvq : v = q
+  rw [hvq,eq_E', _root_.add_apply]
+  exact add_nonneg (h_eff q) h_σ_toward_q
+  exact h_qred.1 v hvq
+
+lemma effective_of_winnable_and_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) :
+  winnable G D → q_reduced G q D → effective D := by
+  intro h_winnable h_qred
+  rcases h_winnable with ⟨E, h_eff_E, h_equiv⟩
+  have h_equiv' : linear_equiv G E D := by
+    exact (linear_equiv_is_equivalence G).symm h_equiv
+  exact helper_q_reduced_of_effective_is_effective G q E D h_eff_E h_equiv' h_qred
+
 theorem q_reduced_unique (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂ := by
   intro ⟨h_qred_1,h_qred_2,h_lequiv⟩
@@ -1025,6 +1175,8 @@ theorem q_reduced_unique (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   rw [this] at h_D2_eq
   apply sub_eq_zero.mp at h_D2_eq
   rw [h_D2_eq]
+
+
 
 /-- A vertex is called ``active'' if there exists a firing script that leaves the divisor effective away from q, does not fire q, and fires at least once at that vertex. -/
 def active (G : CFGraph V) (q : V) (D : CFDiv V) (v : V) : Prop :=
@@ -1310,3 +1462,60 @@ decreasing_by
   left
   exact h_smaller
   exact reduction_excess_nonneg G h_eff'
+
+/- Theorem: Existence of a q-reduced representative within a divisor class -/
+theorem exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
+  ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' :=
+by
+  rcases q_effective_exists h_conn q D with ⟨D_eff, h_eff, h_equiv⟩
+  rcases q_effective_to_q_reduced h_conn h_eff with ⟨D_qred, h_qred, h_lequiv'⟩
+  use D_qred
+  constructor
+  · -- Show linear equivalence
+    have equiv_rel := linear_equiv_is_equivalence G
+    have h_equiv' : linear_equiv G D_eff D_qred := h_lequiv'
+    have h_equiv'' : linear_equiv G D D_eff := h_equiv
+    exact equiv_rel.trans h_equiv'' h_equiv'
+  · -- Show q-reduced property
+    exact h_qred
+
+/- Lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
+lemma unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
+  ∃! D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
+  -- Prove existence and uniqueness separately
+  have h_exists : ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
+    exact exists_q_reduced_representative h_conn q D
+
+  -- Combine existence and uniqueness using the standard constructor
+  obtain ⟨D', hD'⟩ := h_exists
+  refine ExistsUnique.intro D' hD' (fun y hy => ?_)
+  have h_equiv : linear_equiv G y D' := by
+    exact (linear_equiv_is_equivalence G).trans ((linear_equiv_is_equivalence G).symm (hy.1)) (hD'.1)
+  exact q_reduced_unique G q y D' ⟨hy.2, hD'.2, h_equiv⟩
+
+/-- Proposition 3.2.4: q-reduced and effective implies winnable -/
+theorem winnable_iff_q_reduced_effective {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
+  winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
+  constructor
+  { -- Forward direction
+    intro h_win
+    rcases h_win with ⟨E, h_eff, h_equiv⟩
+    rcases unique_q_reduced h_conn q D with ⟨D', h_D'⟩
+    use D'
+    constructor
+    · exact h_D'.1.1  -- D is linearly equivalent to D'
+    constructor
+    · exact h_D'.1.2  -- D' is q-reduced
+    · -- Show D' is effective using:
+      -- First get E ~ D' by transitivity through D
+      have h_equiv_symm : linear_equiv G E D := (linear_equiv_is_equivalence G).symm h_equiv -- E ~ D
+      have h_equiv_E_D' : linear_equiv G E D' := (linear_equiv_is_equivalence G).trans h_equiv_symm h_D'.1.1 -- E ~ D ~ D' => E ~ D'
+      -- Now use the lemma that q-reduced form of an effective divisor is effective
+      exact helper_q_reduced_of_effective_is_effective G q E D' h_eff h_equiv_E_D' h_D'.1.2
+  }
+  { -- Reverse direction
+    intro h
+    rcases h with ⟨D', h_equiv, h_qred, h_eff⟩
+    use D'
+    exact ⟨h_eff, h_equiv⟩
+  }
