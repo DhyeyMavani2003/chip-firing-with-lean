@@ -8,12 +8,11 @@ This project provides a formal mathematical framework for studying **chip-firing
 
 The codebase is modular, with the following key components:
 
-- **`Basic`**: Core definitions and utilities for `CFGraph` and structures related to divisors.
+- **`Basic`**: Core definitions and utilities for `CFGraph` and structures related to divisors, including the existence and uniqueness of q-reduced divisors.
 - **`CFGraphExample`**: Example graphs and chip-firing scenarios to verify functionality.
 - **`Config`**: Definitions and operations involving configurations on `CFGraph`s.
 - **`Orientation`**: Definitions and utilities for orientations on `CFGraph`s.
 - **`Rank`**: Rank functions and related structures for divisors.
-- **`Helpers`**: Auxiliary lemmas, theorems, and propositions supporting other modules.
 - **`RRGHelpers`**: Specific lemmas and results used in proving the **Riemann-Roch theorem**.
 - **`RiemannRochForGraphs`**: The **main** formalization of the Riemann-Roch theorem for graphs.
 
@@ -33,12 +32,10 @@ To run and explore the project, you will need the following:
 .
 ├── ChipFiringWithLean/
 │   ├── Basic.lean              # Core chip-firing definitions
-│   ├── CFGraph.lean            # CFGraph implementation
 │   ├── CFGraphExample.lean     # Example graphs and configurations
 │   ├── Config.lean             # Configuration-related structures
 │   ├── Orientation.lean        # Orientation-related structures
 │   ├── Rank.lean               # Rank of divisors definitions
-│   ├── Helpers.lean            # General helper theorems and lemmas
 │   ├── RRGHelpers.lean         # Helper results for Riemann-Roch
 │   └── RiemannRochForGraphs.lean # Formal proof of Riemann-Roch theorem
 ├── lakefile.lean               # Build and dependency management
@@ -68,13 +65,8 @@ To run and explore the project, you will need the following:
 3. **Build the Project**:
    Use the Lake build tool to compile and set up dependencies.
    ```bash
+   lake exe cache get
    lake build
-   ```
-
-4. **Verify Setup**:
-   Run the Lean files to ensure everything is working:
-   ```bash
-   lake exe lean
    ```
 
 ## Development Workflow
