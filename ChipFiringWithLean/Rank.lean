@@ -1,5 +1,5 @@
 import ChipFiringWithLean.Basic
-import Paperproof
+-- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -51,11 +51,10 @@ lemma maximal_unwinnable_preserved (G : CFGraph V) (D1 D2 : CFDiv V) :
 
 /-- Given a divisor D and amount k, returns all possible ways
     to remove k dollars from D (i.e. all divisors E where D-E has degree k) -/
-    -- [TODO]: refactor to give this a more descriptive name, e.g. set_eff_k
-def remove_k_dollars (D : CFDiv V) (k : ℤ) : Set (CFDiv V) :=
+def eff_of_degree (D : CFDiv V) (k : ℤ) : Set (CFDiv V) :=
   {E | effective E ∧ deg E = k}
 
-lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_dollars D k).Nonempty := by
+lemma eff_of_degree_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (eff_of_degree D k).Nonempty := by
   let v : V := Classical.arbitrary V
   let E₁ : CFDiv V := one_chip v
   have eff : effective E₁ := by
@@ -98,7 +97,7 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
     rw [this]
     ring
   intro h_nonneg
-  dsimp [remove_k_dollars]
+  dsimp [eff_of_degree]
   use E
   constructor
   · exact eff
@@ -106,7 +105,7 @@ lemma remove_k_dollars_nonempty (D : CFDiv V) (k : ℕ) : k ≥ 0 → (remove_k_
 
 /-- A divisor D has rank ≥ k if the game is winnable after removing any k dollars -/
 def rank_geq (G : CFGraph V) (D : CFDiv V) (k : ℤ) : Prop :=
-  ∀ E ∈ remove_k_dollars D k, winnable G (D-E)
+  ∀ E ∈ eff_of_degree D k, winnable G (D-E)
 
 def rank_eq (G : CFGraph V) (D : CFDiv V) (r : ℤ) : Prop :=
   rank_geq G D r ∧ ¬(rank_geq G D (r+1))
@@ -118,6 +117,8 @@ lemma rank_geq_neg (G : CFGraph V) (D : CFDiv V) (k : ℤ): (k < 0) → rank_geq
   apply deg_of_eff_nonneg at h_eff_E
   linarith
 
+/- A winnable divisor has nonnegative degree.
+[Corry-Perkinson] Corollary 1.16 (in contrapositive form) -/
 lemma deg_winnable_nonneg (G : CFGraph V) (D : CFDiv V) (h_winnable : winnable G D) : deg D ≥ 0 := by
   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
   have same_deg: deg D = deg D' := linear_equiv_preserves_deg G D D' h_lequiv
@@ -156,7 +157,7 @@ lemma rank_le_degree (G : CFGraph V) (D : CFDiv V) : ∀ (r : ℤ), r ≥ 0 → 
   intro r r_nonneg h_rank
   contrapose! h_rank
   unfold rank_geq; push_neg
-  have ex_E := remove_k_dollars_nonempty D
+  have ex_E := eff_of_degree_nonempty D
   specialize ex_E r.toNat
   have : r.toNat =r := by simp; assumption
   rw [this] at ex_E
@@ -180,7 +181,7 @@ lemma rank_geq_trans (G : CFGraph V) (D : CFDiv V) (r1 r2 : ℤ) :
   unfold rank_geq at *
   contrapose! h_r1
   rcases h_r1 with ⟨E, ⟨h_E_eff,h_E_nonwin⟩⟩
-  have ex_Ediff := remove_k_dollars_nonempty D (r1 - r2).toNat
+  have ex_Ediff := eff_of_degree_nonempty D (r1 - r2).toNat
   have diffNonneg: (r1 - r2).toNat = r1 - r2 := by
     simp
     exact h_leq
@@ -249,7 +250,7 @@ lemma rank_nonneg_iff_winnable (G : CFGraph V) (D : CFDiv V) :
   · -- Forward direction
     intro h_rank
     specialize h_rank 0
-    dsimp [remove_k_dollars] at h_rank
+    dsimp [eff_of_degree] at h_rank
     simp at h_rank
     apply h_rank
     dsimp [effective]

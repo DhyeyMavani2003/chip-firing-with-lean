@@ -1,6 +1,6 @@
 import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Rank
-import Paperproof
+-- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -121,6 +121,7 @@ lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph V) (q : V) (D : CFDiv
   linarith
 
 -- Configuration version of the above
+/- [Corry-Perkinson], Corollary 4.9(1), "only if" direction. -/
 lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : maximal_superstable G c): config_degree c = genus G := by
   have := maximal_superstable_orientation G q c h_max
   rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
@@ -146,6 +147,7 @@ lemma degree_max_superstable {G : CFGraph V} {q : V} (c : Config V q) (h_max : m
   norm_num
 
 -- An odd-looking lemma, a corollary of the above, that comes in handy in some later computations.
+/- [Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
 lemma maximal_unwinnable_q_reduced_form (G : CFGraph V) (q : V) (D : CFDiv V) (c : Config V q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
   intro h_max_unwinnable h_qred h_toDeg
@@ -190,7 +192,8 @@ lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph V) (q : V) (c :
     exact degree_max_superstable c h_max
   rw [← h_genus_eq]
 
-/-- Lemma: If a superstable configuration has degree equal to g, it is maximal -/
+/-- Lemma: If a superstable configuration has degree equal to g, it is maximal
+[Corry-Perkinson], Corollary 4.9(1), "if" direction. -/
 lemma helper_degree_g_implies_maximal (G : CFGraph V) (q : V) (c : Config V q) :
   superstable G q c → config_degree c = genus G → maximal_superstable G c := by
   intro h_super h_deg_eq
@@ -302,7 +305,8 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph V} (h_conn : g
   exact winnable_of_deg_ge_genus h_conn D' deg_ineq
 
 
-/-- [Proven] Proposition 4.1.13 (2): Characterization of maximal unwinnable divisors -/
+/-- Characterization of maximal unwinnable divisors.
+[Corry-Perkinson], Proposition 4.1.13 (2) -/
 theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   maximal_unwinnable G D ↔
   ∃ c : Config V q, maximal_superstable G c ∧
@@ -496,7 +500,7 @@ theorem maximal_unwinnable_char {G : CFGraph V} (h_conn : graph_connected G) (q 
     }
   }
 
-/-- [Proven] Proposition 4.1.13: Combined (1) and (2)-/
+/-- [Corry-Perkinson], Proposition 4.1.13: Combined (1) and (2)-/
 theorem superstable_and_maximal_unwinnable {G : CFGraph V} (h_conn : graph_connected G) (q : V)
     (c : Config V q) (D : CFDiv V) :
     (superstable G q c →
@@ -509,8 +513,9 @@ theorem superstable_and_maximal_unwinnable {G : CFGraph V} (h_conn : graph_conne
   exact ⟨maximal_superstable_config_prop G q c,
          maximal_unwinnable_char h_conn q D⟩
 
-/-- Theorem: A maximal unwinnable divisor has degree g-1
-    This theorem now proven based on the characterizations above. -/
+/-- A maximal unwinnable divisor has degree g-1
+    This theorem now proven based on the characterizations above.
+    [Corry-Perkinson], Corollary 4.9(4) -/
 theorem maximal_unwinnable_deg
   {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D → deg D = genus G - 1 := by
@@ -574,10 +579,11 @@ theorem maximal_unwinnable_deg
   have h_deg_eq : deg D = deg D' := linear_equiv_preserves_deg G D D' h_equiv_D_D'
   rw [h_deg_eq, h_deg_D']
 
-/-- [Proven] Proposition 4.1.14: Key results about maximal unwinnable divisors:
+/-- Key results about maximal unwinnable divisors:
     1) There is an injection from acyclic orientations with source q to maximal unwinnable q-reduced divisors,
        where an orientation O maps to the divisor D(O) - q where D(O) assigns indegree to each vertex. (Surjection proof deferred)
-    2) Any maximal unwinnable divisor has degree equal to genus - 1. -/
+    2) Any maximal unwinnable divisor has degree equal to genus - 1.
+    [Corry-Perkinson], Corollary 4.9(3), injectivity part. -/
 theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
     {G : CFGraph V} (h_conn : graph_connected G) (q : V) :
     (Function.Injective (λ (O : {O : CFOrientation G // is_acyclic G O ∧ is_source G O q}) =>
@@ -612,7 +618,7 @@ theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
 ## The main Riemann-Roch inequality.
 -/
 
-/-- [Proven] Rank Degree Inequality -/
+/-- Rank Degree Inequality -/
 theorem rank_degree_inequality
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
     deg D - genus G < rank G D - rank G (canonical_divisor G - D) := by

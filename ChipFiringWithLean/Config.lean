@@ -5,7 +5,7 @@ import Mathlib.Algebra.Group.Subgroup.Basic
 import Mathlib.Tactic.Abel
 import Mathlib.LinearAlgebra.Matrix.GeneralLinearGroup.Defs
 import ChipFiringWithLean.Basic
-import Paperproof
+-- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -26,7 +26,9 @@ abbrev Vtilde (q : V) : Finset V :=
     * vertex_degree - Assignment of integers to vertices
     * non_negative_except_q - Proof that all values except at q are non-negative
 
-    For convenience, vertex_degree is defined on all of V, and set to be 0 at q itself. -/
+    For convenience, vertex_degree is defined on all of V, and set to be 0 at q itself.
+
+    **Note** that this structure assumes that all vertex degrees are nonnegaitve, which differs from the definition in [Corry-Perkinson], Definition 2.9. -/
 structure Config (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V) where
   /-- Assignment of integers to vertices representing the number of chips at each vertex -/
   (vertex_degree : CFDiv V)
@@ -253,15 +255,13 @@ def outdeg_S (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
   -- Sum num_edges from v to w, where w is not in S
   ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
 
--- Standard definition of Superstability:
--- A configuration c is superstable w.r.t. q if for every non-empty subset S of V \ {q},
--- there is at least one vertex v in S that cannot fire without borrowing,
--- meaning its chip count c(v) is strictly less than its out-degree w.r.t. S.
+/- A configuration c is superstable if for every non-empty subset S of V \ {q}, there is at least one vertex v in S that cannot fire without borrowing.
+[Corry-Perkinson], Definition 3.12 -/
 def superstable (G : CFGraph V) (q : V) (c : Config V q) : Prop :=
   ∀ S ⊆  Vtilde q, S.Nonempty →
     ∃ v ∈ S, c.vertex_degree v < outdeg_S G q S v
 
-
+/- [Corry-Perkinson], Remark 3.14 -/
 lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (d : ℤ) (c : Config V q) :
   superstable G q c ↔ q_reduced G q (toDiv d c) := by
 
@@ -321,8 +321,7 @@ lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (d : ℤ) (c : Config V 
 
 
 /-- Helper Lemma: Equivalence between q-reduced divisors and superstable configurations.
-    A divisor D is q-reduced iff it can be written as c - δ_q for some superstable config c.
-    [TODO] This is probably redundent with the above superstable_if_q_reduced lemma; revise to prove one using the other. -/
+    A divisor D is q-reduced iff it can be written as c - δ_q for some superstable config c.-/
 lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V) :
   q_reduced G q D ↔ ∃ c : Config V q, superstable G q c ∧
   D = toDiv (deg D) c := by
@@ -331,98 +330,22 @@ lemma q_reduced_superstable_correspondence (G : CFGraph V) (q : V) (D : CFDiv V)
     intro h_qred
     let D_qed : q_eff_div V q := {
       D := D,
-      h_eff := by
-        intro v h_v
-        exact  h_qred.1 v h_v
+      h_eff := h_qred.1
     }
-    let c := toConfig D_qed
-    use c
-    constructor
-    -- Prove c is superstable
-    · unfold superstable Config.vertex_degree -- Unfold definitions
-      intro S hS_subset hS_nonempty
-      -- Use the second part of the q_reduced definition
-      rcases h_qred.2 S hS_subset hS_nonempty with ⟨v, hv_in_S, h_dv_lt_outdeg⟩
-      -- We need to show ∃ v' ∈ S, c_func v' < outdeg_S G q S v'
-      use v -- Use the same vertex found from q_reduced
-      constructor
-      · exact hv_in_S
-      · -- Show c_func v < outdeg_S G q S v
-        -- Since v ∈ S and S ⊆ filter (≠ q), we know v ≠ q
-        have hv_ne_q : v ≠ q := by
-          exact Finset.mem_filter.mp (hS_subset hv_in_S) |>.right
-        -- Simplify c_func v for v ≠ q
-        have hc_func_v : c.1 v = D v + 0 := by
-          dsimp [c, toConfig]
-          simp
-          dsimp [one_chip]
-          simp [hv_ne_q]
-          ring
-        dsimp [c, toConfig]
-        simp [hv_ne_q]
-        -- Prove D v + 0 < outdeg_S G q S v from D v < outdeg_S G q S v
-        dsimp [outdeg_S]
-        have : Finset.filter (fun x ↦ x ∉ S) univ = univ \ S := by
-          ext
-          simp
-        rw [← this]
-        exact h_dv_lt_outdeg
-    -- Prove D = c - δ_q
-    · funext v -- Prove equality for all v
-
-      -- simp only [Config.vertex_degree] -- Unfold c.vertex_degree
-      -- Goal: D v = c.vertex_degree v - if v = q then 1 else 0
-      by_cases hv : v = q
-      · subst hv
-        dsimp [D_qed, toDiv,c, toConfig, config_degree, deg, one_chip]
-        simp
-        dsimp [one_chip]
-        simp
-      · -- Case v ≠ q
-        dsimp [toDiv, c, toConfig, one_chip]
-        simp [hv]
-        ring
+    let c := toConfig D_qed; use c
+    have D_eq : D = toDiv (deg D) c := by
+      have := div_of_config_of_div D_qed
+      rw [div_of_config_of_div D_qed]
+    rw [D_eq] at h_qred
+    rw [superstable_iff_q_reduced G q (deg D) c]
+    exact ⟨h_qred, D_eq⟩
   -- Backward direction (∃ c, superstable ∧ D = c - δ_q → q_reduced)
   · intro h_exists
-    rcases h_exists with ⟨c, h_super, h_D_eq⟩
-    -- Prove q_reduced G q D
-    constructor
-    -- Prove first part of q_reduced: ∀ v ∈ {v | v ≠ q}, D v ≥ 0
-    · intro v hv_in_set
-      have hv_ne_q : v ≠ q := by exact Set.mem_setOf.mp hv_in_set
-      -- Use the definition of D
-      rw [h_D_eq]
-      dsimp [toDiv]
-      simp [hv_ne_q]
-      apply c.non_negative
-    -- Prove second part of q_reduced: ∀ S ..., ∃ v ...
-    · intro S hS_subset hS_nonempty
-      -- Use the fact that c is superstable
-      rcases h_super S hS_subset hS_nonempty with ⟨v, hv_in_S, hc_lt_outdeg⟩
-      -- We need to show ∃ v' ∈ S, D v' < outdeg_S G q S v'
-      use v -- Use the same vertex v
-      constructor
-      · exact hv_in_S
-      · -- Show D v < outdeg_S G q S v
-        -- Since v ∈ S and S ⊆ filter (≠ q), we know v ≠ q
-        have hv_ne_q : v ≠ q := by
-          exact Finset.mem_filter.mp (hS_subset hv_in_S) |>.right
-        -- Use the definition of D
-        rw [h_D_eq]
-        dsimp [toDiv]
-        simp [hv_ne_q]
+    rcases h_exists with ⟨c, h_super, D_eq⟩
+    rw [D_eq]
+    rw [← superstable_iff_q_reduced G q (deg D) c]
+    exact h_super
 
-        -- simp only [if_neg hv_ne_q] -- Simplify for v ≠ q
-        -- Goal: c.vertex_degree v - 0 < outdeg_S G q S v
-        -- This is exactly hc_lt_outdeg
-        -- Prove c.vertex_degree v - 0 < ... from c.vertex_degree v < ...
-        -- simp only [sub_zero]
-        apply lt_of_lt_of_le hc_lt_outdeg
-        unfold outdeg_S
-        have same_domain : Finset.filter (fun x ↦ x ∉ S) univ = univ \ S := by
-          ext
-          simp
-        rw [← same_domain]
 
 /-- A maximal superstable configuration has no legal firings and is not ≤ any other superstable configuration. -/
 def maximal_superstable {q : V} (G : CFGraph V) (c : Config V q) : Prop :=

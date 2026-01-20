@@ -1,5 +1,5 @@
 import ChipFiringWithLean.RRGHelpers
-import Paperproof
+-- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -9,7 +9,8 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
-/-- The Riemann-Roch theorem for graphs -/
+/-- The Riemann-Roch theorem for graphs
+[Corry-Perkinson], Theorem 5.9 -/
 theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
@@ -39,7 +40,8 @@ theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D 
     rw [this] at h_ineq_rev
     linarith
 
-/-- Corollary 4.4.1: A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable -/
+/-- A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable
+[Corry-Perkinson], Corollary 5.11 -/
 theorem maximal_unwinnable_symmetry
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
@@ -95,7 +97,7 @@ theorem maximal_unwinnable_symmetry
         linarith [rank_geq_neg_one G (K - E)]
       _ = 0 := by linarith[h_deg_E]
 
-/-- [Proven] Corollary 4.2.2: Rank inequality for divisors -/
+/-- Rank of divisors is subadditive. -/
 lemma rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
     (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
     rank G (D+D') ≥ rank G D + rank G D' := by
@@ -154,8 +156,9 @@ lemma rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
 
   linarith
 
-/-- Clifford's Theorem (4.4.2): For a divisor D with non-negative rank
-             and K-D also having non-negative rank, the rank of D is at most half its degree. -/
+/-- Clifford's Theorem : For a divisor D with non-negative rank
+             and K-D also having non-negative rank, the rank of D is at most half its degree.
+             [Corry-Perkinson], Corollary 5.13 -/
 theorem clifford_theorem
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V)
     (h_D : rank G D ≥ 0)
@@ -231,7 +234,8 @@ theorem clifford_theorem
 
   exact h5
 
-/-- Corollary 4.4.3 establishing divisor degree to rank correspondence  -/
+/-- Divisor degree to rank correspondence, in the nonspecial range.
+[Corry-Perkinson], Corollary 5.14 -/
 theorem riemann_roch_deg_to_rank_corollary
   {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   -- Part 1

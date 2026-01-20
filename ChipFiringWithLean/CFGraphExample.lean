@@ -3,7 +3,7 @@ import Mathlib.Data.Int.Order.Lemmas
 import Mathlib.Data.Int.Order.Basic
 import Mathlib.Tactic.NormNum
 import Mathlib.LinearAlgebra.Matrix.Symmetric
-import Paperproof
+-- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true

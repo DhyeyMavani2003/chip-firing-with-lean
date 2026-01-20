@@ -3,7 +3,7 @@ import Mathlib.Tactic
 import Init.Core
 import Init.NotationExtra
 
-import Paperproof
+-- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -79,7 +79,8 @@ lemma vertex_degree_nonneg (G : CFGraph V) (v : V) :
 ## The divisor group on a chip-firing graph
 -/
 
-/-- A *divisor* is a function from vertices to integers. -/
+/-- A *divisor* is a function from vertices to integers.
+[Corry-Perkinson], Definition 1.3 -/
 def CFDiv (V : Type) := V → ℤ
 
 /-- CFDiv V forms an Additive Commutative Group. -/
@@ -131,7 +132,8 @@ lemma add_sub_distrib (D₁ D₂ D₃ : CFDiv V) :
   (n • D) v = n * (D v) := by
   rfl
 
-/-- Firing move at a vertex -/
+/-- Firing move at a vertex
+[Corry-Perkinson], Definition 1.5 -/
 def firing_move (G : CFGraph V) (D : CFDiv V) (v : V) : CFDiv V :=
   λ w => if w = v then D v - vertex_degree G v else D w + num_edges G v w
 
@@ -139,7 +141,8 @@ def firing_move (G : CFGraph V) (D : CFDiv V) (v : V) : CFDiv V :=
 def borrowing_move (G : CFGraph V) (D : CFDiv V) (v : V) : CFDiv V :=
   λ w => if w = v then D v + vertex_degree G v else D w - num_edges G v w
 
-/-- Result of firing a set S on a vertex D -/
+/-- Result of firing a set S on a vertex D
+[Corry-Perkinson], Definition 1.6 -/
 def set_firing (G : CFGraph V) (D : CFDiv V) (S : Finset V) : CFDiv V :=
   λ w => D w + ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
 
@@ -179,7 +182,8 @@ lemma set_firing_eq_add_set_firing_vector (G : CFGraph V) (D : CFDiv V) (S : Fin
 def principal_divisors (G : CFGraph V) : AddSubgroup (CFDiv V) :=
   AddSubgroup.closure (Set.range (firing_vector G))
 
-/-- Two divisors are *linearly equivalent* if their difference is a principal divisor. -/
+/-- Two divisors are *linearly equivalent* if their difference is a principal divisor.
+[Corry-Perkinson], Definition 1.8 -/
 def linear_equiv (G : CFGraph V) (D D' : CFDiv V) : Prop :=
   D' - D ∈ principal_divisors G
 
@@ -213,12 +217,14 @@ theorem linear_equiv_is_equivalence (G : CFGraph V) : Equivalence (linear_equiv 
     rw [h_trans]
     exact AddSubgroup.add_mem _ h2 h1
 
--- Define a firing script as a function from vertices to integers
+/- A firing script is a function from vertices to integers.
+[Corry-Perkinson], Definition 2.2 -/
 def firing_script (V : Type) := V → ℤ
 
 instance: AddCommGroup (firing_script V) := Pi.addCommGroup
 
--- Principal divisor associated to a firing script
+/- Principal divisor associated to a firing script.
+[Corry-Perkinson], Definition 2.3 (denoted there as div(σ)) -/
 def prin (G : CFGraph V) : firing_script V →+ CFDiv V :=
   {
     toFun := fun σ v => ∑ u : V, (σ u - σ v) * (num_edges G v u),
@@ -323,7 +329,8 @@ lemma principal_iff_eq_prin (G : CFGraph V) (D : CFDiv V) :
 /-- Divisors form a poset, where D₁ ≤ D₂ means that for all vertices v, D₁(v) ≤ D₂(v). -/
 instance : PartialOrder (CFDiv V) := Pi.partialOrder
 
-/-- A divisor is *effective* if it assigns a nonnegative integer to every vertex. Equivalently, it is ≥ 0.-/
+/-- A divisor is *effective* if it assigns a nonnegative integer to every vertex. Equivalently, it is ≥ 0.
+[Corry-Perkinson], Definition 1.13 -/
 def effective (D : CFDiv V) : Prop :=
   ∀ v : V, D v ≥ 0
 
@@ -366,7 +373,8 @@ lemma sub_eff_iff_geq (D₁ D₂ : CFDiv V) : effective (D₁ - D₂) ↔ D₁ �
   simp
   linarith
 
-/-- A divisor is winnable if it is linearly equivalent to an effective divisor. -/
+/-- A divisor is winnable if it is linearly equivalent to an effective divisor.
+[Corry-Perkinson], Definition 1.14 -/
 def winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
   ∃ D' ∈ Eff V, linear_equiv G D D'
 
@@ -375,7 +383,8 @@ def winnable (G : CFGraph V) (D : CFDiv V) : Prop :=
 ## The degree homomorphism
 -/
 
-/-- Degree of a divisor is the sum of its values at all vertices. -/
+/-- Degree of a divisor is the sum of its values at all vertices.
+[Corry-Perkinson], Definition 1.4 -/
 def deg : CFDiv V →+ ℤ := {
   toFun := λ D => ∑ v, D v,
   map_zero' := by
@@ -458,7 +467,8 @@ lemma degree_of_principal_divisor_is_zero (G : CFGraph V) (h : CFDiv V) :
     intros x _ h_x_prin
     rw [deg.map_neg, h_x_prin, neg_zero]
 
-/-- Linearly equivalent divisors have the same degree. -/
+/-- Linearly equivalent divisors have the same degree.
+[Corry-Perkinson], Proposition 1.15 -/
 theorem linear_equiv_preserves_deg (G : CFGraph V) (D D' : CFDiv V) (h_equiv : linear_equiv G D D') :
   deg D = deg D' := by
   unfold linear_equiv at h_equiv
@@ -578,7 +588,8 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
 open Matrix
 variable [Fintype V]
 
-/-- The Laplacian matrix of a CFGraph. -/
+/-- The Laplacian matrix of a CFGraph.
+[Corry-Perkinson], Definition 2.6 -/
 def laplacian_matrix (G : CFGraph V) : Matrix V V ℤ :=
   λ i j => if i = j then vertex_degree G i else - (num_edges G i j)
 
@@ -889,7 +900,8 @@ lemma reduces_to_antisymmetric {G : CFGraph V} (h_conn : graph_connected G) (q :
 ## q-reduced divisors
 -/
 
-/-- A divisior is q-reduced if it is effective away from q, but firing any vertex set disjoint from q puts some vertex into debt. -/
+/-- A divisior is q-reduced if it is effective away from q, but firing any vertex set disjoint from q puts some vertex into debt.
+[Corry-Perkinson], Definition 3.4 -/
 def q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) : Prop :=
   q_effective q D ∧
   (∀ S : Finset V, S ⊆ (Finset.univ.filter (· ≠ q)) → S.Nonempty →
@@ -1143,6 +1155,8 @@ lemma effective_of_winnable_and_q_reduced (G : CFGraph V) (q : V) (D : CFDiv V) 
     exact (linear_equiv_is_equivalence G).symm h_equiv
   exact helper_q_reduced_of_effective_is_effective G q E D h_eff_E h_equiv' h_qred
 
+/-- The q-reduced representative of a divisor class is unique.
+[Corry-Perkinson], Theorem 3.6, part 2 (uniqueness). -/
 theorem q_reduced_unique (G : CFGraph V) (q : V) (D₁ D₂ : CFDiv V) :
   q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂ := by
   intro ⟨h_qred_1,h_qred_2,h_lequiv⟩
@@ -1463,7 +1477,8 @@ decreasing_by
   exact h_smaller
   exact reduction_excess_nonneg G h_eff'
 
-/- Theorem: Existence of a q-reduced representative within a divisor class -/
+/- Theorem: Existence of a q-reduced representative within a divisor class
+[Corry-Perkinson], Theorem 3.6, part 1. -/
 theorem exists_q_reduced_representative {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' :=
 by
@@ -1479,7 +1494,8 @@ by
   · -- Show q-reduced property
     exact h_qred
 
-/- Lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor -/
+/- Lemma: Every divisor is linearly equivalent to exactly one q-reduced divisor.
+[Corry-Perkinson], Theorem 3.6, combined into one statement. -/
 lemma unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   ∃! D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' := by
   -- Prove existence and uniqueness separately
@@ -1493,7 +1509,8 @@ lemma unique_q_reduced {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D :
     exact (linear_equiv_is_equivalence G).trans ((linear_equiv_is_equivalence G).symm (hy.1)) (hD'.1)
   exact q_reduced_unique G q y D' ⟨hy.2, hD'.2, h_equiv⟩
 
-/-- Proposition 3.2.4: q-reduced and effective implies winnable -/
+/-- A divisor is winnable if and only if its q-reduced representative is effective.
+[Corry-Perkinson], Corollary 3.7, rephrased. -/
 theorem winnable_iff_q_reduced_effective {G : CFGraph V} (h_conn : graph_connected G) (q : V) (D : CFDiv V) :
   winnable G D ↔ ∃ D' : CFDiv V, linear_equiv G D D' ∧ q_reduced G q D' ∧ effective D' := by
   constructor
