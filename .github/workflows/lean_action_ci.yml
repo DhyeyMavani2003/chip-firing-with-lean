@@ -12,11 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
-      - if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         uses: leanprover-community/docgen-action@v1
         with:
-          api_docs: true
-          blueprint: false
-          homepage: docs
-          build_args: --log-level=warning
           lake_package_directory: .
+          api_docs: true
+          homepage: docs
