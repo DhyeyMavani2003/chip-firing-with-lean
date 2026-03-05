@@ -1,9 +1,3 @@
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.Finset.Fold
-import Mathlib.Data.Multiset.Basic
-import Mathlib.Algebra.Group.Subgroup.Basic
-import Mathlib.Tactic.Abel
-import Mathlib.LinearAlgebra.Matrix.GeneralLinearGroup.Defs
 import ChipFiringWithLean.Basic
 -- import Paperproof
 

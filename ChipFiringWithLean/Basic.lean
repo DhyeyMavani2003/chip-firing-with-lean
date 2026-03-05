@@ -1,7 +1,7 @@
-import Mathlib.Tactic
-
-import Init.Core
-import Init.NotationExtra
+import Mathlib.Algebra.CharP.Defs
+import Mathlib.Algebra.Group.Subgroup.Finite
+import Mathlib.Analysis.Normed.Ring.Lemmas
+import Mathlib.Data.Matrix.Mul
 
 -- import Paperproof
 
@@ -493,7 +493,8 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
     effective E → deg E = a + b → can_split E a b
 
   have h_ind (a b : ℕ): P a b := by
-    induction' a with a ha
+    induction a with
+    | zero =>
     . -- Base case: a = 0
       intro E h_eff h_deg
       use (0 : CFDiv V), E
@@ -514,6 +515,7 @@ lemma helper_divisor_decomposition (G : CFGraph V) (E'' : CFDiv V) (k₁ k₂ : 
       simp
       -- E = 0 + E
       simp
+    | succ a ha =>
     . -- Inductive step: assume P a b holds, prove P (a+1) b
       dsimp [P] at *
       intro E E_effective E_deg

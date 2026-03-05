@@ -264,7 +264,8 @@ lemma rank_nonneg_iff_winnable (G : CFGraph V) (D : CFDiv V) :
 
 lemma rank_exists_helper (G : CFGraph V) (D : CFDiv V) (m : ℕ):  ¬ (rank_geq G D m) → ∃ r < (m:ℤ), rank_eq G D r := by
   -- Induction on m
-  induction' m with m ih
+  induction m with
+  | zero =>
   · -- Base case: m = 0
     intro h_rank_geq
     use (-1)
@@ -272,7 +273,7 @@ lemma rank_exists_helper (G : CFGraph V) (D : CFDiv V) (m : ℕ):  ¬ (rank_geq 
     norm_num
     have h_r_geq := rank_geq_neg G D (-1) (by norm_num)
     exact ⟨h_r_geq, h_rank_geq⟩
-  · -- Inductive step: m → m + 1
+  | succ m ih =>
     intro h_rank_geq
     by_cases h_rank_m : rank_geq G D m
     · -- Case 1: rank_geq G D m holds

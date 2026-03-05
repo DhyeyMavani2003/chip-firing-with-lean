@@ -46,8 +46,8 @@ theorem maximal_unwinnable_symmetry
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
   set K := canonical_divisor G with K_def
-  suffices : ∀ (D : CFDiv V), maximal_unwinnable G D → maximal_unwinnable G (canonical_divisor G - D)
-  . constructor
+  suffices ∀ (D : CFDiv V), maximal_unwinnable G D → maximal_unwinnable G (canonical_divisor G - D) by
+    constructor
     exact this D
     intro h
     apply this (K-D) at h
@@ -82,8 +82,8 @@ theorem maximal_unwinnable_symmetry
     intro v -- Goal: winnable G ((K-D) + δᵥ)
     -- Let E = (K-D) + δᵥ
     set E : CFDiv V := (canonical_divisor G - D) + one_chip v with E_def
-    suffices : winnable G E
-    . exact this
+    suffices winnable G E by
+      exact this
     -- To show E is winnable, we will use Riemann-Roch on E
     have h_deg_E : deg E = genus G := by
       rw [E_def, deg.map_add, deg_one_chip, h_deg_KD]

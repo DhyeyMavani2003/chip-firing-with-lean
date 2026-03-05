@@ -235,7 +235,8 @@ lemma subset_source (G : CFGraph V) (O : CFOrientation G) (S : Finset V):
     ∀ v ∈ p.vertices, v ∈ S
 
   have arb_path (n : ℕ) : ∃ (p : DirectedPath O), S_path p ∧ p.vertices.length = n + 1:= by
-    induction' n with n ih
+    induction n with
+    | zero =>
     · -- Base case: n = 0
       -- Create a list consisting of v only
       rcases S_nonempty with ⟨v, h_v_in_S⟩
@@ -250,6 +251,7 @@ lemma subset_source (G : CFGraph V) (O : CFOrientation G) (S : Finset V):
       rw [List.mem_singleton] at h_u_in_path
       rw [h_u_in_path]
       exact h_v_in_S
+    | succ n ih =>
     · -- Inductive step: assume true for n, prove for n + 1
       rcases ih with ⟨p, h_len⟩
       cases hp: p.vertices with
@@ -544,7 +546,8 @@ lemma orientation_determined_by_indegrees {G : CFGraph V}
   by_contra! h_S_nonempty
   rcases h_S_nonempty with ⟨e_start, h_e_start_in_S⟩
   have S_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 2 ∧ List.IsChain (λ ( u v : V) => ⟨u,v⟩ ∈ S) p.vertices := by
-    induction' n with n ih
+    induction n with
+    | zero =>
     . -- Base case: n = 0, i.e. length 2 path
       use {
         vertices := [e_start.1, e_start.2],
@@ -554,7 +557,8 @@ lemma orientation_determined_by_indegrees {G : CFGraph V}
           exact directed_edge_of_S e_start h_e_start_in_S
       }
       simp [h_e_start_in_S]
-    . -- Inductive step
+
+    | succ n ih =>
       rcases ih with ⟨p0, h_len, h_chain⟩
       -- Write p0 as v :: w :: rest, using the fact that its length is at least 2
       have : ∃ (v w : V) (rest : List V), p0.vertices = v :: w :: rest := by
