@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
-        uses: leanprover-community/docgen-action@v1
+      - uses: leanprover-community/docgen-action@v1
         with:
           lake_package_directory: .
           api_docs: true
