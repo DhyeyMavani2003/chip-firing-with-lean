@@ -8,7 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions:
+      id-token: write
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
@@ -18,3 +20,9 @@ jobs:
           lake_package_directory: .
           api_docs: true
           homepage: docs
+#      - name: Set up GitHub Pages
+#        uses: actions/deploy-pages@v1
+#        with:
+#          path: ./docs
+
+      
