@@ -11,6 +11,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
+      pages: write
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
