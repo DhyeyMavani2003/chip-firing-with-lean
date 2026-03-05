@@ -1,0 +1,17 @@
+name = "chip-firing-with-lean"
+version = "0.1.0"
+keywords = ["math"]
+defaultTargets = ["ChipFiringWithLean"]
+
+[[lean_lib]]
+name = "ChipFiringWithLean"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+
+[[require]]
+name = "Paperproof"
+git = "https://github.com/Paper-Proof/paperproof.git"
+rev = "main"
+subDir = "lean"
