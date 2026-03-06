@@ -10,19 +10,31 @@ open Multiset Finset
 -- Assume V is a finite, nonempty type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
+/-!
+## Configurations and superstable configurations
+
+Fix a vertex $q \in V$. A *configuration* (`Config V q`) is a nonnegative integer assignment
+to the vertices $V \setminus \{q\}$, extended by zero at $q$. This corresponds to what
+[Corry-Perkinson] calls a *nonnegative configuration* (Definition 2.9); we use "configuration"
+to mean "nonnegative configuration" throughout this library.
+
+A configuration $c$ is *superstable* if for every nonempty $S \subseteq V \setminus \{q\}$,
+some vertex in $S$ has fewer chips than its out-degree into $V \setminus S$
+([Corry-Perkinson], Definition 3.12). By `superstable_iff_q_reduced`, this is equivalent
+to the associated divisor being $q$-reduced. A *maximal superstable* configuration is one
+that is not dominated by any other superstable configuration.
+
+The set `outdeg_S G q S v` counts edges from `v` to vertices outside `S`, and is the
+relevant threshold for the superstability condition.
+-/
+
+/-- The set of vertices other than `q`: $\tilde{V} = V \setminus \{q\}$. -/
 abbrev Vtilde (q : V) : Finset V :=
   univ.filter (λ v => v ≠ q)
 
-/-- A nonnegative configuration on a graph G with respect to a distinguished vertex q.
-    Represents an element of ℤ(V\{q}) ⊆ ℤV with non-negativity constraints on V\{q}.
-
-    Fields:
-    * vertex_degree - Assignment of integers to vertices
-    * non_negative_except_q - Proof that all values except at q are non-negative
-
-    For convenience, vertex_degree is defined on all of V, and set to be 0 at q itself.
-
-    **Note** that this structure assumes that all vertex degrees are nonnegaitve, which differs from the definition in [Corry-Perkinson], Definition 2.9. -/
+/-- A *configuration* on `G` with respect to distinguished vertex `q` is a nonnegative integer
+assignment to all vertices, with the convention that `q` holds zero chips. This is what
+[Corry-Perkinson] calls a *nonnegative configuration* (Definition 2.9). -/
 structure Config (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V) where
   /-- Assignment of integers to vertices representing the number of chips at each vertex -/
   (vertex_degree : CFDiv V)
@@ -36,12 +48,12 @@ structure Config (V : Type) [DecidableEq V] [Fintype V] [Nonempty V] (q : V) whe
 def config_degree {q : V} (c : Config V q) : ℤ :=
   deg (c.vertex_degree)
 
-/-- Convert a configuration to a divisor of specified
-  degree d, but adding an appropraite number of chips
-  at q. -/
+/-- Convert a configuration `c` to a divisor of prescribed degree `d` by placing
+`d - config_degree c` chips at `q`. -/
 def toDiv {q : V} (d : ℤ) (c : Config V q) : CFDiv V :=
   c.vertex_degree + (d - config_degree c) • (one_chip q)
 
+/-- Two configurations are equal iff their `vertex_degree` functions agree. -/
 lemma eq_config_iff_eq_vertex_degree {q : V} (c₁ c₂ : Config V q) :
   c₁ = c₂ ↔ c₁.vertex_degree = c₂.vertex_degree := by
   constructor
@@ -56,6 +68,7 @@ lemma eq_config_iff_eq_vertex_degree {q : V} (c₁ c₂ : Config V q) :
   funext v
   apply congrFun h_eq v
 
+/-- Two configurations are equal iff their images under `toDiv d` agree. -/
 lemma eq_config_iff_eq_div {q : V} (d : ℤ) (c₁ c₂ : Config V q) : c₁ = c₂ ↔ toDiv d c₁ = toDiv d c₂ := by
   constructor
   -- Forward direction is clear
@@ -81,6 +94,8 @@ lemma eq_config_iff_eq_div {q : V} (d : ℤ) (c₁ c₂ : Config V q) : c₁ = c
     simp [h_v] at h_eq
     exact h_eq
 
+/-- Convert a configuration `c` to the $q$-effective divisor `toDiv d c`,
+bundled with its proof of $q$-effectivity. -/
 def to_qed {q : V} (d : ℤ) (c : Config V q) : q_eff_div V q :=
   {
     D := toDiv d c,
@@ -90,6 +105,7 @@ def to_qed {q : V} (d : ℤ) (c : Config V q) : q_eff_div V q :=
       simp [h_v]
       exact c.non_negative v
   }
+/-- Convert a $q$-effective divisor to a configuration by zeroing out the chip count at `q`. -/
 def toConfig {q : V} (D : q_eff_div V q) : Config V q := {
   vertex_degree := D.D - (D.D q) • (one_chip q)
   q_zero := by
@@ -106,10 +122,13 @@ def toConfig {q : V} (D : q_eff_div V q) : Config V q := {
       exact D.h_eff v h_v
 }
 
+/-- The degree of a $q$-effective divisor equals its value at `q` plus the configuration degree. -/
 def config_degree_div_degree {q : V} (D : q_eff_div V q) : deg D.D = D.D q + config_degree (toConfig D) := by
   dsimp [config_degree, toConfig, one_chip]
   simp
 
+/-- `toConfig` is a left inverse of `to_qed`: converting a configuration to a $q$-effective
+divisor and back recovers the original configuration. -/
 lemma config_of_div_of_config (c : Config V q) (d : ℤ)  :
   toConfig (to_qed d c) = c := by
   rcases c with ⟨vertex_degree, q_zero, non_negative⟩
@@ -125,6 +144,7 @@ lemma config_of_div_of_config (c : Config V q) (d : ℤ)  :
     dsimp [toDiv, one_chip]
     simp [h_v]
 
+/-- Two $q$-effective divisors are equal iff their underlying divisors agree. -/
 lemma qeff_divs_equal (D1 D2 : q_eff_div V q) :
   D1 = D2 ↔ D1.D = D2.D := by
   constructor
@@ -138,6 +158,8 @@ lemma qeff_divs_equal (D1 D2 : q_eff_div V q) :
   simp at h_eq
   exact h_eq
 
+/-- `to_qed` is a left inverse of `toConfig` at the correct degree: converting a $q$-effective
+divisor to a configuration and back via `toDiv (deg D.D)` recovers the original divisor. -/
 lemma div_of_config_of_div (D : q_eff_div V q) :
   toDiv (deg D.D) (toConfig D) = D.D := by
   -- apply (qeff_divs_equal (to_qed (deg D.D) (toConfig D)) D).mpr
@@ -171,6 +193,8 @@ lemma div_of_config_of_div (D : q_eff_div V q) :
   simp [h_v]
 
 
+/-- The divisor `toDiv d c` is effective iff `d ≥ config_degree c`, i.e. there are enough
+chips at `q` to cover any debt. -/
 lemma config_eff {q : V} (d : ℤ) (c : Config V q) : effective (toDiv d c) ↔ d ≥ config_degree c := by
   constructor
   -- Effective implies d ≥ config_degree
@@ -187,13 +211,11 @@ lemma config_eff {q : V} (d : ℤ) (c : Config V q) : effective (toDiv d c) ↔ 
     simp [h_v]
     exact c.non_negative v
 
-/-- Ordering on configurations: c ≥ c' if c(v) ≥ c'(v) for all v ∈ V.
-    This is a pointwise comparison of the number of chips at each vertex.
-    It also compares degree at v = q, but this is not a problem since that is always assumed zero.
-    -/
+/-- Pointwise partial order on configurations: `config_ge c c'` iff `c(v) ≥ c'(v)` for all `v`. -/
 def config_ge {q : V} (c c' : Config V q) : Prop :=
   ∀ v : V, c.vertex_degree v ≥ c'.vertex_degree v
 
+/-- Two configurations are equal if one dominates the other pointwise and they have the same degree. -/
 lemma config_eq_of_ge_and_degree {q : V} {c1 c2 : Config V q} (h_ge : config_ge c1 c2) (h_deg : config_degree c1 = config_degree c2) : c1 = c2 := by
   apply (eq_config_iff_eq_vertex_degree c1 c2).mpr
   dsimp [config_ge] at h_ge
@@ -241,21 +263,20 @@ instance : PartialOrder (Config V q) := {
     exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
 }
 
--- Definition of the out-degree of a vertex v ∈ S with respect to a subset S ⊆ V \ {q}
--- This counts edges from v to vertices *outside* S.
--- outdeg_S(v) = |{ (v, w) ∈ E | w ∈ V \ S }|
--- The definition does not enforce v ∈ S, though it is only used in that case.
+/-- The out-degree of vertex `v` with respect to set `S`: the number of edges from `v` to
+vertices outside `S`. Used to define the superstability condition. -/
 def outdeg_S (G : CFGraph V) (q : V) (S : Finset V) (v : V) : ℤ :=
-  -- Sum num_edges from v to w, where w is not in S
   ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
 
-/- A configuration c is superstable if for every non-empty subset S of V \ {q}, there is at least one vertex v in S that cannot fire without borrowing.
+/-- A configuration `c` is *superstable* if for every nonempty $S \subseteq V \setminus \{q\}$,
+some vertex in $S$ has fewer chips than its out-degree into $V \setminus S$.
 [Corry-Perkinson], Definition 3.12 -/
 def superstable (G : CFGraph V) (q : V) (c : Config V q) : Prop :=
   ∀ S ⊆  Vtilde q, S.Nonempty →
     ∃ v ∈ S, c.vertex_degree v < outdeg_S G q S v
 
-/- [Corry-Perkinson], Remark 3.14 -/
+/-- A configuration `c` is superstable iff `toDiv d c` is $q$-reduced (for any `d`).
+[Corry-Perkinson], Remark 3.14 -/
 lemma superstable_iff_q_reduced (G : CFGraph V) (q : V) (d : ℤ) (c : Config V q) :
   superstable G q c ↔ q_reduced G q (toDiv d c) := by
 
@@ -353,7 +374,7 @@ lemma smul_one_chip (k : ℤ) (v_chip : V) :
   · simp -- Goal is k • 1 = k
   · simp -- Goal is k • 0 = 0
 
--- Helper lemma: If D₁ ~ D₂, then D₁ + D ~ D₂ + D
+/-- Linear equivalence is preserved by adding a fixed divisor on the right. -/
 lemma linear_equiv_add_congr_right_local (G : CFGraph V) (D_add : CFDiv V) {D1 D2 : CFDiv V} (h : linear_equiv G D1 D2) :
   linear_equiv G (D1 + D_add) (D2 + D_add) := by
   unfold linear_equiv at h ⊢
@@ -410,9 +431,19 @@ lemma helper_superstable_to_unwinnable {G : CFGraph V} (h_conn : graph_connected
   simp [c.q_zero] at h_nonneg_q
 
 
-/-
-## Burn lists and their properties.
-This section formalizes what is needed from Dhar's burning algorithm. The main purpose is to prove the correspondence between maximal superstable configurations and orientations.
+/-!
+## Burn lists and Dhar's burning algorithm
+
+A *burn list* for a configuration `c` is an ordered list of all vertices ending at `q`,
+built by Dhar's burning algorithm: each vertex is added when its number of chips is less
+than its out-degree into the remaining (unburned) vertices. The key property is that a
+configuration is superstable if and only if a complete burn list (containing all vertices)
+exists (`superstable_burn_list`).
+
+The `burn_flow` function extracts an orientation from a burn list by directing each edge
+toward the vertex that appears earlier in the list. This is used to construct the bijection
+between maximal superstable configurations and acyclic orientations with unique source `q`
+(see `Orientation.lean`).
 -/
 
 
@@ -430,6 +461,7 @@ def is_burn_list (G : CFGraph V) {q : V} (c : Config V q) (L : List V) : Prop :=
       ∧ ¬ (w :: rest).contains v
       ∧ is_burn_list G c (w :: rest)
 
+/-- Every burn list contains `q` (since the base case of a burn list is `[q]`). -/
 lemma burn_list_contains_q (G : CFGraph V) {q : V} (c : Config V q) (L : List V) (h_bl : is_burn_list G c L) :
   L.contains q := by
   induction L with
@@ -449,6 +481,9 @@ lemma burn_list_contains_q (G : CFGraph V) {q : V} (c : Config V q) (L : List V)
       simp at ih
       simp [ih]
 
+/-- If `c` is superstable and a burn list `L` does not yet contain all vertices, it can be
+extended by prepending a new vertex. This corresponds to the next edge burning in Dhar's
+burning algorithm; superstability implies that the entire graph will burn. -/
 lemma extend_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) (L : List V) : is_burn_list G c L → (∃ v : V, ¬ L.contains v) → (∃ w : V, w ∉ L.toFinset ∧ is_burn_list G c (w :: L)) := by
   intro h_bl h_exists_v
   let S := univ \ L.toFinset
@@ -498,10 +533,14 @@ lemma extend_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : supersta
     exact hv_in_S.2
     exact h_bl
 
+/-- A bundled burn list: a list `L` of vertices together with a proof that it satisfies the
+`is_burn_list` conditions for configuration `c`. -/
 structure burn_list (G : CFGraph V) {q : V} (c : Config V q) where
   (list : List V)
   (h_burn_list : is_burn_list G c list)
 
+/-- For each `n < |V|`, there exists a burn list of size `n+1`. Inductive step for
+`superstable_burn_list`. -/
 lemma burn_list_helper (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) (n : ℕ) : (n < Finset.card (univ : Finset V))→ ∃ (L : List V), L.toFinset.card = n+1 ∧ is_burn_list G c L := by
   intro h_n_lt_card_V
   induction n with
@@ -546,6 +585,9 @@ lemma burn_list_helper (G : CFGraph V) {q : V} (c : Config V q) (h_ss : supersta
     . -- Show the tail is a burn list
       exact h_w_burn_list.2
 
+/-- A superstable configuration admits a complete burn list containing every vertex of `G`.
+This is the key output of Dhar's burning algorithm: in a superstable configuration, the
+whole graph burns. -/
 lemma superstable_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : superstable G q c) : ∃ L : burn_list G c, ∀ v : V, v ∈ L.list := by
   have h_card_V : (univ : Finset V).card ≥ 1 := by
     have h_nonempty : Nonempty V := by infer_instance
@@ -576,9 +618,15 @@ lemma superstable_burn_list (G : CFGraph V) {q : V} (c : Config V q) (h_ss : sup
 
 -- The following lemmas establish the necessary properties of the orientation to be defined from the burn order.
 
+/-- The orientation induced by a burn list: for each edge `(u, v)`, direct it from `u` to `v`
+(i.e. assign nonzero flow) if `u` appears in the list and `v` appears before `u`. In other
+words, the orientation indicates the direction of the spreading fire in Dhar's burning
+algorithm. -/
 def burn_flow {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) : (V × V) → ℕ :=
   λ e => if (e.1 ∈ L.list) ∧ (L.list.idxOf e.2 < L.list.idxOf e.1) then num_edges G e.1 e.2 else 0
 
+/-- The `burn_flow` of a complete burn list is a valid orientation: for every edge `{u, v}`,
+exactly `num_edges G u v` units of flow are directed in one of the two directions. -/
 lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ v : V, v ∈ L.list) : ∀ (u v : V), (burn_flow L ⟨u, v⟩) + (burn_flow L ⟨v, u⟩) = num_edges G u v := by
   intro u v
   dsimp [burn_flow]
@@ -600,6 +648,8 @@ lemma burn_flow_reverse {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list 
       simp [h_uv',h_uv, h_full v]
       exact num_edges_symmetric G v u
 
+/-- The `burn_flow` of a complete burn list is directed: for every pair `(u, v)`, flow goes
+in at most one direction. -/
 lemma burn_flow_directed {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (h_full : ∀ v : V, v ∈ L.list) : ∀ (u v : V), burn_flow L ⟨u,v⟩ = 0 ∨ burn_flow L ⟨v,u⟩ = 0 := by
   intro u v
   dsimp [burn_flow]
@@ -619,6 +669,9 @@ lemma burn_flow_directed {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list
         exact lt_of_le_of_ne h_uv h_eq
       simp [h_uv',h_uv, h_full v]
 
+/-- For any non-`q` vertex `v` in a burn list, the in-flow into `v` exceeds the number of
+chips at `v`. This is the key inequality used to construct the acyclic orientation from a
+maximal superstable configuration. -/
 lemma burnin_degree {G : CFGraph V} {q : V} {c : Config V q} (L : burn_list G c) (v : V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): ∑ (w : V), burn_flow L ⟨w,v⟩ > c.vertex_degree v := by
   let h_bl := L.h_burn_list
   cases h: L.list with

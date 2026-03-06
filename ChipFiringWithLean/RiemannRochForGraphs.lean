@@ -9,8 +9,24 @@ open Multiset Finset
 -- Assume V is a finite type with decidable equality
 variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
 
-/-- The Riemann-Roch theorem for graphs
-[Corry-Perkinson], Theorem 5.9 -/
+/-!
+# Riemann-Roch for graphs
+
+This file contains the Riemann-Roch theorem for graphs and its main corollaries,
+following [Corry-Perkinson], Chapter 5.
+
+- `riemann_roch_for_graphs`: The Riemann-Roch theorem, $r(D) - r(K_G - D) = \deg(D) - g + 1$
+  ([Corry-Perkinson], Theorem 5.9).
+- `maximal_unwinnable_symmetry`: $D$ is maximal unwinnable iff $K_G - D$ is
+  ([Corry-Perkinson], Corollary 5.11).
+- `clifford_theorem`: If $r(D) \geq 0$ and $r(K_G - D) \geq 0$, then $r(D) \leq \deg(D)/2$
+  ([Corry-Perkinson], Corollary 5.13).
+- `riemann_roch_deg_to_rank_corollary`: Nonspecial range results
+  ([Corry-Perkinson], Corollary 5.14).
+-/
+
+/-- **Riemann-Roch theorem for graphs:** $r(D) - r(K_G - D) = \deg(D) - g + 1$.
+This is [Corry-Perkinson], Theorem 5.9. -/
 theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
@@ -40,8 +56,8 @@ theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D 
     rw [this] at h_ineq_rev
     linarith
 
-/-- A divisor D is maximal unwinnable if and only if K-D is maximal unwinnable
-[Corry-Perkinson], Corollary 5.11 -/
+/-- $D$ is maximal unwinnable if and only if $K_G - D$ is maximal unwinnable.
+This is [Corry-Perkinson], Corollary 5.11. -/
 theorem maximal_unwinnable_symmetry
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
@@ -156,9 +172,8 @@ lemma rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
 
   linarith
 
-/-- Clifford's Theorem : For a divisor D with non-negative rank
-             and K-D also having non-negative rank, the rank of D is at most half its degree.
-             [Corry-Perkinson], Corollary 5.13 -/
+/-- **Clifford's theorem:** If $r(D) \geq 0$ and $r(K_G - D) \geq 0$, then
+$r(D) \leq \deg(D)/2$. This is [Corry-Perkinson], Corollary 5.13. -/
 theorem clifford_theorem
     {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V)
     (h_D : rank G D ≥ 0)
@@ -234,8 +249,9 @@ theorem clifford_theorem
 
   exact h5
 
-/-- Divisor degree to rank correspondence, in the nonspecial range.
-[Corry-Perkinson], Corollary 5.14 -/
+/-- Nonspecial range: (1) $\deg(D) < 0 \Rightarrow r(D) = -1$; (2) $0 \leq \deg(D) \leq 2g-2
+\Rightarrow r(D) \leq \deg(D)/2$; (3) $\deg(D) > 2g-2 \Rightarrow r(D) = \deg(D) - g$.
+This is [Corry-Perkinson], Corollary 5.14. -/
 theorem riemann_roch_deg_to_rank_corollary
   {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
   -- Part 1

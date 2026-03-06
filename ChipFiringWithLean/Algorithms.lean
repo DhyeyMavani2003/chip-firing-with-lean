@@ -7,6 +7,19 @@ variable {V : Type} [Fintype V] [DecidableEq V] [Nonempty V]
 
 namespace CF
 
+/-!
+## Computational algorithms for chip-firing
+
+This file implements the main computational algorithms for chip-firing on graphs:
+
+- `greedyWinnable`: Greedy dollar game solver (Algorithm 1).
+- `dharBurningSet`: Dhar's burning algorithm, returning the set of unburnt vertices (Algorithm 2).
+- `findQReducedDivisor`: Finds the unique $q$-reduced divisor linearly equivalent to a given
+  divisor (Algorithm 3).
+- `isWinnable`: Winnability check via $q$-reduction (Algorithm 4).
+- `dharBurningSetWithOrientation`: Dhar's burning algorithm with orientation tracking (Algorithm 5).
+-/
+
 open Finset BigOperators List
 
 /-- Check if a divisor is effective (all vertices non-negative). From Basic.lean -/
@@ -52,11 +65,8 @@ This counts the number of edges from `v` to vertices *outside* `S` (including `q
 def dhar_outdeg (G : CFGraph V) (S : Finset V) (v : V) : ℤ :=
   ∑ w ∈ Finset.univ.filter (λ w => w ∉ S), (num_edges G v w : ℤ)
 
-/--
-Helper function for Dhar's burning loop. Finds a vertex `v` in `S` such that `c(v) < dhar_outdeg G S v`.
-Returns `some v` if found, `none` otherwise.
-Requires `q` to ensure we operate on configurations correctly, although `q` itself isn't directly used in the condition check.
--/
+/-- Find a vertex `v` in `S` such that `c(v) < dhar_outdeg G S v` (a "burnable" vertex).
+Returns `some v` if found, `none` otherwise. -/
 noncomputable def findBurnableVertex (G : CFGraph V) (c : V → ℤ) (S : Finset V) : Option { v : V // v ∈ S } :=
   -- Iterate through the list representation and find the first match
   -- Need to get proof v ∈ S, which is guaranteed by iterating S.toList
@@ -159,22 +169,15 @@ noncomputable def findQReducedDivisor (G : CFGraph V) (q : V) (D : CFDiv V) : Op
       let main_loop_fuel := Fintype.card V * Fintype.card V * Fintype.card V + 1
       some (loop D_preprocessed main_loop_fuel)
 
-/--
-Burning Algorithm (User Request): Simulates the fire spread from `q` in Dhar's algorithm
-on a configuration `c` (represented as `V → ℤ`).
-Returns the set of unburnt vertices `S ⊆ V \ {q}`.
-This is equivalent to `dharBurningSet`.
-
-Note: Assumes `c` represents a configuration valid w.r.t `q`, typically non-negative on `V \ {q}`.
--/
+/-- Simulates the fire spread from `q` in Dhar's algorithm on a configuration `c`.
+Returns the set of unburnt vertices $S \subseteq V \setminus \{q\}$.
+Equivalent to `dharBurningSet`. -/
 @[simp]
 noncomputable def burn (G : CFGraph V) (q : V) (c : V → ℤ) : Finset V :=
   dharBurningSet G q c
 
-/--
-Dhar's Algorithm (User Request Wrapper): Finds the v-reduced divisor D' equivalent to D.
-This wraps `findQReducedDivisor`. Returns Option since reduction might fail.
--/
+/-- Finds the `v`-reduced divisor linearly equivalent to `D`. Wraps `findQReducedDivisor`.
+Returns `none` if the reduction process fails. -/
 @[simp]
 noncomputable def dhar (G : CFGraph V) (D : CFDiv V) (v : V) : Option (CFDiv V) :=
   findQReducedDivisor G v D
