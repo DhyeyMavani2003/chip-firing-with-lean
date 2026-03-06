@@ -2,6 +2,9 @@
 
 A formalization of chip-firing games and the Riemann-Roch theorem for graphs using the Lean 4 theorem prover.
 
+Project documentation (including this project's docs and its Mathlib dependencies) is available at:
+[Chip-Firing with Lean Documentation](https://dhyeymavani.com/chip-firing-with-lean/docs/ChipFiringWithLean/RiemannRochForGraphs.html)
+
 ## Overview
 
 This project provides a formal mathematical framework for studying **chip-firing games on graphs** and proves key results, including the **Riemann-Roch theorem for graphs**. The implementation leverages Lean 4 for formal proofs and structured reasoning.
