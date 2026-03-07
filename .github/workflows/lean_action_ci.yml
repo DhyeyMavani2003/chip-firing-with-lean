@@ -1,4 +1,4 @@
-name: Lean Action CI
+name: Lean4 Correctness Build
 
 on:
   push:
@@ -15,15 +15,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
-      - if: github.ref == 'refs/heads/master' || github.event_name == 'pull_request'
-        uses: leanprover-community/docgen-action@v1
-        with:
-          lake_package_directory: .
-          api_docs: true
-          homepage: docs
-#      - name: Set up GitHub Pages
-#        uses: actions/deploy-pages@v1
-#        with:
-#          path: ./docs
 
       
