@@ -1,9 +1,11 @@
 # Chip-Firing with Lean4
 
-A formalization of chip-firing games and the Riemann-Roch theorem for graphs using the Lean 4 theorem prover.
+First-ever formalization of chip-firing games and the Riemann-Roch theorem for graphs using the Lean 4 theorem prover. 
 
 Project documentation (including this project's docs and its Mathlib dependencies) is available at:
 [Chip-Firing with Lean Documentation](https://dhyeymavani.com/chip-firing-with-lean/docs/ChipFiringWithLean/RiemannRochForGraphs.html)
+
+- _Co-developed by **Dhyey Mavani** and **Nathan Pflueger**_
 
 ## Overview
 
@@ -116,14 +118,8 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 ---
 
-### Acknowledgments
-
-I would like to express my deepest gratitude to **Professor Nathan Pflueger**, my mathematics thesis advisor at Amherst College, for his invaluable guidance, support, and encouragement throughout this project.
-
----
-
 ### Contact
-For questions, contributions, or collaboration, please reach out to [Dhyey Mavani](mailto:ddmavani2003@gmail.com).
+For questions, contributions, or collaboration, please reach out to [Dhyey Mavani](mailto:ddmavani2003@gmail.com) and [Nathan Pflueger](mailto:npflueger@amherst.edu).
 
 ---
 
