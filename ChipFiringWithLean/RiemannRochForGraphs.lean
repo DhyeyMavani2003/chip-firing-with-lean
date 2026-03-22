@@ -6,9 +6,6 @@ set_option trace.split.failure true
 
 open Multiset Finset
 
--- Assume V is a finite type with decidable equality
-variable {V : Type} [DecidableEq V] [Fintype V] [Nonempty V]
-
 /-!
 # Riemann-Roch for graphs
 
@@ -27,7 +24,7 @@ following [Corry-Perkinson], Chapter 5.
 
 /-- **Riemann-Roch theorem for graphs:** $r(D) - r(K_G - D) = \deg(D) - g + 1$.
 This is [Corry-Perkinson], Theorem 5.9. -/
-theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
+theorem riemann_roch_for_graphs {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
 
@@ -59,10 +56,10 @@ theorem riemann_roch_for_graphs {G : CFGraph V} (h_conn : graph_connected G) (D 
 /-- $D$ is maximal unwinnable if and only if $K_G - D$ is maximal unwinnable.
 This is [Corry-Perkinson], Corollary 5.11. -/
 theorem maximal_unwinnable_symmetry
-    {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
+    {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
   set K := canonical_divisor G with K_def
-  suffices ∀ (D : CFDiv V), maximal_unwinnable G D → maximal_unwinnable G (canonical_divisor G - D) by
+  suffices ∀ (D : CFDiv G), maximal_unwinnable G D → maximal_unwinnable G (canonical_divisor G - D) by
     constructor
     exact this D
     intro h
@@ -97,7 +94,7 @@ theorem maximal_unwinnable_symmetry
   · -- Adding chip makes K-D winnable
     intro v -- Goal: winnable G ((K-D) + δᵥ)
     -- Let E = (K-D) + δᵥ
-    set E : CFDiv V := (canonical_divisor G - D) + one_chip v with E_def
+    set E : CFDiv G := (canonical_divisor G - D) + one_chip v with E_def
     suffices winnable G E by
       exact this
     -- To show E is winnable, we will use Riemann-Roch on E
@@ -114,7 +111,7 @@ theorem maximal_unwinnable_symmetry
       _ = 0 := by linarith[h_deg_E]
 
 /-- Rank of divisors is subadditive. -/
-lemma rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
+lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
     (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
     rank G (D+D') ≥ rank G D + rank G D' := by
   -- Convert ranks to natural numbers
@@ -175,7 +172,7 @@ lemma rank_subadditive (G : CFGraph V) (D D' : CFDiv V)
 /-- **Clifford's theorem:** If $r(D) \geq 0$ and $r(K_G - D) \geq 0$, then
 $r(D) \leq \deg(D)/2$. This is [Corry-Perkinson], Corollary 5.13. -/
 theorem clifford_theorem
-    {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V)
+    {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G)
     (h_D : rank G D ≥ 0)
     (h_KD : rank G (canonical_divisor G - D) ≥ 0) :
     (rank G D : ℚ) ≤ (deg D : ℚ) / 2 := by
@@ -253,7 +250,7 @@ theorem clifford_theorem
 \Rightarrow r(D) \leq \deg(D)/2$; (3) $\deg(D) > 2g-2 \Rightarrow r(D) = \deg(D) - g$.
 This is [Corry-Perkinson], Corollary 5.14. -/
 theorem riemann_roch_deg_to_rank_corollary
-  {G : CFGraph V} (h_conn : graph_connected G) (D : CFDiv V) :
+  {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   -- Part 1
   (deg D < 0 → rank G D = -1) ∧
   -- Part 2
@@ -363,4 +360,91 @@ theorem riemann_roch_deg_to_rank_corollary
     have h_rr := riemann_roch_for_graphs h_conn D
     rw [h_rankKD] at h_rr
     rw [sub_neg_eq_add] at h_rr
+    linarith
+
+/-!
+## Gonality
+The Riemann-Roch theorem provides some basic information about the *gonality* of a graph.
+-/
+
+def gonality_leq (G : CFGraph) (k : ℤ) : Prop := ∃ D : CFDiv G, rank G D ≥ 1 ∧ deg D = k
+
+/-- `gonality_geq G k` means that no divisor of degree `< k` has rank at least `1`. -/
+def gonality_geq (G : CFGraph) (k : ℤ) : Prop :=
+  ∀ l : ℤ, l < k → ¬ gonality_leq G l
+
+/-- A connected graph has gonality at most `g + 1`, where `g` is its genus. -/
+theorem gonality_leq_genus_add_one
+    {G : CFGraph} (h_conn : graph_connected G) : gonality_leq G (genus G + 1) := by
+  let q : G.V := Classical.arbitrary G.V
+  let D : CFDiv G := (genus G + 1) • one_chip q
+  have h_deg_D : deg D = genus G + 1 := by
+    dsimp [D]
+    simp [deg_one_chip, AddMonoidHom.map_zsmul deg (one_chip q) (genus G + 1)]
+  have h_rank_geq : rank_geq G D 1 := by
+    intro E hE
+    dsimp [eff_of_degree] at hE
+    rcases hE with ⟨hE_eff, hE_deg⟩
+    have h_deg_sub : deg (D - E) = genus G := by
+      rw [deg.map_sub, h_deg_D, hE_deg]
+      ring
+    apply winnable_of_deg_ge_genus h_conn (D - E)
+    rw [h_deg_sub]
+  refine ⟨D, (rank_geq_iff G D 1).mp h_rank_geq, h_deg_D⟩
+
+/-- Any degree realizing `gonality_leq` is at least `1`. -/
+theorem one_le_of_gonality_leq {G : CFGraph} {k : ℤ} (h_gon : gonality_leq G k) : 1 ≤ k := by
+  rcases h_gon with ⟨D, h_rank, h_deg⟩
+  have h_rank_geq : rank_geq G D 1 := (rank_geq_iff G D 1).mpr h_rank
+  have h_deg_lower : (1 : ℤ) ≤ deg D := rank_le_degree G D 1 (by norm_num) h_rank_geq
+  simpa [h_deg] using h_deg_lower
+
+/-- The gonality of a connected graph is the smallest degree of a divisor of rank at least `1`. -/
+noncomputable def gonality {G : CFGraph} (h_conn : graph_connected G) : ℤ :=
+  sInf {k : ℤ | gonality_leq G k}
+
+/-- A connected graph has gonality at most `g + 1`, where `g` is its genus. -/
+theorem gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected G) :
+    gonality h_conn ≤ genus G + 1 := by
+  let S : Set ℤ := {k : ℤ | gonality_leq G k}
+  have h_bdd : BddBelow S := by
+    refine ⟨1, ?_⟩
+    intro k hk
+    exact one_le_of_gonality_leq hk
+  dsimp [gonality, S]
+  exact csInf_le h_bdd (gonality_leq_genus_add_one h_conn)
+
+/-- The gonality of a connected graph is at least `1`. -/
+theorem gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤ gonality h_conn := by
+  let S : Set ℤ := {k : ℤ | gonality_leq G k}
+  have h_nonempty : S.Nonempty := by
+    refine ⟨genus G + 1, ?_⟩
+    exact gonality_leq_genus_add_one h_conn
+  dsimp [gonality, S]
+  refine le_csInf h_nonempty ?_
+  intro k hk
+  exact one_le_of_gonality_leq hk
+
+@[simp] theorem gonality_geq_iff {G : CFGraph} (h_conn : graph_connected G) (k : ℤ) :
+    gonality_geq G k ↔ gonality h_conn ≥ k := by
+  let S : Set ℤ := {l : ℤ | gonality_leq G l}
+  have h_nonempty : S.Nonempty := by
+    refine ⟨genus G + 1, ?_⟩
+    exact gonality_leq_genus_add_one h_conn
+  have h_bdd : BddBelow S := by
+    refine ⟨1, ?_⟩
+    intro l hl
+    exact one_le_of_gonality_leq hl
+  constructor
+  · intro h_geq
+    dsimp [gonality, gonality_geq, S]
+    refine le_csInf h_nonempty ?_
+    intro l hl
+    by_contra hlt
+    have hlt' : l < k := by linarith
+    exact h_geq l hlt' hl
+  · intro h_gon l hl h_leq
+    have h_inf_le : gonality h_conn ≤ l := by
+      dsimp [gonality, S]
+      exact csInf_le h_bdd h_leq
     linarith

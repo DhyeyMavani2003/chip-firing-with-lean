@@ -2,9 +2,6 @@ import ChipFiringWithLean.Orientation
 
 set_option linter.unusedVariables false
 
--- Assume V is a finite type with decidable equality
-variable {V : Type} [Fintype V] [DecidableEq V] [Nonempty V]
-
 namespace CF
 
 /-!
@@ -22,9 +19,9 @@ This file implements the main computational algorithms for chip-firing on graphs
 
 open Finset BigOperators List
 
-/-- Check if a divisor is effective (all vertices non-negative). From Basic.lean -/
+/-- Check if a divisor is effective (all vertices non-negative). From `Basic.lean`. -/
 @[simp]
-def is_effective (D : CFDiv V) : Bool := decide (∀ v, D v ≥ 0)
+def is_effective (D : CFDiv G) : Bool := decide (∀ v, D v ≥ 0)
 
 /--
 Greedy Algorithm for the dollar game (Algorithm 1).
@@ -34,8 +31,8 @@ Returns `(winnable, script)` where `winnable` is true if an effective divisor is
 and `script` is the net borrowing count for each vertex if winnable.
 -/
 @[simp]
-noncomputable def greedyWinnable (G : CFGraph V) (D : CFDiv V) : Bool × Option (CFDiv V) := -- Changed to CFDiv V
-  let rec loop (current_D : CFDiv V) (M : Finset V) (script : CFDiv V) (fuel : Nat) : Bool × Option (CFDiv V) := -- Changed to CFDiv V
+noncomputable def greedyWinnable (G : CFGraph) (D : CFDiv G) : Bool × Option (CFDiv G) :=
+  let rec loop (current_D : CFDiv G) (M : Finset G.V) (script : CFDiv G) (fuel : Nat) : Bool × Option (CFDiv G) :=
     if h_fuel_zero : fuel = 0 then (false, none) -- Fuel exhaustion implies failure
     else if is_effective current_D then (true, some script)
     else if M = Finset.univ then (false, none) -- All vertices borrowed, still not effective
@@ -46,28 +43,28 @@ noncomputable def greedyWinnable (G : CFGraph V) (D : CFDiv V) : Bool × Option 
           let next_D := borrowing_move G current_D v
           let next_M := insert v M -- Correct insert syntax
           -- Update script: decrement count for borrowing vertex v
-          let next_script : CFDiv V := script - one_chip v -- Type is now CFDiv V
+          let next_script : CFDiv G := script - one_chip v
           loop next_D next_M next_script (fuel - 1)
-      | none => -- No vertex in V \ M is in debt, but D is not effective.
+      | none => -- No vertex in `G.V \ M` is in debt, but `D` is not effective.
           -- This state implies unwinnability because we can't make progress.
           (false, none)
   termination_by fuel
   decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
   -- Initial call with generous fuel
-  let max_fuel := Fintype.card V * Fintype.card V
-  loop D ∅ (0 : CFDiv V) max_fuel -- Initialize script as (0 : CFDiv V)
+  let max_fuel := Fintype.card G.V * Fintype.card G.V
+  loop D ∅ (0 : CFDiv G) max_fuel -- Initialize script as (0 : CFDiv G)
 
 /--
 Calculates the out-degree of a vertex `v` with respect to a set `S`.
 This counts the number of edges from `v` to vertices *outside* `S` (including `q`).
 `outdeg G S v = |{ w | ∃ edge (v, w) in G.edges and w ∉ S }|`
 -/
-def dhar_outdeg (G : CFGraph V) (S : Finset V) (v : V) : ℤ :=
+def dhar_outdeg (G : CFGraph) (S : Finset G.V) (v : G.V) : ℤ :=
   ∑ w ∈ Finset.univ.filter (λ w => w ∉ S), (num_edges G v w : ℤ)
 
 /-- Find a vertex `v` in `S` such that `c(v) < dhar_outdeg G S v` (a "burnable" vertex).
 Returns `some v` if found, `none` otherwise. -/
-noncomputable def findBurnableVertex (G : CFGraph V) (c : V → ℤ) (S : Finset V) : Option { v : V // v ∈ S } :=
+noncomputable def findBurnableVertex (G : CFGraph) (c : G.V → ℤ) (S : Finset G.V) : Option { v : G.V // v ∈ S } :=
   -- Iterate through the list representation and find the first match
   -- Need to get proof v ∈ S, which is guaranteed by iterating S.toList
   let p := fun v => decide (c v < dhar_outdeg G S v) -- Use decide
@@ -81,16 +78,17 @@ noncomputable def findBurnableVertex (G : CFGraph V) (c : V → ℤ) (S : Finset
 
 /--
 The core iterative burning process of Dhar's algorithm (Algorithm 2).
-Given a configuration `c` (represented as `V → ℤ` for simplicity here, assuming non-negativity outside `q` is handled externally)
-and a sink `q`, it finds the set of unburnt vertices `S ⊆ V \ {q}` which forms a legal firing set.
-The set `S` is empty if and only if `c` restricted to `V \ {q}` is superstable relative to `q`.
+Given a configuration `c` (represented as `G.V → ℤ` for simplicity here, assuming
+non-negativity outside `q` is handled externally) and a sink `q`, it finds the set of
+unburnt vertices `S ⊆ G.V \ {q}` which forms a legal firing set. The set `S` is empty if
+and only if `c` restricted to `G.V \ {q}` is superstable relative to `q`.
 
 Implementation uses well-founded recursion on the size of the set S.
 -/
 @[simp]
-noncomputable def dharBurningSet (G : CFGraph V) (q : V) (c : V → ℤ) : Finset V :=
+noncomputable def dharBurningSet (G : CFGraph) (q : G.V) (c : G.V → ℤ) : Finset G.V :=
   let initial_S := Finset.univ.erase q
-  let rec loop (S : Finset V) (fuel : Nat) : Finset V :=
+  let rec loop (S : Finset G.V) (fuel : Nat) : Finset G.V :=
     -- Check fuel for termination safety
     if h_fuel_zero : fuel = 0 then S -- Name hypothesis
     else
@@ -101,17 +99,17 @@ noncomputable def dharBurningSet (G : CFGraph V) (q : V) (c : V → ℤ) : Finse
       | none        => S
   termination_by fuel
   decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
-  loop initial_S (Fintype.card V + 1)
+  loop initial_S (Fintype.card G.V + 1)
 
 /-- Helper function to fire a set of vertices `S` on a divisor `D`. -/
 @[simp]
-noncomputable def fireSet (G : CFGraph V) (D : CFDiv V) (S : Finset V) : CFDiv V :=
+noncomputable def fireSet (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G :=
   -- Use foldl directly now (List is open)
   foldl (fun current_D v => firing_move G current_D v) D S.toList
 
 /-- Calculates the degree of a divisor. -/
 @[simp]
-def degree (D : CFDiv V) : ℤ :=
+def degree (D : CFDiv G) : ℤ :=
   ∑ v ∈ Finset.univ, D v
 
 /--
@@ -119,8 +117,8 @@ Preprocessing Step for Algorithm 3/4: Fires `q` repeatedly until `D(v) ≥ 0` fo
 Requires sufficient total degree in the graph. Uses fuel for termination guarantee.
 Returns `none` if fuel runs out, implying potential unwinnability or insufficient fuel.
 -/
-noncomputable def makeNonNegativeExceptQ (G : CFGraph V) (q : V) (D : CFDiv V) (max_fuel : Nat) : Option (CFDiv V) :=
-  let rec loop (current_D : CFDiv V) (fuel : Nat) : Option (CFDiv V) :=
+noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (max_fuel : Nat) : Option (CFDiv G) :=
+  let rec loop (current_D : CFDiv G) (fuel : Nat) : Option (CFDiv G) :=
     if h_fuel_zero : fuel = 0 then none -- Name hypothesis
     else
       -- Check if any vertex v != q has D(v) < 0
@@ -136,21 +134,21 @@ noncomputable def makeNonNegativeExceptQ (G : CFGraph V) (q : V) (D : CFDiv V) (
   loop D max_fuel
 
 /--
-Finds the unique q-reduced divisor linearly equivalent to D (Algorithm 3).
+Finds the unique q-reduced divisor linearly equivalent to `D` (Algorithm 3).
 Starts from divisor D, performs preprocessing (firing q until others non-negative),
-then repeatedly finds the maximal legal firing set S ⊆ V \ {q}
+then repeatedly finds the maximal legal firing set `S ⊆ G.V \ {q}`
 using `dharBurningSet` and fires S until `dharBurningSet` returns an empty set.
 Returns `none` if preprocessing fails (fuel exhaustion or insufficient degree).
 -/
 @[simp]
-noncomputable def findQReducedDivisor (G : CFGraph V) (q : V) (D : CFDiv V) : Option (CFDiv V) :=
+noncomputable def findQReducedDivisor (G : CFGraph) (q : G.V) (D : CFDiv G) : Option (CFDiv G) :=
   -- Preprocessing: Fire q until D(v) >= 0 for v != q
   -- Use a large fixed Nat fuel amount.
-  let preprocess_fuel : Nat := Fintype.card V * Fintype.card V * Fintype.card V -- Use Nat constant
+  let preprocess_fuel : Nat := Fintype.card G.V * Fintype.card G.V * Fintype.card G.V -- Use Nat constant
   match makeNonNegativeExceptQ G q D preprocess_fuel with
   | none => none -- Preprocessing failed
   | some D_preprocessed =>
-      let rec loop (current_D : CFDiv V) (fuel : Nat) : CFDiv V :=
+      let rec loop (current_D : CFDiv G) (fuel : Nat) : CFDiv G :=
         if h_fuel_zero : fuel = 0 then -- Name hypothesis
           -- Fuel exhausted in main loop, return current state (might not be fully q-reduced)
           current_D
@@ -166,20 +164,20 @@ noncomputable def findQReducedDivisor (G : CFGraph V) (q : V) (D : CFDiv V) : Op
       termination_by fuel
       decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
       -- Estimate fuel for main loop: Number of possible firing sets? Use a large number.
-      let main_loop_fuel := Fintype.card V * Fintype.card V * Fintype.card V + 1
+      let main_loop_fuel := Fintype.card G.V * Fintype.card G.V * Fintype.card G.V + 1
       some (loop D_preprocessed main_loop_fuel)
 
 /-- Simulates the fire spread from `q` in Dhar's algorithm on a configuration `c`.
-Returns the set of unburnt vertices $S \subseteq V \setminus \{q\}$.
+Returns the set of unburnt vertices $S \subseteq G.V \setminus \{q\}$.
 Equivalent to `dharBurningSet`. -/
 @[simp]
-noncomputable def burn (G : CFGraph V) (q : V) (c : V → ℤ) : Finset V :=
+noncomputable def burn (G : CFGraph) (q : G.V) (c : G.V → ℤ) : Finset G.V :=
   dharBurningSet G q c
 
 /-- Finds the `v`-reduced divisor linearly equivalent to `D`. Wraps `findQReducedDivisor`.
 Returns `none` if the reduction process fails. -/
 @[simp]
-noncomputable def dhar (G : CFGraph V) (D : CFDiv V) (v : V) : Option (CFDiv V) :=
+noncomputable def dhar (G : CFGraph) (D : CFDiv G) (v : G.V) : Option (CFDiv G) :=
   findQReducedDivisor G v D
 
 /--
@@ -189,7 +187,7 @@ and checking if Dq(q) ≥ 0.
 Requires selection of a source vertex `q`. Returns `false` if reduction process fails.
 -/
 @[simp]
-noncomputable def isWinnable (G : CFGraph V) (q : V) (D : CFDiv V) : Bool :=
+noncomputable def isWinnable (G : CFGraph) (q : G.V) (D : CFDiv G) : Bool :=
   match findQReducedDivisor G q D with
   | none => false -- Reduction process failed (preprocessing or main loop fuel)
   | some D_q => D_q q >= 0
@@ -198,28 +196,28 @@ noncomputable def isWinnable (G : CFGraph V) (q : V) (D : CFDiv V) : Bool :=
 Helper to calculate incoming "burning" degree for vertex `v` from set `B`.
 Sums `num_edges` from `u` in `B` to `v`.
 -/
-def burning_indeg (G : CFGraph V) (B : Finset V) (v : V) : ℤ :=
+def burning_indeg (G : CFGraph) (B : Finset G.V) (v : G.V) : ℤ :=
   ∑ u ∈ B, (num_edges G u v : ℤ)
 
 /--
 Orientation-based Dhar's Algorithm (Algorithm 5).
 Takes a nonnegative configuration `c` relative to `q`.
-Returns the final stable set `S ⊆ V \ {q}` (empty iff `c` is superstable)
+Returns the final stable set `S ⊆ G.V \ {q}` (empty iff `c` is superstable)
 and a multiset `O` of directed edges `(u, v)` where fire spread from `u` to `v`.
 
-Note: Assumes `c` is non-negative on `V \ {q}`.
+Note: Assumes `c` is non-negative on `G.V \ {q}`.
 The returned multiset `O` represents the edges oriented *by* the burning process.
 It may not form a complete `CFOrientation` structure directly if not all edges are involved.
 -/
 @[simp]
-noncomputable def dharBurningSetWithOrientation (G : CFGraph V) (q : V) (c : V → ℤ)
-  : Finset V × Multiset (V × V) :=
+noncomputable def dharBurningSetWithOrientation (G : CFGraph) (q : G.V) (c : G.V → ℤ)
+  : Finset G.V × Multiset (G.V × G.V) :=
   let initial_S := Finset.univ.erase q
   let initial_B := {q}
-  let initial_O := (∅ : Multiset (V × V))
+  let initial_O := (∅ : Multiset (G.V × G.V))
 
-  let rec loop (current_S : Finset V) (current_B : Finset V) (current_O : Multiset (V × V)) (fuel : Nat)
-    : Finset V × Multiset (V × V) :=
+  let rec loop (current_S : Finset G.V) (current_B : Finset G.V) (current_O : Multiset (G.V × G.V)) (fuel : Nat)
+    : Finset G.V × Multiset (G.V × G.V) :=
     if h_fuel : fuel = 0 then (current_S, current_O) -- Fuel exhausted, return current state
     else
       -- Find vertices in S that burn in this step
@@ -235,7 +233,7 @@ noncomputable def dharBurningSetWithOrientation (G : CFGraph V) (q : V) (c : V �
 
         -- Update Orientation: Add edges from current_B to newly_burned
         -- Use Finset.sum for clarity and potentially better type inference
-        let edges_to_add : Multiset (V × V) :=
+        let edges_to_add : Multiset (G.V × G.V) :=
           Finset.sum newly_burned (fun v_new => -- Sum over newly burned vertices
             Finset.sum current_B (fun u => -- For each u in the burning set
               Multiset.replicate (num_edges G u v_new) (u, v_new) -- Create edges u -> v_new
@@ -251,6 +249,6 @@ noncomputable def dharBurningSetWithOrientation (G : CFGraph V) (q : V) (c : V �
   decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel -- Use robust termination proof
 
   -- Initial call with fuel based on number of vertices
-  loop initial_S initial_B initial_O (Fintype.card V + 1)
+  loop initial_S initial_B initial_O (Fintype.card G.V + 1)
 
 end CF

@@ -20,36 +20,36 @@ instance : Fintype Person where
   }
 instance : Nonempty Person := ⟨Person.A⟩
 
--- Example usage for Person type in a loopless graph
+-- Example usage for `Person` in a loopless graph.
 def exampleEdges : Multiset (Person × Person) :=
   Multiset.ofList [
     (Person.A, Person.B),
     (Person.B, Person.C),
     (Person.C, Person.E)
   ]
-theorem loopless_example_edges : isLoopless exampleEdges := by
-  unfold isLoopless
+theorem loopless_example_edges : ∀ v, (v, v) ∉ exampleEdges := by
   decide
 
--- Example usage for Person type in a graph with a loop
+-- Example usage for `Person` in a graph with a loop.
 def edgesWithLoop : Multiset (Person × Person) :=
   Multiset.ofList [
     (Person.A, Person.B),
     (Person.A, Person.A),   -- This is a loop
     (Person.B, Person.C),
   ]
-theorem loopless_test_edges_with_loop : ¬ (isLoopless edgesWithLoop) := by unfold isLoopless; decide
+theorem loopless_test_edges_with_loop : ¬ (∀ v, (v, v) ∉ edgesWithLoop) := by decide
 
-def example_graph : CFGraph Person := {
+def example_graph : CFGraph := {
+  V := Person,
   edges := Multiset.ofList [
     (Person.A, Person.B), (Person.B, Person.C),
     (Person.A, Person.C), (Person.A, Person.E),
     (Person.A, Person.E), (Person.E, Person.C)
   ],
-  loopless := by unfold isLoopless; decide,
+  loopless := by decide,
 }
 
-def initial_wealth : CFDiv Person :=
+def initial_wealth : CFDiv example_graph :=
   fun v => match v with
   | Person.A => 2
   | Person.B => -3
@@ -88,7 +88,7 @@ theorem charlie_wealth_after_lending : after_charlie_lends Person.C = 1 := by rf
 theorem bob_wealth_after_charlie_lends : after_charlie_lends Person.B = -2 := by rfl
 
 -- Test set firing W₁ = {A,E,C}
-def W₁ : Finset Person := {Person.A, Person.E, Person.C}
+def W₁ : Finset example_graph.V := {Person.A, Person.E, Person.C}
 def after_W₁_firing := set_firing example_graph initial_wealth W₁
 theorem alice_wealth_after_W₁ : after_W₁_firing Person.A = 1 := by rfl
 theorem bob_wealth_after_W₁ : after_W₁_firing Person.B = -1 := by rfl
@@ -96,7 +96,7 @@ theorem charlie_wealth_after_W₁ : after_W₁_firing Person.C = 3 := by rfl
 theorem elise_wealth_after_W₁ : after_W₁_firing Person.E = -1 := by rfl
 
 -- Test set firing W₂ = {A,E,C}
-def W₂ : Finset Person := W₁
+def W₂ : Finset example_graph.V := W₁
 def after_W₂_firing := set_firing example_graph after_W₁_firing W₂
 theorem alice_wealth_after_W₂ : after_W₂_firing Person.A = 0 := by rfl
 theorem bob_wealth_after_W₂ : after_W₂_firing Person.B = 1 := by rfl
@@ -104,7 +104,7 @@ theorem charlie_wealth_after_W₂ : after_W₂_firing Person.C = 2 := by rfl
 theorem elise_wealth_after_W₂ : after_W₂_firing Person.E = -1 := by rfl
 
 -- Test set firing W₃ = {B,C}
-def W₃ : Finset Person := {Person.B, Person.C}
+def W₃ : Finset example_graph.V := {Person.B, Person.C}
 def after_W₃_firing := set_firing example_graph after_W₂_firing W₃
 theorem alice_wealth_after_W₃ : after_W₃_firing Person.A = 2 := by rfl
 theorem bob_wealth_after_W₃ : after_W₃_firing Person.B = 0 := by rfl
@@ -149,7 +149,7 @@ theorem check_example_laplacian_symmetry : Matrix.IsSymm example_laplacian := by
 }
 
 -- Test script firing through laplacians
-def firing_script_example : firing_script Person := fun v => match v with
+def firing_script_example : firing_script example_graph := fun v => match v with
   | Person.A => 0
   | Person.B => -1
   | Person.C => 1
@@ -158,7 +158,7 @@ def res_div_post_lap_based_script_firing := apply_laplacian example_graph firing
 theorem lap_based_script_firing_preserves_degree : deg res_div_post_lap_based_script_firing = 2 := by rfl
 
 -- Test divisor that is not q-reduced with respect to Person.A
-def non_q_reduced_example : CFDiv Person := fun v => match v with
+def non_q_reduced_example : CFDiv example_graph := fun v => match v with
   | Person.A => 1
   | Person.B => -1  -- violates non-negativity condition for non-q vertices
   | Person.C => 2
