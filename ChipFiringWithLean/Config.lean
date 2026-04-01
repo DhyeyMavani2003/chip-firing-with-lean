@@ -179,6 +179,37 @@ lemma div_of_config_of_div (D : q_eff_div G q) :
     simp only [(toConfig D).q_zero, zero_add, one_chip, ite_true, mul_one]
     linarith [config_degree_div_degree D]
 
+/-- A `q`-reduced divisor is recovered by converting to its canonical configuration and back. -/
+@[simp] lemma q_reduced_toDiv_toConfig (G : CFGraph) (q : G.V) (D : CFDiv G)
+    (h_qred : q_reduced G q D) :
+    toDiv (deg D) (toConfig ⟨D, h_qred.1⟩) = D :=
+  div_of_config_of_div ⟨D, h_qred.1⟩
+
+/-- A `q`-reduced divisor is its canonical configuration plus its chips at `q`. -/
+lemma q_reduced_eq_vertex_degree_add_q (G : CFGraph) (q : G.V) (D : CFDiv G)
+    (h_qred : q_reduced G q D) :
+    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree + D q • one_chip q := by
+  let c : Config G q := toConfig ⟨D, h_qred.1⟩
+  have h_deg : deg D = config_degree c + D q := by
+    simpa [c, add_comm] using (config_degree_div_degree ⟨D, h_qred.1⟩)
+  calc
+    D = toDiv (deg D) c := by
+      exact (q_reduced_toDiv_toConfig G q D h_qred).symm
+    _ = toDiv (config_degree c + D q) c := by rw [h_deg]
+    _ = c.vertex_degree + D q • one_chip q := toDiv_config_degree_add c (D q)
+
+/-- If a `q`-reduced divisor has value `-1` at `q`, it is exactly `c - q` for its canonical
+configuration `c`. -/
+lemma q_reduced_eq_vertex_degree_sub_one_chip (G : CFGraph) (q : G.V) (D : CFDiv G)
+    (h_qred : q_reduced G q D) (h_q : D q = -1) :
+    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+  calc
+    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree + D q • one_chip q :=
+      q_reduced_eq_vertex_degree_add_q G q D h_qred
+    _ = (toConfig ⟨D, h_qred.1⟩).vertex_degree + (-1 : ℤ) • one_chip q := by rw [h_q]
+    _ = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+      simp [sub_eq_add_neg]
+
 @[simp] lemma eval_toDiv_q {q : G.V} (d : ℤ) (c : Config G q) :
   toDiv d c q = d - config_degree c := by
   dsimp [toDiv]
@@ -319,8 +350,12 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
   rw [comp_eq S]
   exact hv_outdeg
 
-
-
+/-- The canonical configuration of a `q`-reduced divisor is superstable. -/
+lemma q_reduced_toConfig_superstable (G : CFGraph) (q : G.V) (D : CFDiv G)
+    (h_qred : q_reduced G q D) :
+    superstable G q (toConfig ⟨D, h_qred.1⟩) := by
+  rw [superstable_iff_q_reduced G q (deg D) (toConfig ⟨D, h_qred.1⟩)]
+  simpa [q_reduced_toDiv_toConfig G q D h_qred] using h_qred
 
 /-- Helper Lemma: Equivalence between q-reduced divisors and superstable configurations.
     A divisor D is q-reduced iff it can be written as c - δ_q for some superstable config c.-/
@@ -330,17 +365,8 @@ lemma q_reduced_superstable_correspondence (G : CFGraph) (q : G.V) (D : CFDiv G)
   constructor
   . -- Forward direction (q_reduced → ∃ c, superstable ∧ D = c - δ_q)
     intro h_qred
-    let D_qed : q_eff_div G q := {
-      D := D,
-      h_eff := h_qred.1
-    }
-    let c := toConfig D_qed; use c
-    have D_eq : D = toDiv (deg D) c := by
-      have := div_of_config_of_div D_qed
-      rw [div_of_config_of_div D_qed]
-    rw [D_eq] at h_qred
-    rw [superstable_iff_q_reduced G q (deg D) c]
-    exact ⟨h_qred, D_eq⟩
+    refine ⟨toConfig ⟨D, h_qred.1⟩, q_reduced_toConfig_superstable G q D h_qred, ?_⟩
+    exact (q_reduced_toDiv_toConfig G q D h_qred).symm
   -- Backward direction (∃ c, superstable ∧ D = c - δ_q → q_reduced)
   · intro h_exists
     rcases h_exists with ⟨c, h_super, D_eq⟩

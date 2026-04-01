@@ -26,24 +26,16 @@ lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V
   ∃ (c : Config G q) (k : ℤ),
     linear_equiv G D (c.vertex_degree + k • (one_chip q)) ∧
     superstable G q c := by
-  -- 1. Get the q-reduced representative D' for D using the lemma
   rcases exists_q_reduced_representative h_conn q D with ⟨D', h_equiv_D_D', h_qred_D'⟩
-
-  -- 2. Use the correspondence lemma to get c from D'
-  rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_D'_eq_c_minus_delta_q⟩
-
-
-  unfold toDiv at h_D'_eq_c_minus_delta_q
-  let k := deg D' - config_degree c
-  use c
-  use k
+  let c : Config G q := toConfig ⟨D', h_qred_D'.1⟩
+  use c, D' q
   constructor
-  · -- Prove linear equivalence: linear_equiv G D (λ v => c
+  ·
     have h := h_equiv_D_D'
-    rw [h_D'_eq_c_minus_delta_q] at h
+    rw [q_reduced_eq_vertex_degree_add_q G q D' h_qred_D'] at h
     exact h
-  · -- Prove superstable G q c
-    exact h_super_c
+  ·
+    exact q_reduced_toConfig_superstable G q D' h_qred_D'
 
 /-- If $D$ is unwinnable and $D \sim c + k \cdot q$ for a superstable $c$, then $k < 0$. -/
 lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
@@ -56,16 +48,10 @@ lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
   contrapose! h_not_winnable with k_nonneg
   let D' := c.vertex_degree + k • (one_chip q)
   have D'_eff : effective D' := by
-    intro v
-    dsimp [D']
-    have c_nonneg: c.vertex_degree v ≥ 0 := c.non_negative v
-    have oc_nonneg : k*one_chip q v ≥ 0 := by
-      dsimp [one_chip]
-      split_ifs
-      · simp [k_nonneg]
-      · simp
-    simp
-    linarith
+    rw [show D' = toDiv (config_degree c + k) c by
+      dsimp [D']
+      rw [toDiv_config_degree_add]]
+    exact (config_eff (config_degree c + k) c).2 (by linarith)
   have h_winnable_D' : winnable G D' := winnable_of_effective G D' D'_eff
   apply winnable_equiv_winnable G D' D h_winnable_D'
   apply (linear_equiv_is_equivalence G).symm h_equiv
@@ -136,16 +122,14 @@ $D = c - q$. This is [Corry-Perkinson], Corollary 4.9(2), "only if" direction. -
 lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c : Config G q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
   intro h_max_unwinnable h_qred h_toDeg
-  have h_q : D q = -1 :=
-    maximal_unwinnable_q_reduced_chips_at_q G q D h_max_unwinnable h_qred
-  have h_deg : deg D = config_degree c - 1 := by
-    rw [h_toDeg] at h_q
-    simp only [eval_toDiv_q] at h_q
-    linarith
+  have h_c_eq : c = toConfig ⟨D, h_qred.1⟩ := by
+    apply (eq_config_iff_eq_div (deg D) c (toConfig ⟨D, h_qred.1⟩)).mpr
+    exact h_toDeg.symm.trans (q_reduced_toDiv_toConfig G q D h_qred).symm
   calc
-    D = toDiv (deg D) c := h_toDeg
-    _ = toDiv (config_degree c - 1) c := by rw [h_deg]
-    _ = c.vertex_degree - one_chip q := toDiv_config_degree_sub_one (c := c)
+    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+      exact q_reduced_eq_vertex_degree_sub_one_chip G q D h_qred
+        (maximal_unwinnable_q_reduced_chips_at_q G q D h_max_unwinnable h_qred)
+    _ = c.vertex_degree - one_chip q := by rw [h_c_eq]
 
 /-- Lemma: Superstable configuration degree is bounded by genus -/
 lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
@@ -276,6 +260,76 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : gra
       _ ≥ genus G := by rfl
   exact winnable_of_deg_ge_genus h_conn D' deg_ineq
 
+/-- A maximal unwinnable `q`-reduced divisor is the canonical `toConfig D - q` form. -/
+lemma maximal_unwinnable_q_reduced_toConfig_form {G : CFGraph} (q : G.V) (D : CFDiv G)
+    (h_max : maximal_unwinnable G D) (h_qred : q_reduced G q D) :
+    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+  exact q_reduced_eq_vertex_degree_sub_one_chip G q D h_qred
+    (maximal_unwinnable_q_reduced_chips_at_q G q D h_max h_qred)
+
+/-- A divisor of the form `c - q` is maximal unwinnable when `c` is maximal superstable. -/
+lemma maximal_unwinnable_of_maximal_superstable_form {G : CFGraph}
+    (h_conn : graph_connected G) (q : G.V) (c : Config G q) :
+    maximal_superstable G c → maximal_unwinnable G (c.vertex_degree - one_chip q) := by
+  intro h_max_c
+  refine ⟨helper_superstable_to_unwinnable h_conn q c h_max_c, ?_⟩
+  intro v
+  exact helper_maximal_superstable_chip_winnable_exact h_conn q c h_max_c v
+
+/-- For a `q`-reduced divisor, maximal unwinnability is equivalent to its canonical
+configuration being maximal superstable together with the `c - q` form. -/
+lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
+    (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) (h_qred : q_reduced G q D) :
+    maximal_unwinnable G D ↔
+    maximal_superstable G (toConfig ⟨D, h_qred.1⟩) ∧
+    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+  constructor
+  · intro h_max
+    constructor
+    · let c : Config G q := toConfig ⟨D, h_qred.1⟩
+      have h_super_c : superstable G q c := q_reduced_toConfig_superstable G q D h_qred
+      have h_form_D : D = c.vertex_degree - one_chip q := by
+        exact maximal_unwinnable_q_reduced_toConfig_form q D h_max h_qred
+      by_contra h_not_max_c
+      rcases maximal_superstable_exists G q c h_super_c with ⟨c', h_max_c', h_ge⟩
+      have h_ne : c' ≠ c := by
+        intro h_eq
+        apply h_not_max_c
+        simpa [h_eq] using h_max_c'
+      have h_strict : ∃ v : G.V, c.vertex_degree v + 1 ≤ c'.vertex_degree v := by
+        by_contra h_no
+        push Not at h_no
+        have h_c'_le_c : c' ≤ c := by
+          intro v
+          linarith [h_no v]
+        exact h_ne ((le_antisymm h_ge h_c'_le_c).symm)
+      rcases h_strict with ⟨v, h_v_strict⟩
+      have h_H_eff : effective (c'.vertex_degree - c.vertex_degree - one_chip v) := by
+        intro w
+        by_cases h_wv : w = v
+        · rw [h_wv]
+          simp [one_chip]
+          linarith [h_ge v, h_v_strict]
+        · simp [one_chip, h_wv]
+          linarith [h_ge w]
+      have h_D''_eq :
+          c'.vertex_degree - one_chip q =
+            (c'.vertex_degree - c.vertex_degree - one_chip v) + (D + one_chip v) := by
+        rw [h_form_D]
+        funext w
+        simp [sub_eq_add_neg]
+        abel_nf
+      have h_D''_unwin : ¬winnable G (c'.vertex_degree - one_chip q) :=
+        helper_superstable_to_unwinnable h_conn q c' h_max_c'
+      apply h_D''_unwin
+      rw [h_D''_eq]
+      exact winnable_add_winnable G (c'.vertex_degree - c.vertex_degree - one_chip v) (D + one_chip v)
+        (winnable_of_effective G _ h_H_eff) (h_max.2 v)
+    · exact maximal_unwinnable_q_reduced_toConfig_form q D h_max h_qred
+  · rintro ⟨h_max_c, h_form⟩
+    rw [h_form]
+    exact maximal_unwinnable_of_maximal_superstable_form h_conn q _ h_max_c
+
 
 /-- A divisor $D$ is maximal unwinnable if and only if it is linearly equivalent to $c - q$
 for some maximal superstable configuration $c$.
@@ -287,193 +341,23 @@ theorem maximal_unwinnable_char {G : CFGraph} (h_conn : graph_connected G) (q : 
   D' = c.vertex_degree - one_chip q := by
   constructor
   { -- Forward direction (⇒)
-    intro h_max_unwinnable_D -- Assume D is maximal unwinnable
-    -- Get the unique q-reduced representative D' for D
+    intro h_max_unwinnable_D
     rcases unique_q_reduced h_conn q D with ⟨D', ⟨h_D_equiv_D', h_qred_D'⟩, _⟩
-    -- Show D' corresponds to some superstable c
-    rcases (q_reduced_superstable_correspondence G q D').mp h_qred_D' with ⟨c, h_super_c, h_form_D'_eq_c⟩
-
-    -- Consider extracting this into a lemma for use elsewhere
-    have h_form_D' : D' = c.vertex_degree - one_chip q := by
-      apply maximal_unwinnable_q_reduced_form G q D' c _ h_qred_D' h_form_D'_eq_c
-      -- Verify that D' is also maximal unwinnable
-      apply maximal_unwinnable_preserved G D D' h_max_unwinnable_D h_D_equiv_D'
-
-    -- Prove that this c must be maximal superstable
-    have h_max_super_c : maximal_superstable G c := by
-      -- Prove by contradiction: Assume c is not maximal superstable
-      by_contra h_not_max_c
-      -- If c is superstable but not maximal, there exists a strictly dominating maximal c'
-      rcases maximal_superstable_exists G q c h_super_c with ⟨c', h_max_c', h_ge_c'_c⟩
-      -- Define D'' based on the maximal superstable c'
-      let D'' := c'.vertex_degree - one_chip q
-      -- Show D'' is q-reduced (from correspondence with superstable c')
-      have D''_toDiv : D'' = toDiv (deg D'') c' := by
-        have h_deg_D'' : deg D'' = config_degree c' - 1 := by
-          dsimp [D'']
-          exact deg_vertex_degree_sub_one_chip (c := c')
-        rw [h_deg_D'']
-        dsimp [D'']
-        exact (toDiv_config_degree_sub_one (c := c')).symm
-      have h_qred_D'' := (q_reduced_superstable_correspondence G q D'').mpr ⟨c', ⟨ h_max_c'.1, D''_toDiv⟩⟩
-
-      -- Show D'' is also unwinnable
-      have h_D''_unwinnable : ¬(winnable G D'') := by
-        by_contra! h_win
-        dsimp [winnable] at h_win
-        rcases h_win with ⟨E, E_eff, E_equiv⟩
-        let E_equiv := (linear_equiv_is_equivalence G).symm E_equiv
-
-        have : effective D'' := helper_q_reduced_of_effective_is_effective G q E D'' E_eff E_equiv h_qred_D''
-        dsimp [effective] at this
-        specialize this q
-        dsimp [D''] at this
-        simp [c'.q_zero] at this
-
-      -- Show D'' dominates D'
-      have h_D''_ge_D' : D'' ≥ D' := by
-        rw [h_form_D']; dsimp [D'']
-        intro v
-        simp
-        -- Goal: c.vertex_degree v ≤ c'.vertex_degree v
-        exact h_ge_c'_c v
-
-      -- Deduce that D'' = D' by maximality of D'
-      have h_D'_eq_D'' : D' = D'' := by
-        funext v
-        by_contra h_neq
-        have h_strict : D'' v > D' v := lt_of_le_of_ne (h_D''_ge_D' v) h_neq
-        have h_plus_one : D'' v ≥ D' v + 1 := by linarith
-
-        have h_D''_ge_D'_plus_one : D'' ≥ D' + one_chip v := by
-          intro w
-          by_cases hw : w = v
-          · simp [hw, h_plus_one]
-          · rw [add_apply]
-            simp [hw]
-            exact (h_D''_ge_D' w)
-
-        have helper : winnable G (D'' - D' - one_chip v) := by
-          suffices effective (D'' - D' - one_chip v) by
-            exact winnable_of_effective G (D'' - D' - one_chip v) this
-          intro w
-          specialize h_D''_ge_D'_plus_one w
-          simp at h_D''_ge_D'_plus_one
-          simp
-          linarith
-
-        have h_unwin_D'_plus_one : ¬ (winnable G (D' + one_chip v)) := by
-          contrapose! h_D''_unwinnable with h_win
-          have := winnable_add_winnable G (D'' - D' - one_chip v) (D' + one_chip v) helper h_win
-          simp at this
-          exact this
-
-        let W := D + one_chip v
-        have W_win : winnable G W := h_max_unwinnable_D.2 v
-        have W_equiv_D'_plus_one : linear_equiv G W (D' + one_chip v) := by
-          dsimp [linear_equiv, W]
-          simp
-          exact h_D_equiv_D'
-
-        -- Contradiction: W is winnable, hence D' + one_chip v is winnable.
-        apply winnable_equiv_winnable G W (D'+one_chip v)  at W_win
-        exact h_unwin_D'_plus_one (W_win W_equiv_D'_plus_one)
-
-      -- Now relate c and c' using D' = D''
-      have h_lambda_eq : (c.vertex_degree - one_chip q) = (c'.vertex_degree - one_chip q) := by
-        rw [← h_form_D', h_D'_eq_D'']
-
-      -- This pointwise equality implies c = c'
-      have h_c_eq_c' : c = c' := by
-        -- Prove equality by showing fields are equal
-        cases c; cases c' -- Expose fields vertex_degree and non_negative_except_q
-        -- Use simp [mk.injEq] to reduce goal to field equality (proves non_negative_except_q equality automatically)
-        simp only [Config.mk.injEq]
-        -- Prove vertex_degree functions are equal using h_lambda_eq
-        funext v
-        have h_pointwise_eq := congr_fun h_lambda_eq v
-        -- Use Int.sub_right_inj to simplify the equality
-        simp at h_pointwise_eq
-
-        -- rw [Int.sub_right_inj] at h_pointwise_eq
-        exact h_pointwise_eq -- The hypothesis now matches the goal
-
-      -- Contradiction: helper_maximal_superstable_exists implies c' ≠ c if c wasn't maximal
-      have h_c_ne_c' : c ≠ c' := by
-        intro hc_eq_c' -- Assume c = c' for contradiction
-        -- Rewrite c' to c in the hypothesis h_max_c' using the assumed equality
-        rw [← hc_eq_c'] at h_max_c'
-        -- h_max_c' now has type: maximal_superstable G c ∧ c ≤ c
-        -- This contradicts the initial assumption h_not_max_c (¬ maximal_superstable G c)
-        exact h_not_max_c h_max_c' -- Apply h_not_max_c to the full hypothesis
-
-      -- We derived c = c' and c ≠ c', the final contradiction
-      exact h_c_ne_c' h_c_eq_c'
-    -- End of by_contra proof. We now know maximal_superstable G c holds.
-
-    -- Construct the main existential result for the forward direction
-    use c, h_max_super_c -- We found the required maximal superstable c
-    use D', h_qred_D', h_D_equiv_D'
-    -- Show D' = form(c)
+    let c : Config G q := toConfig ⟨D', h_qred_D'.1⟩
+    have h_max_D' : maximal_unwinnable G D' :=
+      maximal_unwinnable_preserved G D D' h_max_unwinnable_D h_D_equiv_D'
+    have h_core := (maximal_unwinnable_q_reduced_toConfig_iff h_conn q D' h_qred_D').mp h_max_D'
+    refine ⟨c, h_core.1, D', h_qred_D', h_D_equiv_D', ?_⟩
+    exact h_core.2
   }
   { -- Reverse direction (⇐)
-    intro h_exists -- Assume the existence of c, D' with the given properties
+    intro h_exists
     rcases h_exists with ⟨c, h_max_c, D', h_qred_D', h_D_equiv_D', h_form_D'_eq_c⟩
-
-    -- Goal: Prove maximal_unwinnable G D
-    constructor
-    { -- Part 1: Show D is unwinnable (¬winnable G D)
-      intro h_win_D -- Assume 'winnable G D' for contradiction
-      -- Use linear equivalence to transfer winnability from D to D'
-      have h_win_D' : winnable G D' :=
-        winnable_equiv_winnable G D D' h_win_D h_D_equiv_D'
-
-      -- The divisor form derived from a maximal superstable config is unwinnable
-      have h_unwin_form : ¬(winnable G (λ v => c.vertex_degree v - if v = q then 1 else 0)) :=
-        helper_superstable_to_unwinnable h_conn q c h_max_c
-
-      -- Since D' equals this form, D' is unwinnable
-      have h_unwin_D' : ¬(winnable G D') := by
-        rw [h_form_D'_eq_c] -- Rewrite goal to use the form
-        exact h_unwin_form -- Apply the unwinnability of the form
-
-      -- Contradiction between h_win_D' and h_unwin_D'
-      exact h_unwin_D' h_win_D'
-    }
-    { -- Part 2: Show D + δᵥ is winnable for any v (∀ v, winnable G (D + δᵥ))
-      intro v -- Take an arbitrary vertex v
-
-      -- Define the divisor form associated with c and the form plus δᵥ
-      let D'_form : CFDiv G := λ w => c.vertex_degree w - if w = q then (1 : ℤ) else (0 : ℤ)
-      let delta_v : CFDiv G := fun w => ite (w = v) 1 0
-      let D'_form_plus_delta_v := D'_form + delta_v
-
-      -- Adding a chip to the form derived from a maximal superstable config makes it winnable
-      have h_win_D'_form_plus_delta_v : winnable G D'_form_plus_delta_v :=
-        helper_maximal_superstable_chip_winnable_exact h_conn q c h_max_c v
-
-      -- Define D + δᵥ
-      let D_plus_delta_v := D + delta_v
-
-      -- Show that D + δᵥ is linearly equivalent to D' + δᵥ (which equals D'_form + δᵥ)
-      have h_equiv_plus_delta : linear_equiv G D_plus_delta_v D'_form_plus_delta_v := by
-        -- Goal: (D'_form + delta_v) - (D + delta_v) ∈ P
-        unfold linear_equiv -- Explicitly unfold goal
-        -- Simplify the difference using group properties
-        have h_diff_simp : (D'_form + delta_v) - (D + delta_v) = D'_form - D := by
-           funext w; simp only [add_apply, sub_apply]; ring -- Pointwise proof (use funext)
-        rw [h_diff_simp] -- Apply simplification
-        -- Goal: D'_form - D ∈ P
-        -- We know D' - D ∈ P (from h_D_equiv_D')
-        unfold linear_equiv at h_D_equiv_D'
-        -- We know D' = D'_form (by h_form_D'_eq_c)
-        rw [h_form_D'_eq_c] at h_D_equiv_D' -- Rewrite D' as D'_form in h_D_equiv_D'
-        exact h_D_equiv_D' -- Use the rewritten hypothesis
-
-      -- Since D + δᵥ is linearly equivalent to a winnable divisor (D'_form + δᵥ), it must be winnable.
-      apply winnable_equiv_winnable G D'_form_plus_delta_v D_plus_delta_v h_win_D'_form_plus_delta_v
-      exact (linear_equiv_is_equivalence G).symm h_equiv_plus_delta
-    }
+    have h_max_D' : maximal_unwinnable G D' := by
+      rw [h_form_D'_eq_c]
+      exact maximal_unwinnable_of_maximal_superstable_form h_conn q c h_max_c
+    exact maximal_unwinnable_preserved G D' D h_max_D'
+      ((linear_equiv_is_equivalence G).symm h_D_equiv_D')
   }
 
 /-- Combined characterization: `maximal_superstable_config_prop` and `maximal_unwinnable_char`
