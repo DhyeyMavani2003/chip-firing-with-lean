@@ -17,7 +17,7 @@
    "manifestFile": "lake-manifest.json",
    "inherited": false,
    "dir": "../",
-   "configFile": "lakefile.lean"},
+   "configFile": "lakefile.toml"},
   {"url": "https://github.com/kim-em/leansqlite",
    "type": "git",
    "subDir": null,
