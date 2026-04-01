@@ -64,7 +64,7 @@ lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
       split_ifs
       · simp [k_nonneg]
       · simp
-    rw [smul_apply]
+    simp
     linarith
   have h_winnable_D' : winnable G D' := winnable_of_effective G D' D'_eff
   apply winnable_equiv_winnable G D' D h_winnable_D'
@@ -78,7 +78,7 @@ lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D : CFDiv
   have h_neg : D q < 0 := by
     contrapose! h_max_unwin
     unfold maximal_unwinnable
-    push_neg
+    push Not
     intro h_unwin
     absurd h_unwin
     suffices effective D by

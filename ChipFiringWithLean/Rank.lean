@@ -38,9 +38,7 @@ lemma winnable_equiv_winnable (G : CFGraph) (D1 D2 : CFDiv G) :
   · -- Show that D2 is linearly equivalent to D1'
     have : linear_equiv G D2 D1 := by
       exact (linear_equiv_is_equivalence G).symm h_lequiv
-    apply (linear_equiv_is_equivalence G).transitive
-    exact this
-    exact h_lequiv1
+    exact (linear_equiv_is_equivalence G).trans this h_lequiv1
 
 
 /-- A divisor is maximal unwinnable if it is unwinnable but adding
@@ -182,7 +180,7 @@ lemma winnable_add_winnable (G : CFGraph) (D1 D2 : CFDiv G)
 lemma rank_le_degree (G : CFGraph) (D : CFDiv G) : ∀ (r : ℤ), r ≥ 0 → rank_geq G D r → r ≤ deg D := by
   intro r r_nonneg h_rank
   contrapose! h_rank
-  unfold rank_geq; push_neg
+  unfold rank_geq; push Not
   have ex_E := eff_of_degree_nonempty D
   specialize ex_E r.toNat
   have : r.toNat =r := by simp; assumption
@@ -387,7 +385,7 @@ lemma rank_get_effective (G : CFGraph) (D : CFDiv G) :
   have h : rank_eq G D (rank G D) := by rw [rank_eq_iff]
   rcases h with ⟨_, h_r_not_geq⟩
   dsimp [rank_geq] at h_r_not_geq
-  push_neg at h_r_not_geq
+  push Not at h_r_not_geq
   rcases h_r_not_geq with ⟨E, ⟨h_E_eff, h_E_deg⟩, h_E_not_winnable⟩
   exact ⟨E, h_E_eff, h_E_deg, h_E_not_winnable⟩
 

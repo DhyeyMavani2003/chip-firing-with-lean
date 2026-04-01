@@ -380,7 +380,8 @@ theorem gonality_leq_genus_add_one
   let D : CFDiv G := (genus G + 1) • one_chip q
   have h_deg_D : deg D = genus G + 1 := by
     dsimp [D]
-    simp [deg_one_chip, AddMonoidHom.map_zsmul deg (one_chip q) (genus G + 1)]
+    rw [map_zsmul, deg_one_chip, zsmul_one]
+    simp
   have h_rank_geq : rank_geq G D 1 := by
     intro E hE
     dsimp [eff_of_degree] at hE

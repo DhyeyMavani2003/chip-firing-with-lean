@@ -12,7 +12,7 @@ package "chip-firing-with-lean" where
     "-lctranslate2"
   ]
 
-require "leanprover-community" / "mathlib"
+require "leanprover-community" / "mathlib" @ "v4.29.0"
 require Paperproof from git "https://github.com/Paper-Proof/paperproof.git"@"main"/"lean"
 
 @[default_target]

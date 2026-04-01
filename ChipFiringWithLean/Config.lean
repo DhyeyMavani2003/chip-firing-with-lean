@@ -121,8 +121,8 @@ def toConfig {q : G.V} (D : q_eff_div G q) : Config G q := {
 
 /-- The degree of a $q$-effective divisor equals its value at `q` plus the configuration degree. -/
 def config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q + config_degree (toConfig D) := by
-  dsimp [config_degree, toConfig, one_chip]
-  simp
+  simp only [config_degree, toConfig, map_sub, map_zsmul, deg_one_chip, smul_eq_mul, mul_one]
+  ring
 
 /-- `toConfig` is a left inverse of `to_qed`: converting a configuration to a $q$-effective
 divisor and back recovers the original configuration. -/
@@ -176,8 +176,8 @@ lemma div_of_config_of_div (D : q_eff_div G q) :
       contrapose! h
       simp [h]
     rw [this]
-    unfold toConfig config_degree
-    simp
+    simp only [(toConfig D).q_zero, zero_add, one_chip, ite_true, mul_one]
+    linarith [config_degree_div_degree D]
 
 @[simp] lemma eval_toDiv_q {q : G.V} (d : ℤ) (c : Config G q) :
   toDiv d c q = d - config_degree c := by
@@ -724,11 +724,8 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
               rw [h_eq]
               simp
             . intro h_neq
-              rw [List.idxOf_cons_ne]
+              rw [List.idxOf_cons_ne _ (Ne.symm h_neq)]
               simp
-              intro h
-              rw [h] at h_neq
-              contradiction
           rw [this]
           constructor
           . -- Forward direction
@@ -775,26 +772,19 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
             simp at this
             simp [this]
           intro w
-          dsimp [burn_flow]
+          dsimp [burn_flow, L']
           rw [h]
-          dsimp [L']
-          rw [← h'] at *
-          rw [List.idxOf_cons_ne]
+          rw [List.idxOf_cons_ne _ (Ne.symm h_vx)]
           by_cases h_wx : w = x
           . -- Subcase: w = x
             rw [h_wx]
-            rw [h'] at h_x_nin_rest
-            dsimp [L']
-            simp [h_x_nin_rest]
+            have h0 : (x :: y :: rest').idxOf x = 0 := List.idxOf_cons_self
+            rw [h0, if_neg (fun ⟨_, h⟩ => Nat.not_lt_zero _ h),
+               if_neg (fun ⟨h_mem, _⟩ => (h' ▸ h_x_nin_rest) h_mem)]
           . -- Subcase: w ≠ x
-            simp [h_wx]
-            repeat rw [List.idxOf_cons_ne]
-            dsimp [L']
-            simp
-            contrapose! h_wx
-            rw [h_wx]
-          contrapose! h_vx
-          rw [h_vx]
+            simp only [List.mem_cons, h_wx, false_or]
+            rw [List.idxOf_cons_ne (y :: rest') (Ne.symm h_wx)]
+            simp only [Nat.succ_lt_succ_iff]
         simp only [h_step]
         have h_ind := burnin_degree L' v h_v_in_L' h_ne
         exact h_ind

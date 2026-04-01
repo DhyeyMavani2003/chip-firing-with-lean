@@ -759,19 +759,15 @@ lemma degree_ordiv {G : CFGraph} (O : CFOrientation G) :
 /-- The configuration degree of an acyclic orientation with unique source equals the genus. -/
 lemma config_degree_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
   config_degree (orientation_to_config G O q h_acyclic h_unique_source) = genus G := by
-  have : orientation_to_config G O q h_acyclic h_unique_source =
-         toConfig (orqed O h_acyclic h_unique_source) := by
-    exact config_and_divisor_from_O O h_acyclic h_unique_source
-  rw [this]
-  dsimp [config_degree, toConfig, orqed, ordiv]
-  simp
-  rw [degree_ordiv]
-  simp
-  -- Need to show that q *is* a source. May want to separate this into a reusable lemma.
-  have h_q_source : is_source G O q := by
-    exact is_source_of_unique_source O h_acyclic h_unique_source
-  dsimp [is_source] at h_q_source
-  exact h_q_source
+  rw [config_and_divisor_from_O O h_acyclic h_unique_source]
+  -- Use config_degree_div_degree to relate config_degree to deg of the underlying divisor.
+  have h_q_source : indeg G O q = 0 := is_source_of_unique_source O h_acyclic h_unique_source
+  have h1 := config_degree_div_degree (orqed O h_acyclic h_unique_source)
+  -- (orqed O ...).D = ordiv G O definitionally, so:
+  have h2 : (orqed O h_acyclic h_unique_source).D q = (indeg G O q : ℤ) - 1 := rfl
+  have h3 : deg (orqed O h_acyclic h_unique_source).D = (genus G : ℤ) - 1 := degree_ordiv O
+  have h4 : (indeg G O q : ℤ) = 0 := by exact_mod_cast h_q_source
+  linarith
 
 /-- The orientation divisor $D(\mathcal{O})$ of an acyclic orientation $\mathcal{O}$ is not
 winnable. This is part of [Corry-Perkinson], Proposition 4.11. -/
