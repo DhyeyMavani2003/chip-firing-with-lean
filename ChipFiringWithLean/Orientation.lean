@@ -1,4 +1,5 @@
 import ChipFiringWithLean.Config
+import Mathlib.Data.DFinsupp.Multiset
 -- import Paperproof
 
 set_option linter.unusedVariables false
@@ -217,10 +218,7 @@ def non_repeating {G: CFGraph} {O : CFOrientation G} (p : DirectedPath O) : Prop
 lemma path_length_bound {G : CFGraph} {O : CFOrientation G} (p : DirectedPath O) :
   non_repeating p → p.vertices.length ≤ Fintype.card G.V := by
   intro h_distinct
-  have h_injective := List.nodup_iff_injective_get.mp h_distinct
-  have h_card := Fintype.card_le_of_injective p.vertices.get h_injective
-  refine le_trans ?_ h_card
-  simp
+  exact List.Nodup.length_le_card h_distinct
 
 /-- An orientation is acyclic if it has no directed cycles and
     maintains consistent edge directions between vertices -/
@@ -1296,22 +1294,24 @@ Given a complete burn list `L` for a superstable configuration `c`, the function
 (`burn_acyclic`, `burn_unique_source`). Acyclicity is proved by showing that position in
 the burn list gives a strictly decreasing labeling along any directed path (`dp_dec`).
 
-The helper definitions `dec` and `dec'` formalize strictly decreasing sequences of natural
-numbers, and `orientation_from_flow` constructs a `CFOrientation` from an explicit flow
-function.
+The key lemma `dp_dec` formalizes this as a strict chain of natural numbers, and
+`orientation_from_flow` constructs a `CFOrientation` from an explicit flow function.
 -/
 
-/-- Create a multiset with a given count function. This seems
-  likely to be in Mathlib already, but I didn't find it. -/
-def multiset_of_count {T : Type*} [Fintype T] (f : T → ℕ) : Multiset T :=
-  (univ : Finset T).val.bind (fun e => Multiset.replicate (f e) e)
+/-- Create a multiset with a given count function. This is a thin wrapper around
+`DFinsupp.toMultiset` specialized to a finite type. -/
+def multiset_of_count {T : Type*} [DecidableEq T] [Fintype T] (f : T → ℕ) : Multiset T :=
+  DFinsupp.toMultiset (DFinsupp.equivFunOnFintype.symm f)
 
 @[simp] lemma count_of_multiset_of_count {T : Type*} [DecidableEq T] [Fintype T]
     (f : T → ℕ) : ∀ e : T, Multiset.count e (multiset_of_count f) = f e := by
   intro e
-  dsimp [multiset_of_count]
-  rw [Multiset.count_bind]
-  simp [Multiset.count_replicate]
+  rw [← Multiset.toDFinsupp_apply]
+  calc
+    (Multiset.toDFinsupp (multiset_of_count f)) e = (DFinsupp.equivFunOnFintype.symm f) e := by
+      simp [multiset_of_count]
+    _ = f e := by
+      simpa using congrFun (Equiv.apply_symm_apply DFinsupp.equivFunOnFintype f) e
 
 /-- Construct a `CFOrientation` from an explicit flow function, given proofs that it respects
 edge multiplicities and has no bidirectional edges. -/
@@ -1332,172 +1332,32 @@ via `burn_flow`. This is shown to be acyclic with unique source $q$ by `burn_acy
 `burn_unique_source`. -/
 def burn_orientation {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list): CFOrientation G := orientation_from_flow (burn_flow L) (burn_flow_reverse L h_full) (burn_flow_directed L h_full)
 
-/-- Utility for proving acyclicity. This is a fairly basic fact
-  that may be in Mathlib, but I haven't found it. -/
-lemma nodup_of_map_nodup (S T : Type*) (L : List S) (f : S → T) :  (L.map f).Nodup → L.Nodup := by
-  intro h_nodup
-  cases h : L with
-  | nil =>
-    simp
-  | cons x xs =>
-    rw [h] at h_nodup
-    simp at h_nodup
-    simp
-    constructor
-    · -- First element does not repeat
-      have h' := h_nodup.1
-      contrapose! h'
-      have h_in_map : f x ∈ (xs.map f) := by
-        rw [List.mem_map]
-        use x
-      use x
-    · -- Rest of list is nodup
-      have h' := h_nodup.2
-      -- Recursive call. Lean knows that this terminates.
-      exact nodup_of_map_nodup S T xs f h'
-
--- Some basic facts about decreasing sequences.
--- Again, these may be in Mathlib somewhere, but
--- I haven't found them.
-
-/-- A list of natural numbers is *decreasing* (`dec`) if every element is greater than all
-subsequent elements. -/
-def dec (L : List ℕ) : Prop :=
-    match L with
-    | [] => True
-    | x :: xs => (∀ y ∈ xs, x > y) ∧ dec xs
-
-/-- A decreasing list has no duplicates. -/
-lemma nodup_of_dec (L : List ℕ) (h_dec : dec L) : L.Nodup := by
-  cases h : L with
-  | nil =>
-    simp
-  | cons x xs =>
-    rw [h] at h_dec
-    simp
-    constructor
-    · -- First element does not repeat
-      have h' := h_dec.1
-      intro h_in_xs
-      specialize h' x h_in_xs
-      linarith
-    · -- Rest of list is nodup
-      have h' := h_dec.2
-      -- Recursive call. Lean knows that this terminates.
-      exact nodup_of_dec xs h'
-
-/-- An equivalent pairwise-consecutive formulation of `dec`: each element is greater than the
-next. -/
-def dec' (L : List ℕ) : Prop :=
-  match L with
-  | [] => True
-  | [x] => True
-  | x :: y :: zs => (x > y) ∧ dec' (y :: zs)
-
-/-- The definitions `dec` and `dec'` are equivalent. -/
-lemma dec_iff_dec' (L : List ℕ) : dec L ↔ dec' L := by
-  cases h : L with
-  | nil =>
-    simp [dec, dec']
-  | cons x xs =>
-    cases h' : xs with
-    | nil =>
-      simp [dec, dec']
-    | cons y ys =>
-      constructor
-      . -- dec → dec'
-        intro h_dec
-        simp [dec']
-        constructor
-        · exact h_dec.1 y (by simp)
-        · exact (dec_iff_dec' (y::ys)).mp h_dec.2
-      . -- dec' → dec
-        intro h_dec'
-        simp [dec]
-        simp [dec'] at h_dec'
-        constructor
-        · constructor
-          exact h_dec'.1
-          have := (dec_iff_dec' (y::ys)).mpr h_dec'.2
-          dsimp [dec] at this
-          have := this.1
-          intro z h_z_in_ys
-          specialize this z
-          apply this at h_z_in_ys
-          linarith [h_dec'.1]
-        · exact (dec_iff_dec' (y::ys)).mpr h_dec'.2
-
-
 /-- Along any directed path in `burn_orientation L`, the positions of vertices in the burn list
 are strictly decreasing. This is the key lemma for proving acyclicity. -/
 lemma dp_dec {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list) (p : DirectedPath (burn_orientation L h_full)) :
-  dec (p.vertices.map (λ v => List.idxOf v L.list)) := by
-  suffices h_dec' : dec' (p.vertices.map (λ v => List.idxOf v L.list)) by
-    rw [← dec_iff_dec'] at h_dec'
-    exact h_dec'
-  cases h : p.vertices with
-  | nil =>
-    simp [dec']
-  | cons v vs =>
-    cases h' : vs with
-    | nil =>
-      simp [dec']
-    | cons v' vs' =>
-      rw [h'] at h
-      simp [dec']
-      have h_valid := p.valid_edges
-      rw [h] at h_valid
-      simp at h_valid
-      have h_dec := h_valid.1
-      dsimp [directed_edge] at h_dec
-      simp [burn_orientation] at h_dec
-      dsimp [orientation_from_flow] at h_dec
-      have h_edge: Multiset.count ⟨v,v'⟩ (multiset_of_count (burn_flow L)) > 0 := by
-        contrapose! h_dec with h_count
-        apply Nat.eq_zero_of_le_zero at h_count
-        exact Multiset.count_eq_zero.mp h_count
-      simp at h_edge
-      dsimp [burn_flow] at h_edge
-
-      constructor
-      · -- Show first element greater than second
-        by_contra! h_not_gt
-        have : ¬ ( v ∈ L.list ∧ List.idxOf v' L.list < List.idxOf v L.list) := by
-          intro ⟨_, h_lt⟩
-          omega
-        simp [this] at h_edge
-      · -- Show rest is decreasing
-        let p' : DirectedPath (burn_orientation L h_full) := {
-          vertices := v' :: vs',
-          non_empty := by
-            rw [List.length_cons]
-            exact Nat.succ_pos _,
-          valid_edges := by
-            have := p.valid_edges
-            rw [h] at this
-            simp at this
-            exact this.2
-        }
-        have goal := dp_dec L h_full p'
-        rw [dec_iff_dec'] at goal
-        have : p'.vertices = v' :: vs' := by
-          rfl
-        rw [this] at goal
-        exact goal
-termination_by p.vertices.length
-decreasing_by
-  rw [h'] at h
-  rw [h]
-  simp
+  List.IsChain (· > ·) (p.vertices.map (λ v => List.idxOf v L.list)) := by
+  refine List.isChain_map_of_isChain (f := fun v => List.idxOf v L.list) ?_ p.valid_edges
+  intro v v' h_edge
+  dsimp [directed_edge] at h_edge
+  simp [burn_orientation] at h_edge
+  dsimp [orientation_from_flow] at h_edge
+  have h_count : Multiset.count ⟨v,v'⟩ (multiset_of_count (burn_flow L)) > 0 := by
+    contrapose! h_edge with h_zero
+    apply Nat.eq_zero_of_le_zero at h_zero
+    exact Multiset.count_eq_zero.mp h_zero
+  simp at h_count
+  dsimp [burn_flow] at h_count
+  by_contra! h_not_gt
+  have : ¬ (v ∈ L.list ∧ List.idxOf v' L.list < List.idxOf v L.list) := by
+    intro ⟨_, h_lt⟩
+    omega
+  simp [this] at h_count
 
 /-- Every directed path in `burn_orientation L` has no repeated vertices. -/
 lemma burn_nodup {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list) (p : DirectedPath (burn_orientation L h_full)) : p.vertices.Nodup := by
   let q : List ℕ := p.vertices.map (λ v => List.idxOf v L.list)
-  suffices q.Nodup by
-    exact nodup_of_map_nodup _ _ p.vertices (λ v => List.idxOf v L.list) this
-  -- Now prove that q is nodup
-  have h_dec := dp_dec L h_full p
-  exact nodup_of_dec q h_dec
+  have h_sorted : q.SortedGT := (List.sortedGT_iff_isChain).2 (dp_dec L h_full p)
+  exact List.Nodup.of_map (λ v => List.idxOf v L.list) h_sorted.nodup
 
 /-- The orientation constructed from a complete burn list is acyclic. -/
 lemma burn_acyclic {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list) :
