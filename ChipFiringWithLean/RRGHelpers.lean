@@ -15,27 +15,52 @@ maximal unwinnable divisors:
 
 - A superstable configuration $c$ is maximal if and only if $\deg(c) = g$
   (`maximal_superstable_config_prop`).
-- A divisor $D$ is maximal unwinnable if and only if it is linearly equivalent to
-  $c - q$ for some maximal superstable $c$ (`maximal_unwinnable_char`).
+- A divisor $D$ is maximal unwinnable if and only if its canonical $q$-reduced representative
+  is `qReducedConfig h_conn q D - q`, with `qReducedConfig h_conn q D` maximal superstable
+  (`maximal_unwinnable_char`).
 - Every maximal unwinnable divisor has degree $g - 1$ (`maximal_unwinnable_deg`).
 -/
 
-/-- Every divisor $D$ is linearly equivalent to $c + k \cdot q$ for some superstable
-configuration $c$ and integer $k$. -/
+/-- The chosen unique `q`-reduced representative of the linear equivalence class of `D`. -/
+noncomputable def qReducedRep {G : CFGraph}
+    (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) : CFDiv G :=
+  Classical.choose (unique_q_reduced h_conn q D)
+
+/-- The canonical representative is linearly equivalent to `D` and `q`-reduced. -/
+lemma qReducedRep_spec {G : CFGraph}
+    (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
+    linear_equiv G D (qReducedRep h_conn q D) ∧ q_reduced G q (qReducedRep h_conn q D) :=
+  (Classical.choose_spec (unique_q_reduced h_conn q D)).1
+
+/-- The configuration obtained from the canonical `q`-reduced representative of `D`
+by zeroing out the chips at `q`. -/
+noncomputable def qReducedConfig {G : CFGraph}
+    (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) : Config G q :=
+  toConfig ⟨qReducedRep h_conn q D, (qReducedRep_spec h_conn q D).2.1⟩
+
+/-- The canonical configuration attached to `D` is superstable. -/
+lemma qReducedConfig_superstable {G : CFGraph}
+    (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
+    superstable G q (qReducedConfig h_conn q D) := by
+  exact q_reduced_toConfig_superstable G q (qReducedRep h_conn q D) (qReducedRep_spec h_conn q D).2
+
+/-- Every divisor $D$ is linearly equivalent to `qReducedConfig h_conn q D + k·q`
+for some integer `k`; in particular, it is linearly equivalent to `c + k·q` for a
+superstable configuration `c`. -/
 lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
   ∃ (c : Config G q) (k : ℤ),
     linear_equiv G D (c.vertex_degree + k • (one_chip q)) ∧
     superstable G q c := by
-  rcases exists_q_reduced_representative h_conn q D with ⟨D', h_equiv_D_D', h_qred_D'⟩
-  let c : Config G q := toConfig ⟨D', h_qred_D'.1⟩
+  let D' := qReducedRep h_conn q D
+  let c := qReducedConfig h_conn q D
   use c, D' q
   constructor
   ·
-    have h := h_equiv_D_D'
-    rw [q_reduced_eq_vertex_degree_add_q G q D' h_qred_D'] at h
-    exact h
+    have h := (qReducedRep_spec h_conn q D).1
+    rw [q_reduced_eq_vertex_degree_add_q G q (qReducedRep h_conn q D) (qReducedRep_spec h_conn q D).2] at h
+    simpa [D', c] using h
   ·
-    exact q_reduced_toConfig_superstable G q D' h_qred_D'
+    simpa [c] using qReducedConfig_superstable h_conn q D
 
 /-- If $D$ is unwinnable and $D \sim c + k \cdot q$ for a superstable $c$, then $k < 0$. -/
 lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
@@ -117,8 +142,9 @@ lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : m
   rw [← h_orient_eq]
   exact config_degree_from_O O hO
 
-/-- If $D$ is maximal unwinnable, $q$-reduced, and equals `toDiv (deg D) c`, then
-$D = c - q$. This is [Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
+/-- If `D` is maximal unwinnable and `q`-reduced, then any configuration `c` satisfying
+`D = toDiv (deg D) c` must realize `D` as `c - q`. This is the `q`-reduced core of
+[Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
 lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c : Config G q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
   intro h_max_unwinnable h_qred h_toDeg
@@ -260,7 +286,7 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : gra
       _ ≥ genus G := by rfl
   exact winnable_of_deg_ge_genus h_conn D' deg_ineq
 
-/-- A maximal unwinnable `q`-reduced divisor is the canonical `toConfig D - q` form. -/
+/-- A maximal unwinnable `q`-reduced divisor is the canonical `toConfig` form minus one chip at `q`. -/
 lemma maximal_unwinnable_q_reduced_toConfig_form {G : CFGraph} (q : G.V) (D : CFDiv G)
     (h_max : maximal_unwinnable G D) (h_qred : q_reduced G q D) :
     D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
@@ -276,8 +302,8 @@ lemma maximal_unwinnable_of_maximal_superstable_form {G : CFGraph}
   intro v
   exact helper_maximal_superstable_chip_winnable_exact h_conn q c h_max_c v
 
-/-- For a `q`-reduced divisor, maximal unwinnability is equivalent to its canonical
-configuration being maximal superstable together with the `c - q` form. -/
+/-- For a `q`-reduced divisor, maximal unwinnability is equivalent to the maximal
+superstability of its canonical configuration together with the canonical `c - q` form. -/
 lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) (h_qred : q_reduced G q D) :
     maximal_unwinnable G D ↔
@@ -331,50 +357,43 @@ lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
     exact maximal_unwinnable_of_maximal_superstable_form h_conn q _ h_max_c
 
 
-/-- A divisor $D$ is maximal unwinnable if and only if it is linearly equivalent to $c - q$
-for some maximal superstable configuration $c$.
-This is [Corry-Perkinson], Corollary 4.9(2). -/
+/-- A divisor $D$ is maximal unwinnable if and only if its canonical `q`-reduced representative
+is `qReducedConfig h_conn q D - q`, with `qReducedConfig h_conn q D` maximal superstable.
+This is [Corry-Perkinson], Corollary 4.9(2), in canonical form. -/
 theorem maximal_unwinnable_char {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
   maximal_unwinnable G D ↔
-  ∃ c : Config G q, maximal_superstable G c ∧
-  ∃ D' : CFDiv G, q_reduced G q D' ∧ linear_equiv G D D' ∧
-  D' = c.vertex_degree - one_chip q := by
+    maximal_superstable G (qReducedConfig h_conn q D) ∧
+    qReducedRep h_conn q D =
+      (qReducedConfig h_conn q D).vertex_degree - one_chip q := by
+  let D' := qReducedRep h_conn q D
+  have h_qred_D' : q_reduced G q D' := (qReducedRep_spec h_conn q D).2
+  have h_core := maximal_unwinnable_q_reduced_toConfig_iff h_conn q D' h_qred_D'
   constructor
-  { -- Forward direction (⇒)
-    intro h_max_unwinnable_D
-    rcases unique_q_reduced h_conn q D with ⟨D', ⟨h_D_equiv_D', h_qred_D'⟩, _⟩
-    let c : Config G q := toConfig ⟨D', h_qred_D'.1⟩
+  · intro h_max_unwinnable_D
     have h_max_D' : maximal_unwinnable G D' :=
-      maximal_unwinnable_preserved G D D' h_max_unwinnable_D h_D_equiv_D'
-    have h_core := (maximal_unwinnable_q_reduced_toConfig_iff h_conn q D' h_qred_D').mp h_max_D'
-    refine ⟨c, h_core.1, D', h_qred_D', h_D_equiv_D', ?_⟩
-    exact h_core.2
-  }
-  { -- Reverse direction (⇐)
-    intro h_exists
-    rcases h_exists with ⟨c, h_max_c, D', h_qred_D', h_D_equiv_D', h_form_D'_eq_c⟩
+      maximal_unwinnable_preserved G D D' h_max_unwinnable_D (qReducedRep_spec h_conn q D).1
+    simpa [D', qReducedConfig] using h_core.mp h_max_D'
+  · intro h_can
     have h_max_D' : maximal_unwinnable G D' := by
-      rw [h_form_D'_eq_c]
-      exact maximal_unwinnable_of_maximal_superstable_form h_conn q c h_max_c
+      simpa [D', qReducedConfig] using h_core.mpr h_can
     exact maximal_unwinnable_preserved G D' D h_max_D'
-      ((linear_equiv_is_equivalence G).symm h_D_equiv_D')
-  }
+      ((linear_equiv_is_equivalence G).symm (qReducedRep_spec h_conn q D).1)
 
-/-- Combined characterization: `maximal_superstable_config_prop` and `maximal_unwinnable_char`
-packaged together. -/
+/-- Combined characterization: the degree criterion for maximal superstable configurations
+and the canonical characterization of maximal unwinnable divisors, packaged together. -/
 theorem superstable_and_maximal_unwinnable {G : CFGraph} (h_conn : graph_connected G) (q : G.V)
     (c : Config G q) (D : CFDiv G) :
     (superstable G q c →
      (maximal_superstable G c ↔ config_degree c = genus G)) ∧
     (maximal_unwinnable G D ↔
-     ∃ c : Config G q, maximal_superstable G c ∧
-     ∃ D' : CFDiv G, q_reduced G q D' ∧ linear_equiv G D D' ∧
-     D' = λ v => c.vertex_degree v - if v = q then 1 else 0) := by
-  -- This theorem now just wraps the two proven theorems above
+      maximal_superstable G (qReducedConfig h_conn q D) ∧
+      qReducedRep h_conn q D =
+        (qReducedConfig h_conn q D).vertex_degree - one_chip q) := by
   exact ⟨maximal_superstable_config_prop G q c,
          maximal_unwinnable_char h_conn q D⟩
 
-/-- A maximal unwinnable divisor has degree $g - 1$.
+/-- A maximal unwinnable divisor has degree $g - 1$, computed from its canonical
+`q`-reduced representative and canonical configuration.
 This is [Corry-Perkinson], Corollary 4.9(4). -/
 theorem maximal_unwinnable_deg
   {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
@@ -383,22 +402,19 @@ theorem maximal_unwinnable_deg
 
   let q := Classical.arbitrary G.V
 
-  have h_equiv_max_unwin := maximal_unwinnable_char h_conn q D
-  rcases h_equiv_max_unwin.mp h_max_unwin with ⟨c, h_c_max_super, D', h_D'_qred, h_equiv_D_D', h_D'_eq⟩
-
-  have h_c_super : superstable G q c := h_c_max_super.1
-
-  -- Use the characterization theorem for config degree
-  have h_config_deg : config_degree c = genus G := by
-    have prop := maximal_superstable_config_prop G q c h_c_super -- Apply hypothesis first
-    exact prop.mp h_c_max_super -- Use the forward direction of the iff
-
-  have h_deg_D' : deg D' = genus G - 1 := calc
-    deg D' = deg (c.vertex_degree - one_chip q) := by rw [h_D'_eq]
-    _ = config_degree c - 1 := deg_vertex_degree_sub_one_chip (c := c)
-    _ = genus G - 1 := by rw [h_config_deg]
-
-  have h_deg_eq : deg D = deg D' := linear_equiv_preserves_deg G D D' h_equiv_D_D'
+  have h_char := maximal_unwinnable_char h_conn q D
+  have h_max_cfg : maximal_superstable G (qReducedConfig h_conn q D) := (h_char.mp h_max_unwin).1
+  have h_rep_form :
+      qReducedRep h_conn q D =
+        (qReducedConfig h_conn q D).vertex_degree - one_chip q := (h_char.mp h_max_unwin).2
+  have h_deg_D' : deg (qReducedRep h_conn q D) = genus G - 1 := calc
+    deg (qReducedRep h_conn q D) =
+        deg ((qReducedConfig h_conn q D).vertex_degree - one_chip q) := by rw [h_rep_form]
+    _ = config_degree (qReducedConfig h_conn q D) - 1 :=
+        deg_vertex_degree_sub_one_chip (c := qReducedConfig h_conn q D)
+    _ = genus G - 1 := by rw [degree_max_superstable (qReducedConfig h_conn q D) h_max_cfg]
+  have h_deg_eq : deg D = deg (qReducedRep h_conn q D) :=
+    linear_equiv_preserves_deg G D (qReducedRep h_conn q D) (qReducedRep_spec h_conn q D).1
   rw [h_deg_eq, h_deg_D']
 
 /-- The map sending an acyclic orientation with source $q$ to its orientation divisor is
