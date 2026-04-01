@@ -129,44 +129,23 @@ lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : m
   have := maximal_superstable_orientation G q c h_max
   rcases this with ⟨O, hO, h_orient_eq⟩
   rw [← h_orient_eq]
-  rw [config_and_divisor_from_O O hO]
-  dsimp [toConfig, config_degree]
-  rw [map_sub]
-  have h_deg_orqed : deg (orqed O hO).D = genus G - 1 := by
-    simpa [orqed] using degree_ordiv O
-  rw [h_deg_orqed]
-  suffices h_q_orqed : (orqed O hO).D q = -1 by
-    rw [h_q_orqed]
-    simp [deg_one_chip]
-  have h_q_ordiv : (ordiv G O) q = -1 := by
-    -- Prove (ordiv G O) q = -1
-    dsimp [ordiv]
-    have h_source_q : is_source G O q := source_of_acyclic_with_unique_source hO
-    dsimp [is_source] at h_source_q
-    rw [h_source_q]
-    norm_num
-  simpa [orqed] using h_q_ordiv
+  exact config_degree_from_O O hO
 
 /-- If $D$ is maximal unwinnable, $q$-reduced, and equals `toDiv (deg D) c`, then
 $D = c - q$. This is [Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
 lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c : Config G q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
   intro h_max_unwinnable h_qred h_toDeg
-  funext v
-  by_cases hvq : q = v
-  · -- Case v = q
-    rw [← hvq]
-    rw [maximal_unwinnable_q_reduced_chips_at_q G q D h_max_unwinnable h_qred]
-    rw [sub_apply, one_chip_apply_v q, c.q_zero]
-    simp
-  · -- Case v ≠ q
-    rw [sub_apply, one_chip_apply_other q v hvq]
-    let h :=  h_toDeg
-    dsimp [toDiv] at h
-    apply (congrFun) at h
-    specialize h v
-    rw [add_apply, smul_apply] at h
-    simp [h,hvq]
+  have h_q : D q = -1 :=
+    maximal_unwinnable_q_reduced_chips_at_q G q D h_max_unwinnable h_qred
+  have h_deg : deg D = config_degree c - 1 := by
+    rw [h_toDeg] at h_q
+    simp only [eval_toDiv_q] at h_q
+    linarith
+  calc
+    D = toDiv (deg D) c := h_toDeg
+    _ = toDiv (config_degree c - 1) c := by rw [h_deg]
+    _ = c.vertex_degree - one_chip q := toDiv_config_degree_sub_one (c := c)
 
 /-- Lemma: Superstable configuration degree is bounded by genus -/
 lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
@@ -289,11 +268,12 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : gra
   intro h_max_superstable v
   let D' := c'.vertex_degree - one_chip q + one_chip v
   have deg_ineq : deg D' ≥ genus G := by
-    dsimp [D']
-    simp
-    have h := degree_max_superstable c' h_max_superstable
-    dsimp [config_degree] at h
-    rw [h]
+    calc
+      deg D' = config_degree c' := by
+        dsimp [D']
+        simp [config_degree]
+      _ = genus G := degree_max_superstable c' h_max_superstable
+      _ ≥ genus G := by rfl
   exact winnable_of_deg_ge_genus h_conn D' deg_ineq
 
 
@@ -329,9 +309,12 @@ theorem maximal_unwinnable_char {G : CFGraph} (h_conn : graph_connected G) (q : 
       let D'' := c'.vertex_degree - one_chip q
       -- Show D'' is q-reduced (from correspondence with superstable c')
       have D''_toDiv : D'' = toDiv (deg D'') c' := by
-        dsimp [toDiv,D'']
-        simp [config_degree]
-        rw [sub_eq_add_neg]
+        have h_deg_D'' : deg D'' = config_degree c' - 1 := by
+          dsimp [D'']
+          exact deg_vertex_degree_sub_one_chip (c := c')
+        rw [h_deg_D'']
+        dsimp [D'']
+        exact (toDiv_config_degree_sub_one (c := c')).symm
       have h_qred_D'' := (q_reduced_superstable_correspondence G q D'').mpr ⟨c', ⟨ h_max_c'.1, D''_toDiv⟩⟩
 
       -- Show D'' is also unwinnable
@@ -527,47 +510,9 @@ theorem maximal_unwinnable_deg
     exact prop.mp h_c_max_super -- Use the forward direction of the iff
 
   have h_deg_D' : deg D' = genus G - 1 := calc
-    deg D' = deg (c.vertex_degree - one_chip q) := by
-      rw [h_D'_eq]
-    -- _ = (∑ v, c.vertex_degree v) - (∑ v, if v = q then 1 else 0) := by
-
-    --   dsimp [deg]
-    --   rw [Finset.sum_sub_distrib]
-
-    _ = (∑ v, c.vertex_degree v) - 1 := by --{rw [Finset.sum_ite_eq']; simp}
-      rw [map_sub, deg_one_chip]
-      simp [deg]
-    _ = (config_degree c + c.vertex_degree q) - 1 := by
-        have h_sum_c : ∑ v : G.V, c.vertex_degree v = config_degree c + c.vertex_degree q := by
-          unfold config_degree
-          rw [c.q_zero]
-          simp [deg]
-        rw [h_sum_c]
-    _ = genus G - 1 := by
-        -- Since c is maximal superstable, it corresponds to an orientation
-        rcases maximal_superstable_orientation G q c h_c_max_super with
-          ⟨O, hO, h_c_eq_orient_config⟩
-
-        -- The configuration derived from an orientation has 0 at q
-        have h_orient_config_q_zero : (orientation_to_config G O q hO).vertex_degree q = 0 := by
-          unfold orientation_to_config config_of_source
-          simp
-
-        -- Thus, c must have 0 at q
-        have h_c_q_zero : c.vertex_degree q = 0 := by
-          -- First establish equality of the vertex_degree functions using structure equality
-          have h_vertex_degree_eq : c.vertex_degree = (orientation_to_config G O q hO).vertex_degree := by
-            rw [h_c_eq_orient_config] -- This leaves the goal c.vertex_degree = c.vertex_degree which is true by reflexivity
-          -- Apply the function equality at vertex q
-          have h_eq_at_q := congr_fun h_vertex_degree_eq q
-          -- Rewrite the RHS of h_eq_at_q using the known value (0)
-          rw [h_orient_config_q_zero] at h_eq_at_q
-          -- The result is the desired equality
-          exact h_eq_at_q
-
-        -- Now substitute known values into the expression
-        rw [h_config_deg, h_c_q_zero] -- config_degree c = genus G and c.vertex_degree q = 0
-        simp -- genus G + 0 - 1 = genus G - 1
+    deg D' = deg (c.vertex_degree - one_chip q) := by rw [h_D'_eq]
+    _ = config_degree c - 1 := deg_vertex_degree_sub_one_chip (c := c)
+    _ = genus G - 1 := by rw [h_config_deg]
 
   have h_deg_eq : deg D = deg D' := linear_equiv_preserves_deg G D D' h_equiv_D_D'
   rw [h_deg_eq, h_deg_D']

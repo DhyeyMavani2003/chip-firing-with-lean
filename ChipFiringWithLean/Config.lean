@@ -122,6 +122,24 @@ def config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q + c
   simp only [config_degree, toConfig, map_sub, map_zsmul, deg_one_chip, smul_eq_mul, mul_one]
   ring
 
+/-- Shifting the prescribed degree by `k` adds `k` chips at `q`. -/
+@[simp] lemma toDiv_config_degree_add {q : G.V} (c : Config G q) (k : ℤ) :
+  toDiv (config_degree c + k) c = c.vertex_degree + k • one_chip q := by
+  dsimp [toDiv]
+  rw [show config_degree c + k - config_degree c = k by ring]
+
+/-- Prescribing degree `config_degree c - 1` gives the divisor `c - q`. -/
+@[simp] lemma toDiv_config_degree_sub_one {q : G.V} (c : Config G q) :
+  toDiv (config_degree c - 1) c = c.vertex_degree - one_chip q := by
+  rw [show config_degree c - 1 = config_degree c + (-1) by ring]
+  rw [toDiv_config_degree_add]
+  simp [sub_eq_add_neg]
+
+/-- The divisor `c - q` has degree `config_degree c - 1`. -/
+@[simp] lemma deg_vertex_degree_sub_one_chip {q : G.V} (c : Config G q) :
+  deg (c.vertex_degree - one_chip q) = config_degree c - 1 := by
+  rw [map_sub, config_degree, deg_one_chip]
+
 /-- `toConfig` is a left inverse of `to_qed`: converting a configuration to a $q$-effective
 divisor and back recovers the original configuration. -/
 lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
@@ -349,16 +367,12 @@ lemma helper_superstable_to_unwinnable {G : CFGraph} (h_conn : graph_connected G
     · -- Prove superstable G q c
       exact h_max_superstable.1
     · -- Prove D = c - δ_q
-      dsimp [toDiv]
-      have h_deg : deg D = config_degree c - 1 := by
+      have h_deg_D : deg D = config_degree c - 1 := by
         dsimp [D]
-        rw [map_sub, deg_one_chip]
-        dsimp [config_degree]
-      rw [h_deg]
+        exact deg_vertex_degree_sub_one_chip (c := c)
+      rw [h_deg_D]
       dsimp [D]
-      funext v
-      rw [sub_apply, add_apply, smul_apply]
-      linarith
+      exact (toDiv_config_degree_sub_one (c := c)).symm
   by_contra! h_winnable
   have := (winnable_iff_q_reduced_effective h_conn q D).mp
   dsimp [D] at this
