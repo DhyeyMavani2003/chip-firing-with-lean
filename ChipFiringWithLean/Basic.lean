@@ -55,24 +55,22 @@ def genus (G : CFGraph) : ℤ :=
 
 /-- Number of edges between two vertices is non-negative. -/
 lemma num_edges_nonneg (G : CFGraph) (v w : G.V) :
-  num_edges G v w ≥ 0 := by
-  exact Nat.zero_le (num_edges G v w)
+  num_edges G v w ≥ 0 := Nat.zero_le _
 
 /-- Number of edges is symmetric -/
 lemma num_edges_symmetric (G : CFGraph) (v w : G.V) :
   num_edges G v w = num_edges G w v := by
-  unfold num_edges
-  simp [Or.comm]
+  simp [num_edges, Or.comm]
 
 /-- Numerical version of *loopless*: num_edges v v = 0. -/
 @[simp] lemma num_edges_self_zero (G : CFGraph) (v : G.V) :
   num_edges G v v = 0 := by
-  unfold num_edges
-  rw [Multiset.card_eq_zero]
-  apply Multiset.filter_eq_nil.mpr
-  intro a h_inE h_eq_loop
-  rw [or_self] at h_eq_loop
-  rw [h_eq_loop] at h_inE
+  rw [num_edges, Multiset.card_eq_zero]
+  refine Multiset.filter_eq_nil.mpr ?_
+  intro e h_inE h_eq
+  rw [or_self] at h_eq
+  rcases e with ⟨a, b⟩
+  cases h_eq
   exact G.loopless v h_inE
 
 /-- Degree (valence) of a vertex as an integer (defined as the sum of incident edge multiplicities) -/
@@ -82,10 +80,7 @@ def vertex_degree (G : CFGraph) (v : G.V) : ℤ :=
 /-- Vertex degree is non-negative -/
 lemma vertex_degree_nonneg (G : CFGraph) (v : G.V) :
   vertex_degree G v ≥ 0 := by
-  unfold vertex_degree
-  apply Finset.sum_nonneg
-  intro u _
-  exact Int.natCast_nonneg _
+  exact Finset.sum_nonneg fun _ _ => Int.natCast_nonneg _
 
 /-!
 ## The divisor group
@@ -112,8 +107,7 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
 
 -- Canonical simplications for evaluations of one_chip.
 @[simp] lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
-  dsimp [one_chip]
-  rw [if_pos rfl]
+  exact if_pos rfl
 @[simp] lemma one_chip_apply_other {G : CFGraph} (v w : G.V) : v ≠ w → one_chip v w = 0 := by
   simp [one_chip]
   intro h
@@ -138,19 +132,14 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
 
 @[simp] lemma distrib_sub_add {G : CFGraph} (D₁ D₂ D₃ : CFDiv G) :
   D₁ - (D₂ + D₃) = (D₁ - D₂) - D₃ := by
-  funext x
-  simp
-  ring
+  funext; simp; ring
 
 lemma add_sub_distrib {G : CFGraph} (D₁ D₂ D₃ : CFDiv G) :
   (D₁ + D₂) - D₃ = (D₁ - D₃) + D₂ := by
-  funext x
-  simp
-  ring
+  funext; simp; ring
 
 @[simp] lemma smul_apply {G : CFGraph} (n : ℤ) (D : CFDiv G) (v : G.V) :
-  (n • D) v = n * (D v) := by
-  rfl
+  (n • D) v = n * (D v) := rfl
 
 /-- Firing move at a vertex
 [Corry-Perkinson], Definition 1.5 -/
@@ -175,13 +164,10 @@ lemma firing_move_eq_add_firing_vector (G : CFGraph) (D : CFDiv G) (v : G.V) :
   firing_move G D v = D + firing_vector G v := by
   unfold firing_move firing_vector
   funext w
-  dsimp
   by_cases h_eq : w = v
-  · -- Case w = v
-    simp [h_eq]
+  · simp [h_eq]
     ring
-  · -- Case w ≠ v
-    simp [h_eq]
+  · simp [h_eq]
 
 /-- The firing vector for a set of vertices -/
 def set_firing_vector (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G :=
@@ -220,33 +206,21 @@ def linear_equiv (G : CFGraph) (D D' : CFDiv G) : Prop :=
 
 /-- Lemma: Principal divisors contain the firing vector at a vertex -/
 lemma mem_principal_divisors_firing_vector (G : CFGraph) (v : G.V) :
-  firing_vector G v ∈ principal_divisors G := by
-  apply AddSubgroup.subset_closure
-  apply Set.mem_range_self
+  firing_vector G v ∈ principal_divisors G := AddSubgroup.subset_closure (Set.mem_range_self v)
 
 /-- Linear equivalence is an equivalence relation on Div(G). -/
 theorem linear_equiv_is_equivalence (G : CFGraph) : Equivalence (linear_equiv G) := by
-  apply Equivalence.mk
-  -- Reflexivity
+  refine ⟨?_, ?_, ?_⟩
   · intro D
     unfold linear_equiv
-    have h_zero : D - D = 0 := by simp
-    rw [h_zero]
-    exact AddSubgroup.zero_mem _
-
-  -- Symmetry
-  · intros D D' h
+    simp
+  · intro D D' h
     unfold linear_equiv at *
-    have h_symm : D - D' = -(D' - D) := by simp [sub_eq_add_neg]
-    rw [h_symm]
-    exact AddSubgroup.neg_mem _ h
-
-  -- Transitivity
-  · intros D D' D'' h1 h2
+    simpa [sub_eq_add_neg] using AddSubgroup.neg_mem (principal_divisors G) h
+  · intro D D' D'' h1 h2
     unfold linear_equiv at *
-    have h_trans : D'' - D = (D'' - D') + (D' - D) := by simp
-    rw [h_trans]
-    exact AddSubgroup.add_mem _ h2 h1
+    simpa [sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using
+      AddSubgroup.add_mem (principal_divisors G) h2 h1
 
 /-- A *firing script* is an integer-valued function on vertices, recording how many times
 each vertex is fired. Negative values represent borrowing. [Corry-Perkinson], Definition 2.2 -/
@@ -375,14 +349,10 @@ def effective {G : CFGraph} (D : CFDiv G) : Prop :=
 def Eff (G : CFGraph) : AddSubmonoid (CFDiv G) :=
   { carrier := {D : CFDiv G | effective D},
     zero_mem' := by
-      intro v
-      simp,
+      simp [effective]
     add_mem' := by
-      intros D₁ D₂ h_eff1 h_eff2 v
-      specialize h_eff1 v
-      specialize h_eff2 v
-      simp
-      linarith }
+      intro D₁ D₂ h_eff1 h_eff2 v
+      exact add_nonneg (h_eff1 v) (h_eff2 v) }
 
 @[simp] lemma mem_Eff {G : CFGraph} {D : CFDiv G} : D ∈ Eff G ↔ effective D := Iff.rfl
 
@@ -393,21 +363,20 @@ def eff_one_chip {G : CFGraph} (v : G.V) : effective (one_chip v) := by
   by_cases h_eq : w = v <;> simp [h_eq]
 
 /-- D is effective iff D ≥ 0. -/
-lemma eff_iff_geq_zero {G : CFGraph} (D : CFDiv G) : effective D ↔ D ≥ 0:= by
-  rfl
+lemma eff_iff_geq_zero {G : CFGraph} (D : CFDiv G) : effective D ↔ D ≥ 0 := Iff.rfl
 
 /-- D₁ - D₂ is effective iff D₁ ≥ D₂. -/
 lemma sub_eff_iff_geq {G : CFGraph} (D₁ D₂ : CFDiv G) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ := by
   rw [eff_iff_geq_zero]
   constructor
-  intro h v
-  specialize h v
-  simp at h
-  linarith
-  intro h v
-  specialize h v
-  simp
-  linarith
+  · intro h v
+    have := h v
+    simp at this ⊢
+    linarith
+  · intro h v
+    have := h v
+    simp at this ⊢
+    linarith
 
 /-- A divisor is winnable if it is linearly equivalent to an effective divisor.
 [Corry-Perkinson], Definition 1.14 -/
@@ -441,24 +410,13 @@ def deg {G : CFGraph} : CFDiv G →+ ℤ := {
 }
 
 @[simp] lemma deg_one_chip {G : CFGraph} (v : G.V) : deg (one_chip v) = 1 := by
-  dsimp [deg, one_chip]
-  rw [Finset.sum_ite]
-  have h_filter_eq_single : Finset.filter (fun x => x = v) Finset.univ = {v} := by
-    ext x; simp [eq_comm]
-  rw [h_filter_eq_single, Finset.sum_singleton]
-  have h_filter_eq_erase : Finset.filter (fun x => ¬x = v) Finset.univ = Finset.univ.erase v := by
-    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
-  rw [h_filter_eq_erase]
-  simp
+  simp [deg, one_chip]
 
 /-- Effective divisors have nonnegative degree. -/
 lemma deg_of_eff_nonneg (D : CFDiv G) :
   effective D → deg D ≥ 0 := by
   intro h_eff
-  refine Finset.sum_nonneg ?_
-  intro v _
-  specialize h_eff v
-  exact h_eff
+  exact Finset.sum_nonneg fun v _ => h_eff v
 
 /-- The only effective divisor of degree 0 is 0. -/
 lemma eff_degree_zero (D : CFDiv G) : effective D → deg D = 0 → D = 0 := by
@@ -489,30 +447,23 @@ lemma deg_firing_vector_eq_zero (G : CFGraph) (v_fire : G.V) :
     ext x; simp [eq_comm]
   rw [h_filter_eq_single, Finset.sum_singleton]
   have h_filter_eq_erase : Finset.filter (fun x => ¬x = v_fire) univ = Finset.univ.erase v_fire := by
-    ext x; simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
+    ext x
+    simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
   rw [h_filter_eq_erase]
-  dsimp [vertex_degree]
-  simp
+  simp [vertex_degree]
 
 /-- Every principal divisor has degree zero. -/
 lemma degree_of_principal_divisor_is_zero (G : CFGraph) (h : CFDiv G) :
   h ∈ principal_divisors G → deg h = 0 := by
   intro h_mem_princ
-  -- principal_divisors is AddSubgroup.closure (Set.range (firing_vector G))
-  -- Use induction on the structure of the subgroup
   refine AddSubgroup.closure_induction ?_ ?_ ?_ ?_ h_mem_princ
-  · -- Case 1: h is in the range of firing_vector G
-    intro x hx_in_range
-    rcases hx_in_range with ⟨v, rfl⟩
+  · rintro x ⟨v, rfl⟩
     exact deg_firing_vector_eq_zero G v
-  · -- Case 2: h = 0 (the zero divisor)
-    simp [deg]
-  · -- Case 3: h = x + y where deg x = 0 and deg y = 0
-    intros x y _ _ h_x_prin h_y_prin
-    rw [deg.map_add, h_x_prin, h_y_prin, add_zero]
-  · -- Case 4: h = -x where deg x = 0
-    intros x _ h_x_prin
-    rw [deg.map_neg, h_x_prin, neg_zero]
+  · simp [deg]
+  · intro x y _ _ hx hy
+    rw [deg.map_add, hx, hy, add_zero]
+  · intro x _ hx
+    rw [deg.map_neg, hx, neg_zero]
 
 /-- Linearly equivalent divisors have the same degree.
 [Corry-Perkinson], Proposition 1.15 -/
@@ -849,26 +800,23 @@ def reduces_to (G : CFGraph) (q : G.V) (D₁ D₂: CFDiv G) : Prop :=
 lemma reduces_to_reflexive (G : CFGraph) (q : G.V) (D : CFDiv G) :
   reduces_to G q D D := by
   use 0
-  constructor
-  · -- Show q_reducer holds for the zero firing script
-    intro v
+  refine ⟨?_, ?_⟩
+  · intro v
     repeat rw [Pi.zero_apply]
-  · -- Show D = D + prin G 0
-    rw [(prin G).map_zero]; simp
+  · rw [(prin G).map_zero]
+    simp
 
 /-- The `reduces_to` relation is transitive: composing two $q$-reducer scripts yields a $q$-reducer script. -/
 lemma reduces_to_transitive (G : CFGraph) (q : G.V) (D₁ D₂ D₃ : CFDiv G) :
   reduces_to G q D₁ D₂ → reduces_to G q D₂ D₃ → reduces_to G q D₁ D₃ := by
-  intro h_red_12 h_red_23
-  rcases h_red_12 with ⟨σ₁, h_reducer_1, h_D2_eq⟩
-  rcases h_red_23 with ⟨σ₂, h_reducer_2, h_D3_eq⟩
+  rintro ⟨σ₁, h_reducer_1, h_D2_eq⟩ ⟨σ₂, h_reducer_2, h_D3_eq⟩
   use σ₁ + σ₂
-  constructor
-  · -- Show q_reducer holds for σ₁ + σ₂
+  refine ⟨?_, ?_⟩
+  ·
     intro v
     repeat rw [Pi.add_apply]
     apply add_le_add (h_reducer_1 v) (h_reducer_2 v)
-  · -- Show D₃ = D₁ + prin G (σ₁ + σ₂)
+  ·
     rw [(prin G).map_add, ← add_assoc]
     rw [← h_D2_eq, ← h_D3_eq]
 

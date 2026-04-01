@@ -54,16 +54,14 @@ def toDiv {G : CFGraph} {q : G.V} (d : ℤ) (c : Config G q) : CFDiv G :=
 lemma eq_config_iff_eq_vertex_degree {q : G.V} (c₁ c₂ : Config G q) :
   c₁ = c₂ ↔ c₁.vertex_degree = c₂.vertex_degree := by
   constructor
-  -- Forward direction is clear
-  intro h_eq
-  rw [h_eq]
-  -- Reverse direction takes more
-  intro h_eq
-  obtain ⟨vd₁, _, _⟩ := c₁
-  obtain ⟨vd₂, _, _⟩ := c₂
-  simp only [Config.mk.injEq]
-  funext v
-  apply congrFun h_eq v
+  · intro h_eq
+    rw [h_eq]
+  · intro h_eq
+    obtain ⟨vd₁, _, _⟩ := c₁
+    obtain ⟨vd₂, _, _⟩ := c₂
+    simp only [Config.mk.injEq]
+    funext v
+    exact congrFun h_eq v
 
 /-- Two configurations are equal iff their images under `toDiv d` agree. -/
 lemma eq_config_iff_eq_div {q : G.V} (d : ℤ) (c₁ c₂ : Config G q) : c₁ = c₂ ↔ toDiv d c₁ = toDiv d c₂ := by
@@ -145,15 +143,13 @@ lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
 lemma qeff_divs_equal (D1 D2 : q_eff_div G q) :
   D1 = D2 ↔ D1.D = D2.D := by
   constructor
-  intro h_eq
-  rw [h_eq]
-  -- Converse is the interesting direction
-  intro h_eq
-  rcases D1 with ⟨D1_D, D1_h_eff⟩
-  rcases D2 with ⟨D2_D, D2_h_eff⟩
-  simp
-  simp at h_eq
-  exact h_eq
+  · intro h_eq
+    rw [h_eq]
+  · intro h_eq
+    rcases D1 with ⟨D1_D, D1_h_eff⟩
+    rcases D2 with ⟨D2_D, D2_h_eff⟩
+    simp at h_eq ⊢
+    exact h_eq
 
 /-- `to_qed` is a left inverse of `toConfig` at the correct degree: converting a $q$-effective
 divisor to a configuration and back via `toDiv (deg D.D)` recovers the original divisor. -/
@@ -246,17 +242,14 @@ lemma config_eq_of_ge_and_degree {q : G.V} {c1 c2 : Config G q} (h_ge : config_g
 instance : PartialOrder (Config G q) := {
   le := λ c₁ c₂ => c₁.vertex_degree ≤ c₂.vertex_degree,
   le_refl := by
-    intro a
-    simp
-   ,
+    intro _
+    simp,
   le_trans := by
-    intro c1 c2 c3 c1_le_c2 c2_le_c3
-    exact le_trans c1_le_c2 c2_le_c3
-  ,
+    intro _ _ _ c1_le_c2 c2_le_c3
+    exact le_trans c1_le_c2 c2_le_c3,
   le_antisymm := by
     intro c1 c2 h_le h_ge
     have h_eq := le_antisymm h_le h_ge
-
     exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
 }
 
@@ -366,18 +359,14 @@ def maximal_superstable (G : CFGraph) {q : G.V} (c : Config G q) : Prop :=
 lemma smul_one_chip {G : CFGraph} (k : ℤ) (v_chip : G.V) :
   (k • one_chip v_chip) = (fun v => if v = v_chip then k else 0) := by
   funext v
-  rw [Pi.smul_apply]; unfold one_chip
-  split_ifs with h
-  · simp -- Goal is k • 1 = k
-  · simp -- Goal is k • 0 = 0
+  by_cases h : v = v_chip <;> simp [one_chip, h]
 
 /-- Linear equivalence is preserved by adding a fixed divisor on the right. -/
 lemma linear_equiv_add_congr_right_local (G : CFGraph) (D_add : CFDiv G) {D1 D2 : CFDiv G} (h : linear_equiv G D1 D2) :
   linear_equiv G (D1 + D_add) (D2 + D_add) := by
   unfold linear_equiv at h ⊢
-  have h_eq : (D2 + D_add) - (D1 + D_add) = D2 - D1 := by abel
-  rw [h_eq]
-  exact h
+  have : (D2 + D_add) - (D1 + D_add) = D2 - D1 := by abel
+  simpa [this] using h
 
 
 /-- Subtracting a chip at q from a superstable configuration gives an unwinnable divisor. -/

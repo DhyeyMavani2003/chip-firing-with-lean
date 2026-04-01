@@ -29,16 +29,8 @@ for every vertex $v$. Such divisors arise in the proof of the Riemann-Roch theor
 /-- Winnability is preserved under linear equivalence. -/
 lemma winnable_equiv_winnable (G : CFGraph) (D1 D2 : CFDiv G) :
   winnable G D1 → linear_equiv G D1 D2 → winnable G D2 := by
-  intro h_winnable1 h_lequiv
-  rcases h_winnable1 with ⟨D1', h_D1'_eff, h_lequiv1⟩
-  use D1'
-  constructor
-  · -- Show that D1' is effective
-    exact h_D1'_eff
-  · -- Show that D2 is linearly equivalent to D1'
-    have : linear_equiv G D2 D1 := by
-      exact (linear_equiv_is_equivalence G).symm h_lequiv
-    exact (linear_equiv_is_equivalence G).trans this h_lequiv1
+  rintro ⟨D1', h_D1'_eff, h_lequiv1⟩ h_lequiv
+  exact ⟨D1', h_D1'_eff, (linear_equiv_is_equivalence G).trans ((linear_equiv_is_equivalence G).symm h_lequiv) h_lequiv1⟩
 
 
 /-- A divisor is maximal unwinnable if it is unwinnable but adding
@@ -49,21 +41,14 @@ def maximal_unwinnable (G : CFGraph) (D : CFDiv G) : Prop :=
 /-- Being maximal unwinnable is preserved under linear equivalence. -/
 lemma maximal_unwinnable_preserved (G : CFGraph) (D1 D2 : CFDiv G) :
   maximal_unwinnable G D1 → linear_equiv G D1 D2 → maximal_unwinnable G D2 := by
-  intro h_max_unwin h_lequiv
-  rcases h_max_unwin with ⟨h_unwin_D1, h_winnable_add⟩
-  constructor
-  · -- Show ¬winnable G D2
-    contrapose! h_unwin_D1
-    apply winnable_equiv_winnable G D2 D1 h_unwin_D1
-    exact (linear_equiv_is_equivalence G).symm h_lequiv
-  · -- Show ∀ v, winnable G (D2 + one_chip v)
-    intro v
-    specialize h_winnable_add v
-    apply winnable_equiv_winnable G (D1 + one_chip v) (D2 + one_chip v) h_winnable_add
-    -- Show linear equivalence
-    unfold linear_equiv at *
-    simp
-    exact h_lequiv
+  rintro ⟨h_unwin_D1, h_winnable_add⟩ h_lequiv
+  refine ⟨?_, ?_⟩
+  · intro h_win_D2
+    exact h_unwin_D1 <| winnable_equiv_winnable G D2 D1 h_win_D2 ((linear_equiv_is_equivalence G).symm h_lequiv)
+  · intro v
+    exact winnable_equiv_winnable G (D1 + one_chip v) (D2 + one_chip v) (h_winnable_add v) <| by
+      unfold linear_equiv at *
+      simpa using h_lequiv
 
 /-- The set of effective divisors of degree `k`. Used to define `rank_geq`: `rank G D ≥ k`
 means `D - E` is winnable for every `E` in `eff_of_degree D k`. -/
@@ -73,52 +58,11 @@ def eff_of_degree (D : CFDiv G) (k : ℤ) : Set (CFDiv G) :=
 /-- For any natural number `k`, the set of effective divisors of degree `k` is nonempty. -/
 lemma eff_of_degree_nonempty (D : CFDiv G) (k : ℕ) : k ≥ 0 → (eff_of_degree D k).Nonempty := by
   let v : G.V := Classical.arbitrary G.V
-  let E₁ : CFDiv G := one_chip v
-  have eff : effective E₁ := by
-    unfold effective
-    intro w
-    dsimp [E₁, one_chip]
-    split_ifs with h
-    norm_num
-    norm_num
-  have deg_E: deg E₁ = 1 := by
-    dsimp [deg, E₁, one_chip]
-    rw [Finset.sum_ite, Finset.sum_const, Finset.sum_eq_zero]
-    -- Now evaluate that cardinality as 1
-    -- rewrite that set as {v}
-    have h_card : (Finset.univ.filter (λ x => x = v)).card = 1 := by
-      rw [Finset.card_eq_one]
-      use v
-      -- Do a double-inclusion proof, I guess? I'm sure there's a better way.
-      ext x
-      constructor
-      · intro h
-        rw [Finset.mem_singleton]
-        exact (Finset.mem_filter.mp h).2
-      · intro h
-        rw [Finset.mem_filter]
-        rw [Finset.mem_singleton] at h
-        exact ⟨Finset.mem_univ x, h⟩
-    rw [h_card]
-    norm_num
-    intro x h
-    rfl
-  let E := k • E₁
-  have eff : effective E := (Eff G).nsmul_mem eff k
-  have deg_E : deg E = k := by
-    dsimp [E]
-    have := AddMonoidHom.map_nsmul deg E₁ k
-    rw [deg_E] at this
-    dsimp [deg] at this
-    dsimp [deg]
-    rw [this]
-    ring
   intro h_nonneg
   dsimp [eff_of_degree]
-  use E
-  constructor
-  · exact eff
-  · exact deg_E
+  refine ⟨k • one_chip v, ?_, ?_⟩
+  · exact (Eff G).nsmul_mem (eff_one_chip v) k
+  · simpa [deg_one_chip] using (AddMonoidHom.map_nsmul deg (one_chip v) k)
 
 /-- A divisor D has rank ≥ k if the game is winnable after removing any k dollars -/
 def rank_geq (G : CFGraph) (D : CFDiv G) (k : ℤ) : Prop :=
@@ -132,10 +76,8 @@ def rank_eq (G : CFGraph) (D : CFDiv G) (r : ℤ) : Prop :=
 /-- `rank_geq G D k` holds vacuously for `k < 0`, since there are no effective divisors of
 negative degree. -/
 lemma rank_geq_neg (G : CFGraph) (D : CFDiv G) (k : ℤ): (k < 0) → rank_geq G D k := by
-  intro k_neg E h_E
-  exfalso
-  rcases h_E with ⟨h_eff_E, h_deg_E⟩
-  apply deg_of_eff_nonneg at h_eff_E
+  intro k_neg E ⟨h_eff_E, h_deg_E⟩
+  have := deg_of_eff_nonneg E h_eff_E
   linarith
 
 /-- A winnable divisor has nonnegative degree. [Corry-Perkinson], Corollary 1.16 -/
@@ -143,21 +85,14 @@ lemma deg_winnable_nonneg (G : CFGraph) (D : CFDiv G) (h_winnable : winnable G D
   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
   have same_deg: deg D = deg D' := linear_equiv_preserves_deg G D D' h_lequiv
   rw [same_deg]
-  dsimp [Eff] at h_D'_eff
-  dsimp [deg]
-  refine Finset.sum_nonneg ?_
-  intro v h_v
-  exact h_D'_eff v
+  exact deg_of_eff_nonneg D' h_D'_eff
 
 /-- Every effective divisor is winnable (it is already linearly equivalent to itself). -/
 lemma winnable_of_effective (G : CFGraph) (D : CFDiv G) (h_eff : effective D) : winnable G D := by
-  unfold winnable
-  use D
-  constructor
-  · exact h_eff
-  · unfold linear_equiv
+  exact ⟨D, h_eff, by
+    unfold linear_equiv
     rw [sub_self]
-    exact AddSubgroup.zero_mem (principal_divisors G)
+    exact AddSubgroup.zero_mem (principal_divisors G)⟩
 
 /-- The sum of two winnable divisors is winnable. -/
 lemma winnable_add_winnable (G : CFGraph) (D1 D2 : CFDiv G)
@@ -165,10 +100,8 @@ lemma winnable_add_winnable (G : CFGraph) (D1 D2 : CFDiv G)
   rcases h_winnable1 with ⟨D1', h_D1'_eff, h_lequiv1⟩
   rcases h_winnable2 with ⟨D2', h_D2'_eff, h_lequiv2⟩
   use D1' + D2'
-  constructor
-  · -- Show that D1' + D2' is effective
-    exact (Eff G).add_mem h_D1'_eff h_D2'_eff
-  · -- Show that D1 + D2 is linearly equivalent to D1' + D2'
+  refine ⟨(Eff G).add_mem h_D1'_eff h_D2'_eff, ?_⟩
+  ·
     unfold linear_equiv at *
     have : D1' + D2' - (D1 + D2) = (D1' - D1) + (D2' - D2) := by
       rw [sub_add_sub_comm]
@@ -243,77 +176,55 @@ def lt_of_rank_geq_not (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
 lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph) (D : CFDiv G) :
   rank_eq G D (-1) ↔ ¬(winnable G D) := by
   constructor
-  · -- Forward direction
-    intro h
+  · intro h
     rcases h with ⟨_, h_rank⟩
     contrapose! h_rank
     simp
     intro E h_E
     rcases h_E with ⟨h_eff_E, h_deg_E⟩
     have E_zero := eff_degree_zero _ h_eff_E h_deg_E
-    simp [E_zero]
-    exact h_rank
-  · -- Backward direction
-    intro h_unwinnable
+    simpa [E_zero] using h_rank
+  · intro h_unwinnable
+    refine ⟨rank_geq_neg G D (-1) (by norm_num), ?_⟩
+    intro h_rank_geq
+    specialize h_rank_geq 0
+    apply h_unwinnable
+    rw [sub_zero] at h_rank_geq
+    apply h_rank_geq
     constructor
-    · -- Show rank_geq G D (-1)
-      apply rank_geq_neg G D (-1)
+    · dsimp [effective]
       norm_num
-    · -- Show ¬(rank_geq G D 0)
-      intro h_rank_geq
-      specialize h_rank_geq 0
-      contrapose! h_unwinnable
-      rw [sub_zero] at h_rank_geq
-      apply h_rank_geq
-      constructor
-      dsimp [effective]
-      norm_num
-      simp
+    · simp
 
 /-- `rank G D ≥ 0` if and only if `D` is winnable. -/
 lemma rank_nonneg_iff_winnable (G : CFGraph) (D : CFDiv G) :
   rank_geq G D 0 ↔ winnable G D := by
   constructor
-  · -- Forward direction
-    intro h_rank
+  · intro h_rank
     specialize h_rank 0
-    dsimp [eff_of_degree] at h_rank
-    simp at h_rank
-    apply h_rank
-    dsimp [effective]
-    norm_num
-  · -- Backward direction
-    intro h_winnable E h_E
-    rcases h_E with ⟨h_eff_E, h_deg_E⟩
+    rw [sub_zero] at h_rank
+    exact h_rank <| by
+      simp [eff_of_degree, effective]
+  · intro h_winnable E ⟨h_eff_E, h_deg_E⟩
     have E_zero := eff_degree_zero _ h_eff_E h_deg_E
-    simp [E_zero]
-    exact h_winnable
+    simpa [E_zero] using h_winnable
 
 /-- If `rank_geq G D m` fails for some natural number `m`, there exists an exact rank `r < m`. -/
 lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (rank_geq G D m) → ∃ r < (m:ℤ), rank_eq G D r := by
-  -- Induction on m
   induction m with
   | zero =>
-  · -- Base case: m = 0
-    intro h_rank_geq
-    use (-1)
-    constructor
-    norm_num
-    have h_r_geq := rank_geq_neg G D (-1) (by norm_num)
-    exact ⟨h_r_geq, h_rank_geq⟩
+  · intro h_rank_geq
+    exact ⟨-1, by norm_num, rank_geq_neg G D (-1) (by norm_num), h_rank_geq⟩
   | succ m ih =>
     intro h_rank_geq
     by_cases h_rank_m : rank_geq G D m
-    · -- Case 1: rank_geq G D m holds
-      use m
-      exact ⟨by norm_num, ⟨h_rank_m, h_rank_geq⟩⟩
-    · -- Case 2: rank_geq G D m does not hold
+    · exact ⟨m, by norm_num, h_rank_m, h_rank_geq⟩
+    ·
       specialize ih h_rank_m
-      rcases ih with ⟨r, h_r_lt⟩
-      use r
-      have r_le : r < m+1 := by
-        linarith [h_r_lt.left]
-      exact ⟨r_le, h_r_lt.right⟩
+      rcases ih with ⟨r, h_r_lt, h_rank_eq⟩
+      have r_le : r < m + 1 := by
+        linarith [h_r_lt]
+      exact ⟨r, r_le, h_rank_eq⟩
 
 /-- Every divisor has a well-defined rank: there exists `r` with `rank_eq G D r`. -/
 lemma rank_exists (G : CFGraph) (D : CFDiv G) :
@@ -326,16 +237,13 @@ lemma rank_exists (G : CFGraph) (D : CFDiv G) :
       dsimp [m]
       simp
     linarith
-  have helper := rank_exists_helper G D m h_not_geq
-  rcases helper with ⟨r, h_r_lt, h_rank_eq⟩
+  rcases rank_exists_helper G D m h_not_geq with ⟨r, _, h_rank_eq⟩
   exact ⟨r, h_rank_eq⟩
 
 /-- The rank of a divisor is unique: if `rank_eq G D r1` and `rank_eq G D r2`, then `r1 = r2`. -/
 lemma rank_unique (G : CFGraph) (D : CFDiv G) :
   ∀ r1 r2 : ℤ, rank_eq G D r1 → rank_eq G D r2 → r1 = r2 := by
-  intro r1 r2 h_rank1 h_rank2
-  rcases h_rank1 with ⟨h_r1_geq, h_r1_not_geq⟩
-  rcases h_rank2 with ⟨h_r2_geq, h_r2_not_geq⟩
+  rintro r1 r2 ⟨h_r1_geq, h_r1_not_geq⟩ ⟨h_r2_geq, h_r2_not_geq⟩
   have ineq1 : r1 < r2 + 1 := lt_of_rank_geq_not G D r1 (r2+1) h_r1_geq h_r2_not_geq
   have ineq2 : r2 < r1 + 1 := lt_of_rank_geq_not G D r2 (r1+1) h_r2_geq h_r1_not_geq
   linarith
@@ -393,21 +301,16 @@ lemma rank_get_effective (G : CFGraph) (D : CFDiv G) :
 lemma rank_neg_one_iff_unwinnable (G : CFGraph) (D : CFDiv G) :
   rank G D = -1 ↔ ¬(winnable G D) := by
   have h := rank_eq_neg_one_iff_unwinnable  G D
-  simp [← h]
   have h_spec := Classical.choose_spec (rank_exists G D)
   let r := rank G D
   have h_r : rank_eq G D r := h_spec
   constructor
-  -- Primal direction
-  intro h
-  have h₁ : r = -1 := h
-  rw [h₁] at h_r
-  exact h_r
-  -- Converse direction
-  intro h
-  apply rank_unique G D r (-1) at h
-  exact h
-  exact h_r
+  · intro hr
+    have h₁ : r = -1 := hr
+    rw [h₁] at h_r
+    exact h.mp h_r
+  · intro hwin
+    exact rank_unique G D r (-1) h_r (h.mpr hwin)
 
 /-- Lemma: If rank is not non-negative, then it equals -1 -/
 lemma rank_neg_one_of_not_nonneg (G : CFGraph) (D : CFDiv G) (h_not_nonneg : ¬(rank G D ≥ 0)) : rank G D = -1 := by
@@ -435,13 +338,10 @@ lemma rank_geq_neg_one (G : CFGraph) (D : CFDiv G) : rank G D ≥ -1 := by
 lemma zero_divisor_rank (G : CFGraph) : rank G (0:CFDiv G) = 0 := by
   rw [← rank_eq_iff]
   constructor
-  -- Forward direction: rank G 0 ≥ 0
   have h_eff : effective (0:CFDiv G) := by
-    intro v
-    simp
+    simp [effective]
   rw [rank_nonneg_iff_winnable G (0:CFDiv G)]
   exact winnable_of_effective G (0:CFDiv G) h_eff
-  -- Reverse direction: rank G 0 < 1
   have ineq := rank_le_degree G (0:CFDiv G) 1 (by norm_num)
   simp [deg] at ineq
   exact ineq

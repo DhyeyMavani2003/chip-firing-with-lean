@@ -226,23 +226,9 @@ theorem clifford_theorem
     linarith
 
   have h5 : (rank G D : ℚ) ≤ (deg D : ℚ) / 2 := by
-    -- Convert to rational numbers and use algebraic properties
     have h_cast : (2 : ℚ) * (rank G D : ℚ) ≤ (deg D : ℚ) := by
-      -- Cast integer inequality to rational
       exact_mod_cast h4
-
-    -- Divide both sides by 2 directly using algebra
-    have h_two_pos : (0 : ℚ) < 2 := by norm_num
-
-    calc (rank G D : ℚ)
-      _  = (rank G D : ℚ) * (1 : ℚ) := by ring
-      _  = (rank G D : ℚ) * (2 / 2 : ℚ) := by norm_num
-      _  = (2 : ℚ) * (rank G D : ℚ) / 2 := by field_simp
-      _  ≤ (deg D : ℚ) / 2 := by
-          -- Use the fact that division by positive number preserves inequality
-          apply div_le_div_of_nonneg_right
-          exact h_cast
-          norm_num
+    linarith
 
   exact h5
 

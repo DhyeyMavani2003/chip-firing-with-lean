@@ -13,11 +13,9 @@ inductive Person : Type
 
 instance : Fintype Person where
   elems := {Person.A, Person.B, Person.C, Person.E}
-  complete := by {
+  complete := by
     intro x
-    cases x
-    all_goals { simp }
-  }
+    cases x <;> simp
 instance : Nonempty Person := ⟨Person.A⟩
 
 -- Example usage for `Person` in a loopless graph.
@@ -141,11 +139,8 @@ theorem laplacian_off_diagonal_BE : example_laplacian Person.B Person.E = 0 := b
 theorem laplacian_off_diagonal_CE : example_laplacian Person.C Person.E = -1 := by rfl
 theorem check_example_laplacian_symmetry : Matrix.IsSymm example_laplacian := by {
   apply Matrix.IsSymm.ext
-  intros i j
-  cases i <;> cases j
-  all_goals {
-    rfl
-  }
+  intro i j
+  cases i <;> cases j <;> rfl
 }
 
 -- Test script firing through laplacians
@@ -165,10 +160,6 @@ def non_q_reduced_example : CFDiv example_graph := fun v => match v with
   | Person.E => 1
 
 theorem non_q_reduced_example_is_invalid : ¬q_reduced example_graph Person.A non_q_reduced_example := by {
-  intro h
-  cases h with
-  | intro h1 h2 => {
-    have hB := h1 Person.B (by simp)
-    simp [non_q_reduced_example] at hB
-  }
+  rintro ⟨h1, _⟩
+  simpa [non_q_reduced_example] using h1 Person.B (by simp)
 }
