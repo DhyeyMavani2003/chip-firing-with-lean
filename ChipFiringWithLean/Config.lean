@@ -190,41 +190,6 @@ lemma config_eff {q : G.V} (d : ℤ) (c : Config G q) : effective (toDiv d c) �
     simp [h_v]
     exact c.non_negative v
 
-/-- Pointwise partial order on configurations: `config_ge c c'` iff `c(v) ≥ c'(v)` for all `v`. -/
-def config_ge {q : G.V} (c c' : Config G q) : Prop :=
-  ∀ v : G.V, c.vertex_degree v ≥ c'.vertex_degree v
-
-/-- Two configurations are equal if one dominates the other pointwise and they have the same degree. -/
-lemma config_eq_of_ge_and_degree {q : G.V} {c1 c2 : Config G q} (h_ge : config_ge c1 c2) (h_deg : config_degree c1 = config_degree c2) : c1 = c2 := by
-  apply (eq_config_iff_eq_vertex_degree c1 c2).mpr
-  dsimp [config_ge] at h_ge
-  dsimp [config_degree, deg] at h_deg
-  have h_le : ∀ v : G.V, c2.vertex_degree v ≤ c1.vertex_degree v := by
-    intro v
-    specialize h_ge v
-    linarith
-  suffices ∀ v : G.V, c1.vertex_degree v = c2.vertex_degree v by
-    funext v
-    specialize this v
-    exact this
-  contrapose! h_deg with h_ne
-  rcases h_ne with ⟨v, h_v_ne⟩
-  have h_gt : c2.vertex_degree v < c1.vertex_degree v := by
-    specialize h_ge v
-    apply lt_of_le_of_ne h_ge
-    contrapose! h_v_ne
-    simp [h_v_ne]
-  suffices config_degree c2 < config_degree c1 by
-    apply ne_of_gt this
-  dsimp [config_degree, deg]
-  refine Finset.sum_lt_sum ?_ ?_
-  intro i _
-  specialize h_le i
-  exact h_le
-  use v
-  simp
-  exact h_gt
-
 instance : PartialOrder (Config G q) := {
   le := λ c₁ c₂ => c₁.vertex_degree ≤ c₂.vertex_degree,
   le_refl := by
@@ -238,6 +203,34 @@ instance : PartialOrder (Config G q) := {
     have h_eq := le_antisymm h_le h_ge
     exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
 }
+
+/-- Two configurations are equal if one is pointwise bounded above by the other and they have
+the same degree. -/
+lemma config_eq_of_le_and_degree {q : G.V} {c1 c2 : Config G q} (h_le : c2 ≤ c1)
+    (h_deg : config_degree c1 = config_degree c2) : c1 = c2 := by
+  apply (eq_config_iff_eq_vertex_degree c1 c2).mpr
+  dsimp [config_degree, deg] at h_deg
+  have h_le' : ∀ v : G.V, c2.vertex_degree v ≤ c1.vertex_degree v := by
+    intro v
+    exact h_le v
+  suffices ∀ v : G.V, c1.vertex_degree v = c2.vertex_degree v by
+    funext v
+    exact this v
+  contrapose! h_deg with h_ne
+  rcases h_ne with ⟨v, h_v_ne⟩
+  have h_gt : c2.vertex_degree v < c1.vertex_degree v := by
+    specialize h_le' v
+    apply lt_of_le_of_ne h_le'
+    contrapose! h_v_ne
+    simp [h_v_ne]
+  suffices config_degree c2 < config_degree c1 by
+    exact ne_of_gt this
+  dsimp [config_degree, deg]
+  refine Finset.sum_lt_sum ?_ ?_
+  · intro i _
+    exact h_le' i
+  · use v
+    simp [h_gt]
 
 /-- The out-degree of vertex `v` with respect to set `S`: the number of edges from `v` to
 vertices outside `S`. Used to define the superstability condition. -/
@@ -340,7 +333,7 @@ lemma q_reduced_superstable_correspondence (G : CFGraph) (q : G.V) (D : CFDiv G)
 
 /-- A maximal superstable configuration has no legal firings and is not ≤ any other superstable configuration. -/
 def maximal_superstable (G : CFGraph) {q : G.V} (c : Config G q) : Prop :=
-  superstable G q c ∧ ∀ c' : Config G q, superstable G q c' → config_ge c' c → c' = c
+  superstable G q c ∧ ∀ c' : Config G q, superstable G q c' → c ≤ c' → c' = c
 
 
 /-- Subtracting a chip at q from a superstable configuration gives an unwinnable divisor. -/

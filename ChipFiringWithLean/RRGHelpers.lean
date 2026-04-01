@@ -127,27 +127,25 @@ lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D : CFDiv
 This is [Corry-Perkinson], Corollary 4.9(1), "only if" direction. -/
 lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : maximal_superstable G c): config_degree c = genus G := by
   have := maximal_superstable_orientation G q c h_max
-  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
+  rcases this with ⟨O, hO, h_orient_eq⟩
   rw [← h_orient_eq]
-  rw [config_and_divisor_from_O O h_acyc h_unique_source ]
+  rw [config_and_divisor_from_O O hO]
   dsimp [toConfig, config_degree]
   rw [map_sub]
-  dsimp [orqed]
-  rw [degree_ordiv]
-  suffices (ordiv G O) q = -1 by
-    rw [this]
+  have h_deg_orqed : deg (orqed O hO).D = genus G - 1 := by
+    simpa [orqed] using degree_ordiv O
+  rw [h_deg_orqed]
+  suffices h_q_orqed : (orqed O hO).D q = -1 by
+    rw [h_q_orqed]
     simp [deg_one_chip]
-  -- Prove (ordiv G O) q = -1
-  dsimp [ordiv]
-  -- These lines look funny, but they just check that "q is a unique source" implies "q is a source."
-  -- [TODO] consider making a helper lemma for this step, and/or giving a name to the "is a unique source" property.
-  have := acyclic_has_source G O h_acyc
-  rcases this with ⟨some_source, h_source⟩
-  specialize h_unique_source some_source h_source
-  rw [h_unique_source] at h_source
-  dsimp [is_source] at h_source
-  rw [h_source]
-  norm_num
+  have h_q_ordiv : (ordiv G O) q = -1 := by
+    -- Prove (ordiv G O) q = -1
+    dsimp [ordiv]
+    have h_source_q : is_source G O q := source_of_acyclic_with_unique_source hO
+    dsimp [is_source] at h_source_q
+    rw [h_source_q]
+    norm_num
+  simpa [orqed] using h_q_ordiv
 
 /-- If $D$ is maximal unwinnable, $q$-reduced, and equals `toDiv (deg D) c`, then
 $D = c - q$. This is [Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
@@ -178,7 +176,6 @@ lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
   rcases this with ⟨c_max, h_maximal, h_ge_c⟩
   have h_genus_eq := degree_max_superstable c_max h_maximal
   rw [← h_genus_eq]
-  dsimp [config_ge] at h_ge_c
   dsimp [config_degree]
   dsimp [deg]
   apply Finset.sum_le_sum
@@ -244,7 +241,6 @@ lemma winnable_of_deg_ge_genus {G : CFGraph} (h_conn : graph_connected G) (D : C
   have h_deg_c : config_degree c ≤ genus G := by
     have := degree_max_superstable c_max h_maximal
     rw [← this]
-    dsimp [config_ge] at h_ge_c
     apply Finset.sum_le_sum
     intro v hv
     specialize h_ge_c v
@@ -424,7 +420,7 @@ theorem maximal_unwinnable_char {G : CFGraph} (h_conn : graph_connected G) (q : 
         intro hc_eq_c' -- Assume c = c' for contradiction
         -- Rewrite c' to c in the hypothesis h_max_c' using the assumed equality
         rw [← hc_eq_c'] at h_max_c'
-        -- h_max_c' now has type: maximal_superstable G c ∧ config_ge c c
+        -- h_max_c' now has type: maximal_superstable G c ∧ c ≤ c
         -- This contradicts the initial assumption h_not_max_c (¬ maximal_superstable G c)
         exact h_not_max_c h_max_c' -- Apply h_not_max_c to the full hypothesis
 
@@ -550,17 +546,17 @@ theorem maximal_unwinnable_deg
     _ = genus G - 1 := by
         -- Since c is maximal superstable, it corresponds to an orientation
         rcases maximal_superstable_orientation G q c h_c_max_super with
-          ⟨O, h_acyc, h_unique_source, h_c_eq_orient_config⟩
+          ⟨O, hO, h_c_eq_orient_config⟩
 
         -- The configuration derived from an orientation has 0 at q
-        have h_orient_config_q_zero : (orientation_to_config G O q h_acyc h_unique_source).vertex_degree q = 0 := by
+        have h_orient_config_q_zero : (orientation_to_config G O q hO).vertex_degree q = 0 := by
           unfold orientation_to_config config_of_source
           simp
 
         -- Thus, c must have 0 at q
         have h_c_q_zero : c.vertex_degree q = 0 := by
           -- First establish equality of the vertex_degree functions using structure equality
-          have h_vertex_degree_eq : c.vertex_degree = (orientation_to_config G O q h_acyc h_unique_source).vertex_degree := by
+          have h_vertex_degree_eq : c.vertex_degree = (orientation_to_config G O q hO).vertex_degree := by
             rw [h_c_eq_orient_config] -- This leaves the goal c.vertex_degree = c.vertex_degree which is true by reflexivity
           -- Apply the function equality at vertex q
           have h_eq_at_q := congr_fun h_vertex_degree_eq q
@@ -644,14 +640,14 @@ theorem rank_degree_inequality
   -- Let O be corresponding acyclic orientation using the bijection
   rcases orientation_superstable_bijection G q with ⟨_, h_surj⟩
   -- Apply h_surj to the subtype element ⟨c', h_max'⟩
-  rcases h_surj ⟨c', h_max'⟩ with ⟨O_subtype, h_eq_c'⟩ -- O_subtype is {O // acyclic ∧ unique_source}
+  rcases h_surj ⟨c', h_max'⟩ with ⟨O_subtype, h_eq_c'⟩ -- O_subtype is {O // acyclic_with_unique_source}
   let O := O_subtype.val
-  let O_acyc := O_subtype.prop.1
-  let O_unique_source := O_subtype.prop.2
+  let hO := O_subtype.prop
+  let O_acyc := hO.1
+  let O_unique_source := hO.2
 
   -- Get configuration c' from orientation O_subtype
-  -- O_subtype.val is the CFOrientation, O_subtype.prop.1 is acyclicity, O_subtype.prop.2 is uniqueness
-  let c'_config := orientation_to_config G O q O_acyc O_unique_source
+  let c'_config := orientation_to_config G O q hO
 
   -- Check consistency: h_eq_c' implies c'_config = c'
   have h_orient_eq_c' : c'_config = c' := by exact Subtype.mk.inj h_eq_c'
@@ -694,40 +690,29 @@ theorem rank_degree_inequality
     funext v; simp; ring
 
   have h_M_O : M = ordiv G O := by
-    have c'_eq : c' = toConfig (orqed O O_acyc O_unique_source) := by
+    have c'_eq : c' = toConfig (orqed O hO) := by
       rw [← h_orient_eq_c']
       dsimp [c'_config]
-      rw [config_and_divisor_from_O O O_acyc O_unique_source]
+      rw [config_and_divisor_from_O O hO]
 
-    have : toDiv (genus G - 1) (toConfig (orqed O O_acyc O_unique_source)) = ordiv G O := by
-      have := div_of_config_of_div (orqed O O_acyc O_unique_source)
-      dsimp [orqed] at *
-      rw [degree_ordiv O] at this
-      exact this
+    have : toDiv (genus G - 1) (toConfig (orqed O hO)) = ordiv G O := by
+      calc
+        toDiv (genus G - 1) (toConfig (orqed O hO))
+            = toDiv (deg (orqed O hO).D) (toConfig (orqed O hO)) := by
+                have h_deg_orqed : deg (orqed O hO).D = genus G - 1 := by
+                  simpa [orqed] using degree_ordiv O
+                rw [h_deg_orqed]
+        _ = (orqed O hO).D := div_of_config_of_div (orqed O hO)
+        _ = ordiv G O := rfl
     rw [← this]
     dsimp [M,toDiv]
     rw [c'_eq]
-    have : (genus G - 1 - config_degree (toConfig (orqed O O_acyc O_unique_source))) = -1 := by
-      dsimp [config_degree]
-      have := config_degree_div_degree (orqed O O_acyc O_unique_source)
-      dsimp [orqed] at this
-      rw [degree_ordiv O] at this
-      rw [this]
-      dsimp [config_degree, toConfig]
-      rw [map_sub, map_sub]
-      dsimp [orqed]
-      simp [degree_ordiv O]
-      -- Now just show ordiv has degree -1 at source
-      -- This is surely proved somewhere already??
-      dsimp [ordiv]
-      suffices is_source G O q by
-        dsimp [is_source] at this
-        rw [this]; simp
-      -- Show q is a source in O... [TODO] bubble this off as a lemma
-      rcases acyclic_has_source G O O_acyc with ⟨s, hs⟩
-      specialize O_unique_source s hs
-      rw [O_unique_source] at hs
-      exact hs
+    have : (genus G - 1 - config_degree (toConfig (orqed O hO))) = -1 := by
+      have h_cfg_deg : config_degree (toConfig (orqed O hO)) = genus G := by
+        rw [← config_and_divisor_from_O O hO]
+        exact config_degree_from_O O hO
+      rw [h_cfg_deg]
+      ring
     simp [this]
     rw [sub_eq_add_neg]
 

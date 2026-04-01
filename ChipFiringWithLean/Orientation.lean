@@ -365,11 +365,21 @@ lemma is_source_of_unique_source {G : CFGraph} (O : CFOrientation G) {q : G.V} (
   rw [this] at h_q'
   exact h_q'
 
+/-- `acyclic_with_unique_source G O q` means that `O` is acyclic and every source of `O`
+is equal to `q`. -/
+def acyclic_with_unique_source (G : CFGraph) (O : CFOrientation G) (q : G.V) : Prop :=
+  is_acyclic G O ∧ ∀ w, is_source G O w → w = q
+
+/-- In an acyclic orientation with unique source `q`, the vertex `q` is a source. -/
+lemma source_of_acyclic_with_unique_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
+    (hO : acyclic_with_unique_source G O q) : is_source G O q :=
+  is_source_of_unique_source O hO.1 hO.2
+
 
 /-- The configuration associated to an acyclic orientation with unique source `q`:
 assigns $\mathrm{indeg}(v) - 1$ chips to each vertex $v \neq q$, and $0$ at $q$. -/
 def config_of_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
-    (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : Config G q :=
+    (hO : acyclic_with_unique_source G O q) : Config G q :=
   { vertex_degree := λ v => if v = q then 0 else (indeg G O v : ℤ) - 1,
     q_zero := by simp
     non_negative := by
@@ -379,7 +389,7 @@ def config_of_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
       · linarith
       · have h_not_source : ¬ is_source G O v := by
           intro hs_v
-          exact h_eq (h_unique_source v hs_v)
+          exact h_eq (hO.2 v hs_v)
         exact indeg_minus_one_nonneg_of_not_source G O v h_not_source
   }
 
@@ -403,8 +413,8 @@ def ordiv (G : CFGraph) (O : CFOrientation G) : CFDiv G :=
 
 /-- The orientation divisor `ordiv G O` bundled as a `q_eff_div`, using acyclicity to prove
 $q$-effectivity. -/
-def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic G O)
-    (h_unique_source : ∀ w, is_source G O w → w = q) : q_eff_div G q := {
+def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V}
+    (hO : acyclic_with_unique_source G O q) : q_eff_div G q := {
       D := ordiv G O,
       h_eff := by
         intro v v_ne_q
@@ -412,10 +422,9 @@ def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic 
         contrapose! v_ne_q with v_q
         have h_indeg : indeg G O v = 0 := by
           linarith
-        specialize h_unique_source v
         rw [indeg_eq_sum_flow] at h_indeg
         -- Sum of non-negative terms is zero, so each term is zero
-        apply h_unique_source
+        apply hO.2
         contrapose! h_indeg with h_not_source
         dsimp [is_source] at h_not_source
         rw [indeg_eq_sum_flow] at h_not_source
@@ -427,13 +436,13 @@ def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic 
 /-- The configuration c(O) associated to an acyclic orientation O.
 [Corry-Perkinson], Definition 4.7 (part 2) -/
 def orientation_to_config (G : CFGraph) (O : CFOrientation G) (q : G.V)
-    (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : Config G q :=
-  config_of_source h_acyclic h_unique_source
+    (hO : acyclic_with_unique_source G O q) : Config G q :=
+  config_of_source hO
 
 /-- Lemma: CFOrientation to config preserves indegrees -/
 lemma orientation_to_config_indeg (G : CFGraph) (O : CFOrientation G) (q : G.V)
-    (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) (v : G.V) :
-    (orientation_to_config G O q h_acyclic h_unique_source).vertex_degree v =
+    (hO : acyclic_with_unique_source G O q) (v : G.V) :
+    (orientation_to_config G O q hO).vertex_degree v =
     if v = q then 0 else (indeg G O v : ℤ) - 1 := by
   -- This follows directly from the definition of config_of_source
   simp only [orientation_to_config] at *
@@ -444,10 +453,11 @@ lemma orientation_to_config_indeg (G : CFGraph) (O : CFOrientation G) (q : G.V)
 
 /-- Compatibility between configurations and divisors from
   an orientation -/
-lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-  orientation_to_config G O q h_acyclic h_unique_source = toConfig (orqed O h_acyclic h_unique_source) := by
-  let c := orientation_to_config G O q h_acyclic h_unique_source
-  let D := orqed O h_acyclic h_unique_source
+lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
+    (hO : acyclic_with_unique_source G O q) :
+  orientation_to_config G O q hO = toConfig (orqed O hO) := by
+  let c := orientation_to_config G O q hO
+  let D := orqed O hO
   rw [eq_config_iff_eq_vertex_degree]
   funext v
   by_cases h_v: v = q
@@ -671,33 +681,26 @@ lemma orientation_determined_by_indegrees {G : CFGraph}
 /-- Lemma proving uniqueness of orientations giving same config -/
 theorem helper_config_to_orientation_unique (G : CFGraph) (q : G.V)
     (c : Config G q)
-    (h_super : superstable G q c)
-    (h_max : maximal_superstable G c)
     (O₁ O₂ : CFOrientation G)
-    (h_acyc₁ : is_acyclic G O₁)
-    (h_acyc₂ : is_acyclic G O₂)
-    (h_src₁ : is_source G O₁ q)
-    (h_src₂ : is_source G O₂ q)
-    (h_unique_source₁ : ∀ w, is_source G O₁ w → w = q)
-    (h_unique_source₂ : ∀ w, is_source G O₂ w → w = q)
-    (h_eq₁ : orientation_to_config G O₁ q h_acyc₁ h_unique_source₁ = c)
-    (h_eq₂ : orientation_to_config G O₂ q h_acyc₂ h_unique_source₂ = c) :
+    (hO₁ : acyclic_with_unique_source G O₁ q)
+    (hO₂ : acyclic_with_unique_source G O₂ q)
+    (h_eq₁ : orientation_to_config G O₁ q hO₁ = c)
+    (h_eq₂ : orientation_to_config G O₂ q hO₂ = c) :
     O₁ = O₂ := by
-  apply orientation_determined_by_indegrees O₁ O₂ h_acyc₁ h_acyc₂
+  apply orientation_determined_by_indegrees O₁ O₂ hO₁.1 hO₂.1
   intro v
 
-  have h_deg₁ := orientation_to_config_indeg G O₁ q h_acyc₁ h_unique_source₁ v
-  have h_deg₂ := orientation_to_config_indeg G O₂ q h_acyc₂ h_unique_source₂ v
+  have h_deg₁ := orientation_to_config_indeg G O₁ q hO₁ v
+  have h_deg₂ := orientation_to_config_indeg G O₂ q hO₂ v
 
-  have h_config_eq : (orientation_to_config G O₁ q h_acyc₁ h_unique_source₁).vertex_degree v =
-                     (orientation_to_config G O₂ q h_acyc₂ h_unique_source₂).vertex_degree v := by
+  have h_config_eq : (orientation_to_config G O₁ q hO₁).vertex_degree v =
+                     (orientation_to_config G O₂ q hO₂).vertex_degree v := by
     rw [h_eq₁, h_eq₂]
 
   by_cases hv : v = q
   · -- Case v = q: Both vertices are sources, so indegree is 0
     rw [hv]
-    -- Use the explicit source assumptions h_src₁ and h_src₂
-    rw [h_src₁, h_src₂]
+    rw [source_of_acyclic_with_unique_source hO₁, source_of_acyclic_with_unique_source hO₂]
   · -- Case v ≠ q: use vertex degree equality
     rw [h_deg₁, h_deg₂] at h_config_eq
     simp only [if_neg hv] at h_config_eq
@@ -755,15 +758,16 @@ lemma degree_ordiv {G : CFGraph} (O : CFOrientation G) :
       rfl
 
 /-- The configuration degree of an acyclic orientation with unique source equals the genus. -/
-lemma config_degree_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-  config_degree (orientation_to_config G O q h_acyclic h_unique_source) = genus G := by
-  rw [config_and_divisor_from_O O h_acyclic h_unique_source]
+lemma config_degree_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
+    (hO : acyclic_with_unique_source G O q) :
+  config_degree (orientation_to_config G O q hO) = genus G := by
+  rw [config_and_divisor_from_O O hO]
   -- Use config_degree_div_degree to relate config_degree to deg of the underlying divisor.
-  have h_q_source : indeg G O q = 0 := is_source_of_unique_source O h_acyclic h_unique_source
-  have h1 := config_degree_div_degree (orqed O h_acyclic h_unique_source)
+  have h_q_source : indeg G O q = 0 := source_of_acyclic_with_unique_source hO
+  have h1 := config_degree_div_degree (orqed O hO)
   -- (orqed O ...).D = ordiv G O definitionally, so:
-  have h2 : (orqed O h_acyclic h_unique_source).D q = (indeg G O q : ℤ) - 1 := rfl
-  have h3 : deg (orqed O h_acyclic h_unique_source).D = (genus G : ℤ) - 1 := degree_ordiv O
+  have h2 : (orqed O hO).D q = (indeg G O q : ℤ) - 1 := rfl
+  have h3 : deg (orqed O hO).D = (genus G : ℤ) - 1 := degree_ordiv O
   have h4 : (indeg G O q : ℤ) = 0 := by exact_mod_cast h_q_source
   linarith
 
@@ -905,7 +909,8 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
 /-- The orientation divisor $D(\mathcal{O})$ of an acyclic orientation with unique source $q$
 is $q$-reduced. Together with `ordiv_unwinnable`, this proves
 [Corry-Perkinson], Proposition 4.11. -/
-lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) : q_reduced G q (ordiv G O) := by
+lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
+    (hO : acyclic_with_unique_source G O q) : q_reduced G q (ordiv G O) := by
   constructor
   · -- Show ordiv is effective away from q
     intro v h_v_ne_q
@@ -913,15 +918,14 @@ lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic :
     dsimp [ordiv]
     suffices indeg G O v > 0  by
       linarith
-    specialize h_unique_source v
     contrapose! h_v_ne_q with indeg_zero
-    apply h_unique_source
+    apply hO.2
     apply Nat.eq_zero_of_le_zero at indeg_zero
     dsimp [is_source]
     simp [indeg_zero]
   · -- Show no valid firing move exists for subsets not containing q
     intro S h_q_S S_nonempty
-    have h_source := subset_source G O S S_nonempty h_acyclic
+    have h_source := subset_source G O S S_nonempty hO.1
     rcases h_source with ⟨v, h_v_S, h_flow⟩
     use v
     refine ⟨h_v_S, ?_⟩
@@ -961,21 +965,19 @@ lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic :
 /-- The configuration associated to an acyclic orientation with unique source $q$ is
 superstable. -/
 lemma helper_orientation_config_superstable (G : CFGraph) (O : CFOrientation G) (q : G.V)
-    (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-    superstable G q (orientation_to_config G O q h_acyc h_unique_source) := by
-    let c := orientation_to_config G O q h_acyc h_unique_source
+    (hO : acyclic_with_unique_source G O q) :
+    superstable G q (orientation_to_config G O q hO) := by
+    let c := orientation_to_config G O q hO
     apply (superstable_iff_q_reduced G q (genus G -1) c).mpr
 
-    have h_c := config_and_divisor_from_O O h_acyc h_unique_source
+    have h_c := config_and_divisor_from_O O hO
     dsimp [c]
     rw [h_c]
-    have : genus G - 1 = deg ((orqed O h_acyc h_unique_source).D) := by
-      dsimp [orqed]
-      rw [degree_ordiv O]
+    have : genus G - 1 = deg ((orqed O hO).D) := by
+      simpa [orqed] using (degree_ordiv O).symm
     rw [this]
-    rw [div_of_config_of_div (orqed O h_acyc h_unique_source)]
-    dsimp [orqed]
-    exact ordiv_q_reduced O h_acyc h_unique_source
+    rw [div_of_config_of_div (orqed O hO)]
+    exact ordiv_q_reduced O hO
 
 
 
@@ -1388,6 +1390,12 @@ lemma burn_unique_source {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list
   simp at ineq
   simp [ineq]
 
+/-- The orientation constructed from a complete burn list is acyclic with unique source `q`. -/
+lemma burn_acyclic_with_unique_source {G : CFGraph} {q : G.V} {c : Config G q}
+    (L : burn_list G c) (h_full : ∀ (v : G.V), v ∈ L.list) :
+    acyclic_with_unique_source G (burn_orientation L h_full) q :=
+  ⟨burn_acyclic L h_full, burn_unique_source L h_full⟩
+
 
 
 /-!
@@ -1406,12 +1414,13 @@ acyclic orientations with unique source $q$ and maximal superstable configuratio
 -/
 
 /-- Theorem: Dhar's burning algorithm produces, from a superstable configuration, an orientation giving a maximal superstable above it. -/
-theorem superstable_dhar {G : CFGraph} {q : G.V} {c : Config G q} (h_ss : superstable G q c) : ∃ (O : CFOrientation G) (h_acyc: is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q), config_ge (orientation_to_config G O q h_acyc h_unique_source) c := by
+theorem superstable_dhar {G : CFGraph} {q : G.V} {c : Config G q} (h_ss : superstable G q c) :
+    ∃ (O : CFOrientation G) (hO : acyclic_with_unique_source G O q),
+      c ≤ orientation_to_config G O q hO := by
   rcases superstable_burn_list G c h_ss with ⟨L, h_full⟩
   let O := burn_orientation L h_full
-  have h_acyc := burn_acyclic L h_full
-  have h_unique_source := burn_unique_source L h_full
-  use O, h_acyc, h_unique_source
+  have hO : acyclic_with_unique_source G O q := burn_acyclic_with_unique_source L h_full
+  use O, hO
   intro v
   dsimp [orientation_to_config, config_of_source]
   by_cases h_vq : v = q
@@ -1431,17 +1440,17 @@ theorem superstable_dhar {G : CFGraph} {q : G.V} {c : Config G q} (h_ss : supers
 /-- The configuration asssociated to an acyclic orientation with unique source is maximal superstable.
 [Corry-Perkinson], Theorem 4.8, part 1 (c(O) is maximal superstable) -/
 theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
-    (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q) :
-    maximal_superstable G (orientation_to_config G O q h_acyc h_unique_source) := by
+    (hO : acyclic_with_unique_source G O q) :
+    maximal_superstable G (orientation_to_config G O q hO) := by
   dsimp [maximal_superstable]
-  let cO := orientation_to_config G O q h_acyc h_unique_source
-  have h_ssO : superstable G q cO := helper_orientation_config_superstable G O q h_acyc h_unique_source
+  let cO := orientation_to_config G O q hO
+  have h_ssO : superstable G q cO := helper_orientation_config_superstable G O q hO
   refine ⟨h_ssO, ?_⟩
   -- Goal is now just maximality of cO.
   -- Suppose another divisor is bigger. THere's an orientation divisor yet above that one.
   intro c h_ss h_ge
-  rcases superstable_dhar h_ss with ⟨O', h_acyc', h_src', h_ge'⟩
-  let c' := orientation_to_config G O' q h_acyc' h_src'
+  rcases superstable_dhar h_ss with ⟨O', hO', h_ge'⟩
+  let c' := orientation_to_config G O' q hO'
   -- Sandwich c between cO and c', which have the same degree
   -- These two blocks are repetitive; could factor them out
   have h_deg_le : config_degree cO ≤ config_degree c := by
@@ -1458,54 +1467,55 @@ theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
     apply Finset.sum_le_sum
     intro v _
     exact h_ge' v
-  rw [config_degree_from_O] at h_deg_le h_deg_le'
+  rw [config_degree_from_O O hO] at h_deg_le
+  rw [config_degree_from_O O' hO'] at h_deg_le'
   have h_deg : config_degree c = genus G := by
     linarith
   have h_deg : config_degree c = config_degree cO := by
-    rw [config_degree_from_O]
+    rw [config_degree_from_O O hO]
     exact h_deg
   -- Now apply config equality from degree and ge
-  exact config_eq_of_ge_and_degree h_ge h_deg
+  exact config_eq_of_le_and_degree h_ge h_deg
 
 /-- Every superstable configuration extends to a maximal superstable configuration -/
 theorem maximal_superstable_exists (G : CFGraph) (q : G.V) (c : Config G q)
     (h_super : superstable G q c) :
-    ∃ c' : Config G q, maximal_superstable G c' ∧ config_ge c' c := by
-    rcases superstable_dhar h_super with ⟨O, h_acyc, h_src, h_ge⟩
-    let c' := orientation_to_config G O q h_acyc h_src
+    ∃ c' : Config G q, maximal_superstable G c' ∧ c ≤ c' := by
+    rcases superstable_dhar h_super with ⟨O, hO, h_ge⟩
+    let c' := orientation_to_config G O q hO
     use c'
     refine ⟨?_, h_ge⟩
     -- Remains to show c' is maximal superstable
-    exact orientation_config_maximal G O q h_acyc h_src
+    exact orientation_config_maximal G O q hO
 
 /-- Every maximal superstable configuration comes from an acyclic orientation
 [Corry-Perkinson], Theorem 4.8, part 2 (surjectivity) -/
 theorem maximal_superstable_orientation (G : CFGraph) (q : G.V) (c : Config G q)
     (h_max : maximal_superstable G c) :
-    ∃ (O : CFOrientation G) (h_acyc : is_acyclic G O) (h_unique_source : ∀ w, is_source G O w → w = q),
-      orientation_to_config G O q h_acyc h_unique_source = c := by
-rcases superstable_dhar h_max.1 with ⟨O, h_acyc, h_src, h_ge⟩
-use O, h_acyc, h_src
-let c' := orientation_to_config G O q h_acyc h_src
-have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q h_acyc h_src) h_ge
+    ∃ (O : CFOrientation G) (hO : acyclic_with_unique_source G O q),
+      orientation_to_config G O q hO = c := by
+rcases superstable_dhar h_max.1 with ⟨O, hO, h_ge⟩
+use O, hO
+let c' := orientation_to_config G O q hO
+have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q hO) h_ge
 rw [← h_eq]
 
 /-- Proposition 4.1.11: Bijection between acyclic orientations with source q and maximal superstable configurations
 Corry-Perkinson], Theorem 4.8, part 3 (bijection)-/
 theorem orientation_superstable_bijection (G : CFGraph) (q : G.V) :
-    let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)};
+    let α := {O : CFOrientation G // acyclic_with_unique_source G O q};
     let β := {c : Config G q // maximal_superstable G c};
-    let f_raw : α → Config G q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2;
-    let f : α → β := λ O_sub => ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩;
+    let f_raw : α → Config G q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop;
+    let f : α → β := λ O_sub => ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop⟩;
     Function.Bijective f := by
   -- Define the domain and codomain types explicitly (can be removed if using let like above)
-  let α := {O : CFOrientation G // is_acyclic G O ∧ (∀ w, is_source G O w → w = q)}
+  let α := {O : CFOrientation G // acyclic_with_unique_source G O q}
   let β := {c : Config G q // maximal_superstable G c}
   -- Define the function f_raw : α → Config G q
-  let f_raw : α → Config G q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop.1 O_sub.prop.2
+  let f_raw : α → Config G q := λ O_sub => orientation_to_config G O_sub.val q O_sub.prop
   -- Define the function f : α → β, showing the result is maximal superstable
   let f : α → β := λ O_sub =>
-    ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop.1 O_sub.prop.2⟩
+    ⟨f_raw O_sub, orientation_config_maximal G O_sub.val q O_sub.prop⟩
 
   constructor
   -- Injectivity
@@ -1517,26 +1527,13 @@ theorem orientation_superstable_bijection (G : CFGraph) (q : G.V) :
     let ⟨O₁, h₁⟩ := O₁_sub
     let ⟨O₂, h₂⟩ := O₂_sub
     -- Define c, h_eq₁, h_eq₂ based on orientation_to_config directly
-    let c := orientation_to_config G O₁ q h₁.1 h₁.2
-    have h_eq₁ : orientation_to_config G O₁ q h₁.1 h₁.2 = c := rfl
-    have h_eq₂ : orientation_to_config G O₂ q h₂.1 h₂.2 = c := by
-      exact h_f_raw_eq.symm.trans h_eq₁ -- Use transitivity
-
-    have h_src₁ : is_source G O₁ q := by
-      rcases acyclic_has_source G O₁ h₁.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₁.2 s hs; rwa [h_s_eq_q] at hs
-    have h_src₂ : is_source G O₂ q := by
-      rcases acyclic_has_source G O₂ h₂.1 with ⟨s, hs⟩; have h_s_eq_q : s = q := h₂.2 s hs; rwa [h_s_eq_q] at hs
-
-    -- Define h_super and h_max in terms of c
-    have h_super : superstable G q c := by
-      rw [← h_eq₁]; exact helper_orientation_config_superstable G O₁ q h₁.1 h₁.2
-    have h_max   : maximal_superstable G c := by
-      rw [← h_eq₁]; exact orientation_config_maximal G O₁ q h₁.1 h₁.2
+    let c := orientation_to_config G O₁ q h₁
+    have h_eq₁ : orientation_to_config G O₁ q h₁ = c := rfl
+    have h_eq₂ : orientation_to_config G O₂ q h₂ = c := by
+      exact h_f_raw_eq.symm.trans h_eq₁
 
     apply Subtype.ext
-    -- Call helper_config_to_orientation_unique with the original h_eq₁ and h_eq₂
-    exact (helper_config_to_orientation_unique G q c h_super h_max
-      O₁ O₂ h₁.1 h₂.1 h_src₁ h_src₂ h₁.2 h₂.2 h_eq₁ h_eq₂)
+    exact helper_config_to_orientation_unique G q c O₁ O₂ h₁ h₂ h_eq₁ h_eq₂
   }
 
   -- Surjectivity
@@ -1549,10 +1546,10 @@ theorem orientation_superstable_bijection (G : CFGraph) (q : G.V) :
 
     -- Use the fact that every maximal superstable config comes from an orientation.
     rcases maximal_superstable_orientation G q c_target h_target_max_superstable with
-      ⟨O, h_acyc, h_unique_source, h_config_eq_target⟩
+      ⟨O, hO, h_config_eq_target⟩
 
     -- Construct the required subtype element x : α (the pre-image)
-    let x : α := ⟨O, ⟨h_acyc, h_unique_source⟩⟩
+    let x : α := ⟨O, hO⟩
 
     -- Show that this x exists
     use x
