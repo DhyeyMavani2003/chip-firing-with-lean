@@ -130,14 +130,6 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
 @[simp] lemma neg_apply {G : CFGraph} (D : CFDiv G) (v : G.V) :
   (-D) v = -(D v) := rfl
 
-@[simp] lemma distrib_sub_add {G : CFGraph} (D₁ D₂ D₃ : CFDiv G) :
-  D₁ - (D₂ + D₃) = (D₁ - D₂) - D₃ := by
-  funext; simp; ring
-
-lemma add_sub_distrib {G : CFGraph} (D₁ D₂ D₃ : CFDiv G) :
-  (D₁ + D₂) - D₃ = (D₁ - D₃) + D₂ := by
-  funext; simp; ring
-
 @[simp] lemma smul_apply {G : CFGraph} (n : ℤ) (D : CFDiv G) (v : G.V) :
   (n • D) v = n * (D v) := rfl
 
@@ -421,22 +413,9 @@ lemma deg_of_eff_nonneg (D : CFDiv G) :
 /-- The only effective divisor of degree 0 is 0. -/
 lemma eff_degree_zero (D : CFDiv G) : effective D → deg D = 0 → D = 0 := by
   intro h_eff h_deg
-  have h_sum : ∑ (v : G.V), D v = ∑ (v : G.V), 0 := by
-    simp
-    apply h_deg
-  have h_ineq : ∀ (v : G.V), D v ≥ 0 := by
-    dsimp [effective] at h_eff
-    exact h_eff
-  funext v; simp
-  suffices 0 = D v by apply Eq.symm this
-  contrapose! h_sum with h_neq
-  have : 0 < D v := lt_of_le_of_ne (h_ineq v) h_neq
-  have : ∑ v : G.V, D v > ∑ v : G.V, 0 := by
-    apply Finset.sum_lt_sum
-    simp [h_ineq]
-    use v
-    simp [this]
-  linarith
+  funext v
+  exact (Finset.sum_eq_zero_iff_of_nonneg (fun w _ => h_eff w)).1
+    (by simpa [deg] using h_deg) v (Finset.mem_univ v)
 
 /-- The degree of a firing vector is zero. -/
 lemma deg_firing_vector_eq_zero (G : CFGraph) (v_fire : G.V) :
@@ -523,16 +502,12 @@ lemma helper_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ : �
         by_contra h_contra
         push Not at h_contra
         have h_sum : deg E = 0 := by
-          dsimp [deg, deg]
-          refine Finset.sum_eq_zero ?_
+          dsimp [deg]
+          rw [Finset.sum_eq_zero_iff_of_nonneg (fun v _ => E_effective v)]
           intro v hv
+          have h_nonneg : 0 ≤ E v := E_effective v
           specialize h_contra v
-          have h_nonneg : E v ≥ 0 := by
-            specialize E_effective v
-            assumption
           linarith
-        dsimp [deg] at h_sum
-        dsimp [deg] at E_deg
         rw [h_sum] at E_deg
         linarith
       rcases ex_v with ⟨v, hv_ge_one⟩
@@ -754,8 +729,7 @@ decreasing_by
   rw [h_succ]
   refine Nat.sub_succ_lt_self univ.card S.card ?_
   have : (insert w S).card ≤ (univ : Finset G.V).card := by
-    apply Finset.card_le_card
-    simp
+    simpa using Finset.card_le_univ (insert w S)
   linarith
 
 /-- Every divisor can have its debt concentrated on on vertex, as long as the graph is connected. That is, D is linearly equivalent to a q-effective divisor. -/
@@ -799,12 +773,7 @@ def reduces_to (G : CFGraph) (q : G.V) (D₁ D₂: CFDiv G) : Prop :=
 /-- The `reduces_to` relation is reflexive: any divisor reduces to itself via the zero script. -/
 lemma reduces_to_reflexive (G : CFGraph) (q : G.V) (D : CFDiv G) :
   reduces_to G q D D := by
-  use 0
-  refine ⟨?_, ?_⟩
-  · intro v
-    repeat rw [Pi.zero_apply]
-  · rw [(prin G).map_zero]
-    simp
+  refine ⟨0, by simp [q_reducer], by simp⟩
 
 /-- The `reduces_to` relation is transitive: composing two $q$-reducer scripts yields a $q$-reducer script. -/
 lemma reduces_to_transitive (G : CFGraph) (q : G.V) (D₁ D₂ D₃ : CFDiv G) :

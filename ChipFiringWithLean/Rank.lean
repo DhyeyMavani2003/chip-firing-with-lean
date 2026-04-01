@@ -163,8 +163,7 @@ lemma rank_geq_trans (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
     contrapose! h_E_nonwin
     have E_diff_winnable := winnable_of_effective G E_diff h_Ediff_eff
     have sum_winnable := winnable_add_winnable G _ _ h_E_nonwin E_diff_winnable
-    simp at sum_winnable
-    exact sum_winnable
+    simpa [sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using sum_winnable
 
 /-- If `rank_geq G D r1` holds but `rank_geq G D r2` does not, then `r1 < r2`. -/
 def lt_of_rank_geq_not (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :

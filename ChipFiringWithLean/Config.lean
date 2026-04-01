@@ -139,24 +139,10 @@ lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
     dsimp [toDiv, one_chip]
     simp [h_v]
 
-/-- Two $q$-effective divisors are equal iff their underlying divisors agree. -/
-lemma qeff_divs_equal (D1 D2 : q_eff_div G q) :
-  D1 = D2 ↔ D1.D = D2.D := by
-  constructor
-  · intro h_eq
-    rw [h_eq]
-  · intro h_eq
-    rcases D1 with ⟨D1_D, D1_h_eff⟩
-    rcases D2 with ⟨D2_D, D2_h_eff⟩
-    simp at h_eq ⊢
-    exact h_eq
-
 /-- `to_qed` is a left inverse of `toConfig` at the correct degree: converting a $q$-effective
 divisor to a configuration and back via `toDiv (deg D.D)` recovers the original divisor. -/
 lemma div_of_config_of_div (D : q_eff_div G q) :
   toDiv (deg D.D) (toConfig D) = D.D := by
-  -- apply (qeff_divs_equal (to_qed (deg D.D) (toConfig D)) D).mpr
-  -- dsimp [to_qe]
   funext v
   dsimp [toDiv]
   by_cases h: v ∈ Vtilde q
@@ -356,18 +342,6 @@ lemma q_reduced_superstable_correspondence (G : CFGraph) (q : G.V) (D : CFDiv G)
 def maximal_superstable (G : CFGraph) {q : G.V} (c : Config G q) : Prop :=
   superstable G q c ∧ ∀ c' : Config G q, superstable G q c' → config_ge c' c → c' = c
 
-lemma smul_one_chip {G : CFGraph} (k : ℤ) (v_chip : G.V) :
-  (k • one_chip v_chip) = (fun v => if v = v_chip then k else 0) := by
-  funext v
-  by_cases h : v = v_chip <;> simp [one_chip, h]
-
-/-- Linear equivalence is preserved by adding a fixed divisor on the right. -/
-lemma linear_equiv_add_congr_right_local (G : CFGraph) (D_add : CFDiv G) {D1 D2 : CFDiv G} (h : linear_equiv G D1 D2) :
-  linear_equiv G (D1 + D_add) (D2 + D_add) := by
-  unfold linear_equiv at h ⊢
-  have : (D2 + D_add) - (D1 + D_add) = D2 - D1 := by abel
-  simpa [this] using h
-
 
 /-- Subtracting a chip at q from a superstable configuration gives an unwinnable divisor. -/
 lemma helper_superstable_to_unwinnable {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (c : Config G q) :
@@ -544,20 +518,8 @@ lemma burn_list_helper (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : supersta
       have h_card_L_le : L.toFinset.card < (univ : Finset G.V).card := by
         rw [← h_L_length] at h_n_lt_card_V
         linarith
-      have : ∃ v : G.V, v ∉ L.toFinset := by
-        refine not_forall.mp ?_
-        intro h_all_in_L
-        have : (univ : Finset G.V) ⊆ L.toFinset := by
-          intro v _
-          specialize h_all_in_L v
-          exact h_all_in_L
-        have bad_ineq : (univ : Finset G.V).card ≤ L.toFinset.card := Finset.card_le_card this
-        linarith
-      rcases this with ⟨v, h_v_not_in_L⟩
-      use v
-      contrapose! h_v_not_in_L with h_all_in_L
-      simp at h_all_in_L
-      simp [h_all_in_L]
+      obtain ⟨v, -, h_v_not_in_L⟩ := Finset.exists_mem_notMem_of_card_lt_card h_card_L_le
+      exact ⟨v, by simpa using h_v_not_in_L⟩
     have := extend_burn_list G c h_ss L h_L_burn_list h_exists_v
     rcases this with ⟨w, h_w_burn_list⟩
     use w :: L
@@ -591,16 +553,12 @@ lemma superstable_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : sup
     apply Nat.sub_add_cancel
     exact h_card_V
   use burn_list.mk L h_L_burn_list
+  have h_toFinset_eq : L.toFinset = (univ : Finset G.V) := by
+    refine Finset.eq_of_subset_of_card_le (Finset.subset_univ _) ?_
+    simp [h_L_card]
   intro v
-  simp
-  -- Goal : v ∈ L
-  suffices (univ : Finset G.V) ⊆ L.toFinset by
-    have := this (Finset.mem_univ v)
-    simp at this
-    exact this
-  apply univ_subset_iff.mpr
-  -- Goal: L.toFinset = univ
-  exact (card_eq_iff_eq_univ L.toFinset).mp h_L_card
+  have : v ∈ L.toFinset := by simp [h_toFinset_eq]
+  simpa using this
 
 -- The following lemmas establish the necessary properties of the orientation to be defined from the burn order.
 

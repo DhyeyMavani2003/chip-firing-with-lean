@@ -186,17 +186,6 @@ lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
   specialize h_ge_c v
   exact h_ge_c
 
-/-- A maximal superstable configuration has degree at least the genus.
-Combined with `helper_superstable_degree_bound`, this gives `degree_max_superstable`. -/
-lemma helper_maximal_superstable_degree_lower_bound (G : CFGraph) (q : G.V) (c : Config G q) :
-  superstable G q c → maximal_superstable G c → config_degree c ≥ genus G := by
-  intro h_super h_max
-  have := maximal_superstable_orientation G q c h_max
-  rcases this with ⟨O, h_acyc, h_unique_source, h_orient_eq⟩
-  have h_genus_eq : config_degree c = genus G := by
-    exact degree_max_superstable c h_max
-  rw [← h_genus_eq]
-
 /-- Lemma: If a superstable configuration has degree equal to g, it is maximal
 [Corry-Perkinson], Corollary 4.9(1), "if" direction. -/
 lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Config G q) :
