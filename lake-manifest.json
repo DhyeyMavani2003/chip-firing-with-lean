@@ -5,7 +5,7 @@
    "type": "git",
    "subDir": "lean",
    "scope": "",
-   "rev": "625a85f5a03bdafb1ede08a95481e5b6d79f5f62",
+   "rev": "c944afd12974e745b26f803acf67af02e7820271",
    "name": "Paperproof",
    "manifestFile": "lake-manifest.json",
    "inputRev": "main",
