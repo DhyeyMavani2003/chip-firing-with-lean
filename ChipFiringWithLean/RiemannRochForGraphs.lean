@@ -4,12 +4,14 @@ import ChipFiringWithLean.RRGHelpers
 set_option linter.unusedVariables false
 set_option trace.split.failure true
 
+universe u
+
 open Multiset Finset
 
 /-!
 # Riemann-Roch for graphs
 
-This file contains the Riemann-Roch theorem for graphs and its main corollaries,
+The Riemann-Roch theorem for graphs and its main corollaries,
 following [Corry-Perkinson], Chapter 5.
 
 - `riemann_roch_for_graphs`: The Riemann-Roch theorem, $r(D) - r(K_G - D) = \deg(D) - g + 1$
@@ -435,3 +437,47 @@ theorem gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤ gonal
       dsimp [gonality, S]
       exact csInf_le h_bdd h_leq
     linarith
+
+/-!
+## Conjectures
+
+Below are some conjectures and theorems that have not been formalized at the time of this writing,
+as far as we are aware.
+-/
+
+/-- The existence version of the gonality conjecture.
+  Posed by M. Baker in *Specialization of linear systems from curves to graphs*, Conjecture 3.10(2).
+  This is proved by Cools-Draisma-Payne-Robeva in *A tropcial proof of the Brill--Noether Theroem,*
+  but we are not aware of a formalization of this result.
+  -/
+def gonality_conjecture_existence (g : ℕ) : Prop :=
+  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
+    genus G = (g : ℤ) ∧ gonality h_conn = ((g : ℤ) + 3) / 2
+
+/-- The statement that in a given genus $g$, there exists a Brill--Noether general graph.
+  This is a slightly strengthened form of a conjecuture posed in M. Baker,
+  *Specialization of linear series from curves to graphs*, namely Conjecture 3.9(2).
+  It was proved by Cools-Draisma-Payne-Robeva in *A tropical proof of the Brill--Noether Theroem,*
+  but we are not aware of a formalization of this result.
+  -/
+def brill_noether_general_existence {G : CFGraph} (g : ℕ) : Prop :=
+  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
+  ∀ (r d : ℕ),
+  let g := genus G
+  let ρ := g - (r + 1) * (g - d + r)
+  ρ < 0 → ∀ (D : CFDiv G), deg D = d → rank G D < r
+
+/-- The gonality conjecture for finite graphs.
+  It is an open problem to determine whether this is true for every connected graph.
+  Posted in M. Baker, *Specialization of linear systems from curves to graphs*, Conjecture 3.10(1).
+ -/
+def gonality_conjecture {G : CFGraph} (h_conn : graph_connected G) : Prop :=
+  gonality h_conn ≤ (genus G + 3) / 2
+
+/-- The Brill--Noether conjecture for finite graphs.
+  It is an open problem to determine whether this is true for every connected graph.
+  Posed in M. Baker, *Specialization of linear series from curves to graphs*, Conjecture 3.9(1).-/
+def brill_noether_conjecture {G : CFGraph} (h_conn : graph_connected G) (r d : ℕ) : Prop :=
+  let g := genus G
+  let ρ := g - (r + 1) * (g - d + r)
+  ρ ≥ 0 → ∃ (D : CFDiv G), rank G D ≥ r ∧ deg D = d
