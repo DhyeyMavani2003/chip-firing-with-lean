@@ -113,7 +113,7 @@ theorem maximal_unwinnable_symmetry
       _ = 0 := by linarith[h_deg_E]
 
 /-- Rank of divisors is subadditive. -/
-lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
+private lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
     (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
     rank G (D+D') ≥ rank G D + rank G D' := by
   -- Convert ranks to natural numbers
@@ -382,7 +382,7 @@ theorem gonality_leq_genus_add_one
   refine ⟨D, (rank_geq_iff G D 1).mp h_rank_geq, h_deg_D⟩
 
 /-- Any degree realizing `gonality_leq` is at least `1`. -/
-theorem one_le_of_gonality_leq {G : CFGraph} {k : ℤ} (h_gon : gonality_leq G k) : 1 ≤ k := by
+private theorem one_le_of_gonality_leq {G : CFGraph} {k : ℤ} (h_gon : gonality_leq G k) : 1 ≤ k := by
   rcases h_gon with ⟨D, h_rank, h_deg⟩
   have h_rank_geq : rank_geq G D 1 := (rank_geq_iff G D 1).mpr h_rank
   have h_deg_lower : (1 : ℤ) ≤ deg D := rank_le_degree G D 1 (by norm_num) h_rank_geq
@@ -393,7 +393,7 @@ noncomputable def gonality {G : CFGraph} (h_conn : graph_connected G) : ℤ :=
   sInf {k : ℤ | gonality_leq G k}
 
 /-- A connected graph has gonality at most `g + 1`, where `g` is its genus. -/
-theorem gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected G) :
+private lemma gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected G) :
     gonality h_conn ≤ genus G + 1 := by
   let S : Set ℤ := {k : ℤ | gonality_leq G k}
   have h_bdd : BddBelow S := by
@@ -404,7 +404,7 @@ theorem gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected G) :
   exact csInf_le h_bdd (gonality_leq_genus_add_one h_conn)
 
 /-- The gonality of a connected graph is at least `1`. -/
-theorem gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤ gonality h_conn := by
+private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤ gonality h_conn := by
   let S : Set ℤ := {k : ℤ | gonality_leq G k}
   have h_nonempty : S.Nonempty := by
     refine ⟨genus G + 1, ?_⟩
@@ -445,7 +445,8 @@ Below are some conjectures and theorems that have not been formalized at the tim
 as far as we are aware.
 -/
 
-/-- The existence version of the gonality conjecture.
+/-- The existence version of the gonality conjecture: for every $g \ge 0$, there exists a connected
+  graph of genus $g$ with gonality exactly $\lfloor \frac12 (g+3) \rfloor$.
   Posed by M. Baker in *Specialization of linear systems from curves to graphs*, Conjecture 3.10(2).
   This is proved by Cools-Draisma-Payne-Robeva in *A tropcial proof of the Brill--Noether Theroem,*
   but we are not aware of a formalization of this result.
@@ -454,7 +455,8 @@ def gonality_conjecture_existence (g : ℕ) : Prop :=
   ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
     genus G = (g : ℤ) ∧ gonality h_conn = ((g : ℤ) + 3) / 2
 
-/-- The statement that in a given genus $g$, there exists a Brill--Noether general graph.
+/-- The statement that in a given genus $g$, there exists a Brill--Noether general graph. That is,
+  a graph with no degree $d$ divisors of rank $r$ for which $\rho = g - (r+1)(g-d+r) < 0$.
   This is a slightly strengthened form of a conjecuture posed in M. Baker,
   *Specialization of linear series from curves to graphs*, namely Conjecture 3.9(2).
   It was proved by Cools-Draisma-Payne-Robeva in *A tropical proof of the Brill--Noether Theroem,*
@@ -467,15 +469,16 @@ def brill_noether_general_existence {G : CFGraph} (g : ℕ) : Prop :=
   let ρ := g - (r + 1) * (g - d + r)
   ρ < 0 → ∀ (D : CFDiv G), deg D = d → rank G D < r
 
-/-- The gonality conjecture for finite graphs.
-  It is an open problem to determine whether this is true for every connected graph.
+/-- The gonality conjecture for finite graphs: every genus $g$ connected graph has gonality at most
+  $\lfloor \frac12 (g+3) \rfloor$. This is an open problem.
   Posted in M. Baker, *Specialization of linear systems from curves to graphs*, Conjecture 3.10(1).
  -/
 def gonality_conjecture {G : CFGraph} (h_conn : graph_connected G) : Prop :=
   gonality h_conn ≤ (genus G + 3) / 2
 
-/-- The Brill--Noether conjecture for finite graphs.
-  It is an open problem to determine whether this is true for every connected graph.
+/-- The Brill--Noether conjecture for finite graphs: for every genus $g$ connected graph, and any
+  $r, d$ with $\rho = g - (r+1)(g-d+r) \ge 0$, there exists a degree $d$ divisor of rank at least $r$.
+  This is an open problem.
   Posed in M. Baker, *Specialization of linear series from curves to graphs*, Conjecture 3.9(1).-/
 def brill_noether_conjecture {G : CFGraph} (h_conn : graph_connected G) (r d : ℕ) : Prop :=
   let g := genus G

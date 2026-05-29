@@ -27,7 +27,7 @@ noncomputable def qReducedRep {G : CFGraph}
   Classical.choose (unique_q_reduced h_conn q D)
 
 /-- The canonical representative is linearly equivalent to `D` and `q`-reduced. -/
-lemma qReducedRep_spec {G : CFGraph}
+private lemma qReducedRep_spec {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
     linear_equiv G D (qReducedRep h_conn q D) ∧ q_reduced G q (qReducedRep h_conn q D) :=
   (Classical.choose_spec (unique_q_reduced h_conn q D)).1
@@ -39,7 +39,7 @@ noncomputable def qReducedConfig {G : CFGraph}
   toConfig ⟨qReducedRep h_conn q D, (qReducedRep_spec h_conn q D).2.1⟩
 
 /-- The canonical configuration attached to `D` is superstable. -/
-lemma qReducedConfig_superstable {G : CFGraph}
+private lemma qReducedConfig_superstable {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
     superstable G q (qReducedConfig h_conn q D) := by
   exact q_reduced_toConfig_superstable G q (qReducedRep h_conn q D) (qReducedRep_spec h_conn q D).2
@@ -47,7 +47,7 @@ lemma qReducedConfig_superstable {G : CFGraph}
 /-- Every divisor $D$ is linearly equivalent to `qReducedConfig h_conn q D + k·q`
 for some integer `k`; in particular, it is linearly equivalent to `c + k·q` for a
 superstable configuration `c`. -/
-lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
+private lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
   ∃ (c : Config G q) (k : ℤ),
     linear_equiv G D (c.vertex_degree + k • (one_chip q)) ∧
     superstable G q c := by
@@ -63,7 +63,7 @@ lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V
     simpa [c] using qReducedConfig_superstable h_conn q D
 
 /-- If $D$ is unwinnable and $D \sim c + k \cdot q$ for a superstable $c$, then $k < 0$. -/
-lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
+private lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
   ¬(winnable G D) →
   ∀ (c : Config G q) (k : ℤ),
     linear_equiv G D (c.vertex_degree + k • (one_chip q)) →
@@ -83,7 +83,7 @@ lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
 
 
 /-- If $D$ is maximal unwinnable and $q$-reduced, then $D(q) = -1$. -/
-lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D : CFDiv G) :
+private lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D : CFDiv G) :
   maximal_unwinnable G D → q_reduced G q D → D q = -1 := by
   intro h_max_unwin h_qred
   have h_neg : D q < 0 := by
@@ -136,7 +136,7 @@ lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D : CFDiv
 
 /-- A maximal superstable configuration has degree equal to the genus.
 This is [Corry-Perkinson], Corollary 4.9(1), "only if" direction. -/
-lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : maximal_superstable G c): config_degree c = genus G := by
+private lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : maximal_superstable G c): config_degree c = genus G := by
   have := maximal_superstable_orientation G q c h_max
   rcases this with ⟨O, hO, h_orient_eq⟩
   rw [← h_orient_eq]
@@ -145,7 +145,7 @@ lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : m
 /-- If `D` is maximal unwinnable and `q`-reduced, then any configuration `c` satisfying
 `D = toDiv (deg D) c` must realize `D` as `c - q`. This is the `q`-reduced core of
 [Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
-lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c : Config G q) :
+private lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c : Config G q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
   intro h_max_unwinnable h_qred h_toDeg
   have h_c_eq : c = toConfig ⟨D, h_qred.1⟩ := by
@@ -158,7 +158,7 @@ lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c
     _ = c.vertex_degree - one_chip q := by rw [h_c_eq]
 
 /-- Lemma: Superstable configuration degree is bounded by genus -/
-lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
+private lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → config_degree c ≤ genus G := by
   intro h_super
   have := maximal_superstable_exists G q c h_super
@@ -174,7 +174,7 @@ lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
 
 /-- Lemma: If a superstable configuration has degree equal to g, it is maximal
 [Corry-Perkinson], Corollary 4.9(1), "if" direction. -/
-lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Config G q) :
+private lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → config_degree c = genus G → maximal_superstable G c := by
   intro h_super h_deg_eq
   -- Choose a maximal above c (we'll show it's equal to c)
@@ -204,7 +204,7 @@ lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Config G q) :
 
 /-- A superstable configuration is maximal if and only if its degree equals the genus.
 This is [Corry-Perkinson], Corollary 4.9(1). -/
-theorem maximal_superstable_config_prop (G : CFGraph) (q : G.V) (c : Config G q) :
+private theorem maximal_superstable_config_prop (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → (maximal_superstable G c ↔ config_degree c = genus G) := by
   intro h_super
   constructor
@@ -272,7 +272,7 @@ lemma winnable_of_deg_ge_genus {G : CFGraph} (h_conn : graph_connected G) (D : C
     exact h_equiv
 
 /-- Lemma: Adding a chip anywhere to c'-q makes it winnable when c' is maximal superstable -/
-lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (c' : Config G q) :
+private lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (c' : Config G q) :
   maximal_superstable G c' →
   ∀ (v : G.V), winnable G (c'.vertex_degree- (one_chip q) + (one_chip v)) := by
   intro h_max_superstable v
@@ -287,14 +287,14 @@ lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : gra
   exact winnable_of_deg_ge_genus h_conn D' deg_ineq
 
 /-- A maximal unwinnable `q`-reduced divisor is the canonical `toConfig` form minus one chip at `q`. -/
-lemma maximal_unwinnable_q_reduced_toConfig_form {G : CFGraph} (q : G.V) (D : CFDiv G)
+private lemma maximal_unwinnable_q_reduced_toConfig_form {G : CFGraph} (q : G.V) (D : CFDiv G)
     (h_max : maximal_unwinnable G D) (h_qred : q_reduced G q D) :
     D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
   exact q_reduced_eq_vertex_degree_sub_one_chip G q D h_qred
     (maximal_unwinnable_q_reduced_chips_at_q G q D h_max h_qred)
 
 /-- A divisor of the form `c - q` is maximal unwinnable when `c` is maximal superstable. -/
-lemma maximal_unwinnable_of_maximal_superstable_form {G : CFGraph}
+private lemma maximal_unwinnable_of_maximal_superstable_form {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (c : Config G q) :
     maximal_superstable G c → maximal_unwinnable G (c.vertex_degree - one_chip q) := by
   intro h_max_c
@@ -304,7 +304,7 @@ lemma maximal_unwinnable_of_maximal_superstable_form {G : CFGraph}
 
 /-- For a `q`-reduced divisor, maximal unwinnability is equivalent to the maximal
 superstability of its canonical configuration together with the canonical `c - q` form. -/
-lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
+private lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) (h_qred : q_reduced G q D) :
     maximal_unwinnable G D ↔
     maximal_superstable G (toConfig ⟨D, h_qred.1⟩) ∧

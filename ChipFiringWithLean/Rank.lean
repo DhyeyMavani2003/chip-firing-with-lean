@@ -56,7 +56,7 @@ def eff_of_degree (D : CFDiv G) (k : ℤ) : Set (CFDiv G) :=
   {E | effective E ∧ deg E = k}
 
 /-- For any natural number `k`, the set of effective divisors of degree `k` is nonempty. -/
-lemma eff_of_degree_nonempty (D : CFDiv G) (k : ℕ) : k ≥ 0 → (eff_of_degree D k).Nonempty := by
+private lemma eff_of_degree_nonempty (D : CFDiv G) (k : ℕ) : k ≥ 0 → (eff_of_degree D k).Nonempty := by
   let v : G.V := Classical.arbitrary G.V
   intro h_nonneg
   dsimp [eff_of_degree]
@@ -75,13 +75,13 @@ def rank_eq (G : CFGraph) (D : CFDiv G) (r : ℤ) : Prop :=
 
 /-- `rank_geq G D k` holds vacuously for `k < 0`, since there are no effective divisors of
 negative degree. -/
-lemma rank_geq_neg (G : CFGraph) (D : CFDiv G) (k : ℤ): (k < 0) → rank_geq G D k := by
+private lemma rank_geq_neg (G : CFGraph) (D : CFDiv G) (k : ℤ): (k < 0) → rank_geq G D k := by
   intro k_neg E ⟨h_eff_E, h_deg_E⟩
   have := deg_of_eff_nonneg E h_eff_E
   linarith
 
 /-- A winnable divisor has nonnegative degree. [Corry-Perkinson], Corollary 1.16 -/
-lemma deg_winnable_nonneg (G : CFGraph) (D : CFDiv G) (h_winnable : winnable G D) : deg D ≥ 0 := by
+private lemma deg_winnable_nonneg (G : CFGraph) (D : CFDiv G) (h_winnable : winnable G D) : deg D ≥ 0 := by
   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
   have same_deg: deg D = deg D' := linear_equiv_preserves_deg G D D' h_lequiv
   rw [same_deg]
@@ -133,7 +133,7 @@ lemma rank_le_degree (G : CFGraph) (D : CFDiv G) : ∀ (r : ℤ), r ≥ 0 → ra
   exact deg_nonneg
 
 /-- `rank_geq` is downward closed: if `rank G D ≥ r1` and `r2 ≤ r1`, then `rank G D ≥ r2`. -/
-lemma rank_geq_trans (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
+private lemma rank_geq_trans (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
   rank_geq G D r1 → r2 ≤ r1 → rank_geq G D r2 := by
   intro h_r1 h_leq
   unfold rank_geq at *
@@ -172,7 +172,7 @@ def lt_of_rank_geq_not (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
   contrapose! h_r2
   exact rank_geq_trans G D r1 r2 h_r1 h_r2
 
-lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph) (D : CFDiv G) :
+private lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph) (D : CFDiv G) :
   rank_eq G D (-1) ↔ ¬(winnable G D) := by
   constructor
   · intro h
@@ -209,7 +209,7 @@ lemma rank_nonneg_iff_winnable (G : CFGraph) (D : CFDiv G) :
     simpa [E_zero] using h_winnable
 
 /-- If `rank_geq G D m` fails for some natural number `m`, there exists an exact rank `r < m`. -/
-lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (rank_geq G D m) → ∃ r < (m:ℤ), rank_eq G D r := by
+private lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (rank_geq G D m) → ∃ r < (m:ℤ), rank_eq G D r := by
   induction m with
   | zero =>
   · intro h_rank_geq
@@ -226,7 +226,7 @@ lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (rank_geq G 
       exact ⟨r, r_le, h_rank_eq⟩
 
 /-- Every divisor has a well-defined rank: there exists `r` with `rank_eq G D r`. -/
-lemma rank_exists (G : CFGraph) (D : CFDiv G) :
+private lemma rank_exists (G : CFGraph) (D : CFDiv G) :
   ∃ r : ℤ, rank_eq G D r := by
   let m := (deg D).toNat + 1
   have h_not_geq : ¬(rank_geq G D m) := by
@@ -240,7 +240,7 @@ lemma rank_exists (G : CFGraph) (D : CFDiv G) :
   exact ⟨r, h_rank_eq⟩
 
 /-- The rank of a divisor is unique: if `rank_eq G D r1` and `rank_eq G D r2`, then `r1 = r2`. -/
-lemma rank_unique (G : CFGraph) (D : CFDiv G) :
+private lemma rank_unique (G : CFGraph) (D : CFDiv G) :
   ∀ r1 r2 : ℤ, rank_eq G D r1 → rank_eq G D r2 → r1 = r2 := by
   rintro r1 r2 ⟨h_r1_geq, h_r1_not_geq⟩ ⟨h_r2_geq, h_r2_not_geq⟩
   have ineq1 : r1 < r2 + 1 := lt_of_rank_geq_not G D r1 (r2+1) h_r1_geq h_r2_not_geq
@@ -269,7 +269,7 @@ lemma rank_geq_iff (G : CFGraph) (D : CFDiv G) (k : ℤ) :
     exact rank_geq_trans G D r k h_r_geq h_rank_leq
 
 /-- `rank_eq G D r` is equivalent to `rank G D = r`. -/
-lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
+private lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
   rank_eq G D r ↔ rank G D = r := by
   dsimp [rank_eq]
   have split_eq x: x = r ↔ (x ≥ r ∧ ¬(x ≥ r + 1)) := by

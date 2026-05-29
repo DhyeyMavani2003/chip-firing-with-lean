@@ -25,7 +25,8 @@ We define the *degree* (valence) of a vertex as the sum of edge multiplicities a
 and the *genus* (cyclomatic number) `g = |E| - |G.V| + 1`, which plays a central role in the
 Riemann-Roch theorem for graphs ([Corry-Perkinson], Chapter 5).
 
-Many main theorems in this library require connectivity; see `graph_connected`.
+Many main theorems in this library require connectivity; see `graph_connected`. In those cases, a
+proof of connectivity must be provided as an additional argument.
 -/
 
 /-- A *chip-firing graph* is a loopless multigraph.
@@ -49,12 +50,12 @@ def graph_connected (G : CFGraph) : Prop :=
   ∀ S : Finset G.V, (∃ (v w : G.V), v ∈ S ∧ w ∉ S) →
     (∃ v ∈ S, ∃ w ∉ S, num_edges G v w > 0)
 
-/-- The genus of a graph is its cycle rank: `|E| - |G.V| + 1`. -/
+/-- The genus of a graph is its cyclomatic number: `|E| - |G.V| + 1`. -/
 def genus (G : CFGraph) : ℤ :=
   Multiset.card G.edges - Fintype.card G.V + 1
 
 /-- Number of edges between two vertices is non-negative. -/
-lemma num_edges_nonneg (G : CFGraph) (v w : G.V) :
+private lemma num_edges_nonneg (G : CFGraph) (v w : G.V) :
   num_edges G v w ≥ 0 := Nat.zero_le _
 
 /-- Number of edges is symmetric -/
@@ -78,7 +79,7 @@ def vertex_degree (G : CFGraph) (v : G.V) : ℤ :=
   ∑ u : G.V, (num_edges G v u : ℤ)
 
 /-- Vertex degree is non-negative -/
-lemma vertex_degree_nonneg (G : CFGraph) (v : G.V) :
+private lemma vertex_degree_nonneg (G : CFGraph) (v : G.V) :
   vertex_degree G v ≥ 0 := by
   exact Finset.sum_nonneg fun _ _ => Int.natCast_nonneg _
 
@@ -106,14 +107,14 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
   fun v => if v = v_chip then 1 else 0
 
 -- Canonical simplications for evaluations of one_chip.
-@[simp] lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
+@[simp] private lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
   exact if_pos rfl
 @[simp] lemma one_chip_apply_other {G : CFGraph} (v w : G.V) : v ≠ w → one_chip v w = 0 := by
   simp [one_chip]
   intro h
   contrapose! h
   rw [h]
-@[simp] lemma one_chip_apply_other' {G : CFGraph} (v w : G.V) : w ≠ v → one_chip v w = 0 := by
+@[simp] private lemma one_chip_apply_other' {G : CFGraph} (v w : G.V) : w ≠ v → one_chip v w = 0 := by
   simp [one_chip]
 
 
@@ -124,10 +125,10 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
 @[simp] lemma sub_apply {G : CFGraph} (D₁ D₂ : CFDiv G) (v : G.V) :
   (D₁ - D₂) v = D₁ v - D₂ v := rfl
 
-@[simp] lemma zero_apply {G : CFGraph} (v : G.V) :
+@[simp] private lemma zero_apply {G : CFGraph} (v : G.V) :
   (0 : CFDiv G) v = 0 := rfl
 
-@[simp] lemma neg_apply {G : CFGraph} (D : CFDiv G) (v : G.V) :
+@[simp] private lemma neg_apply {G : CFGraph} (D : CFDiv G) (v : G.V) :
   (-D) v = -(D v) := rfl
 
 @[simp] lemma smul_apply {G : CFGraph} (n : ℤ) (D : CFDiv G) (v : G.V) :
@@ -152,7 +153,7 @@ def firing_vector (G : CFGraph) (v : G.V) : CFDiv G :=
   λ w => if w = v then -vertex_degree G v else num_edges G v w
 
 /-- Applying a firing move is equivalent to adding the firing vector. -/
-lemma firing_move_eq_add_firing_vector (G : CFGraph) (D : CFDiv G) (v : G.V) :
+private lemma firing_move_eq_add_firing_vector (G : CFGraph) (D : CFDiv G) (v : G.V) :
   firing_move G D v = D + firing_vector G v := by
   unfold firing_move firing_vector
   funext w
@@ -166,7 +167,7 @@ def set_firing_vector (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G :=
   λ w => ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
 
 /-- Set firing equals adding the set firing vector. -/
-lemma set_firing_eq_add_set_firing_vector (G : CFGraph) (D : CFDiv G) (S : Finset G.V) :
+private lemma set_firing_eq_add_set_firing_vector (G : CFGraph) (D : CFDiv G) (S : Finset G.V) :
   set_firing G D S = D + set_firing_vector G D S := by
   unfold set_firing set_firing_vector
   funext w
@@ -197,7 +198,7 @@ def linear_equiv (G : CFGraph) (D D' : CFDiv G) : Prop :=
   D' - D ∈ principal_divisors G
 
 /-- Lemma: Principal divisors contain the firing vector at a vertex -/
-lemma mem_principal_divisors_firing_vector (G : CFGraph) (v : G.V) :
+private lemma mem_principal_divisors_firing_vector (G : CFGraph) (v : G.V) :
   firing_vector G v ∈ principal_divisors G := AddSubgroup.subset_closure (Set.mem_range_self v)
 
 /-- Linear equivalence is an equivalence relation on Div(G). -/
@@ -346,7 +347,7 @@ def Eff (G : CFGraph) : AddSubmonoid (CFDiv G) :=
       intro D₁ D₂ h_eff1 h_eff2 v
       exact add_nonneg (h_eff1 v) (h_eff2 v) }
 
-@[simp] lemma mem_Eff {G : CFGraph} {D : CFDiv G} : D ∈ Eff G ↔ effective D := Iff.rfl
+@[simp] private lemma mem_Eff {G : CFGraph} {D : CFDiv G} : D ∈ Eff G ↔ effective D := Iff.rfl
 
 /-- A one-chip divisor is effective. -/
 def eff_one_chip {G : CFGraph} (v : G.V) : effective (one_chip v) := by
@@ -355,7 +356,7 @@ def eff_one_chip {G : CFGraph} (v : G.V) : effective (one_chip v) := by
   by_cases h_eq : w = v <;> simp [h_eq]
 
 /-- D is effective iff D ≥ 0. -/
-lemma eff_iff_geq_zero {G : CFGraph} (D : CFDiv G) : effective D ↔ D ≥ 0 := Iff.rfl
+private lemma eff_iff_geq_zero {G : CFGraph} (D : CFDiv G) : effective D ↔ D ≥ 0 := Iff.rfl
 
 /-- D₁ - D₂ is effective iff D₁ ≥ D₂. -/
 lemma sub_eff_iff_geq {G : CFGraph} (D₁ D₂ : CFDiv G) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ := by
@@ -418,7 +419,7 @@ lemma eff_degree_zero (D : CFDiv G) : effective D → deg D = 0 → D = 0 := by
     (by simpa [deg] using h_deg) v (Finset.mem_univ v)
 
 /-- The degree of a firing vector is zero. -/
-lemma deg_firing_vector_eq_zero (G : CFGraph) (v_fire : G.V) :
+private lemma deg_firing_vector_eq_zero (G : CFGraph) (v_fire : G.V) :
   deg (firing_vector G v_fire) = 0 := by
   dsimp [deg, firing_vector]
   rw [Finset.sum_ite]
@@ -432,7 +433,7 @@ lemma deg_firing_vector_eq_zero (G : CFGraph) (v_fire : G.V) :
   simp [vertex_degree]
 
 /-- Every principal divisor has degree zero. -/
-lemma degree_of_principal_divisor_is_zero (G : CFGraph) (h : CFDiv G) :
+private lemma degree_of_principal_divisor_is_zero (G : CFGraph) (h : CFDiv G) :
   h ∈ principal_divisors G → deg h = 0 := by
   intro h_mem_princ
   refine AddSubgroup.closure_induction ?_ ?_ ?_ ?_ h_mem_princ
@@ -602,7 +603,7 @@ def benevolent (G : CFGraph) (S : Finset G.V) : Prop :=
   ∀ (D : CFDiv G), ∃ (E : CFDiv G), linear_equiv G D E ∧ (∀ (v : G.V), E v < 0 → v ∈ S)
 
 /-- In a connected graph, any nonempty set is benevolent. -/
-lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Finset G.V) (h_nonempty : S.Nonempty) :
+private lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Finset G.V) (h_nonempty : S.Nonempty) :
   benevolent G S := by
   by_cases h : S = Finset.univ
   · -- Case: S = G.V
@@ -771,12 +772,12 @@ def reduces_to (G : CFGraph) (q : G.V) (D₁ D₂: CFDiv G) : Prop :=
   ∃ σ : firing_script G, q_reducer G q σ ∧ D₂ = D₁ + prin G σ
 
 /-- The `reduces_to` relation is reflexive: any divisor reduces to itself via the zero script. -/
-lemma reduces_to_reflexive (G : CFGraph) (q : G.V) (D : CFDiv G) :
+private lemma reduces_to_reflexive (G : CFGraph) (q : G.V) (D : CFDiv G) :
   reduces_to G q D D := by
   refine ⟨0, by simp [q_reducer], by simp⟩
 
 /-- The `reduces_to` relation is transitive: composing two $q$-reducer scripts yields a $q$-reducer script. -/
-lemma reduces_to_transitive (G : CFGraph) (q : G.V) (D₁ D₂ D₃ : CFDiv G) :
+private lemma reduces_to_transitive (G : CFGraph) (q : G.V) (D₁ D₂ D₃ : CFDiv G) :
   reduces_to G q D₁ D₂ → reduces_to G q D₂ D₃ → reduces_to G q D₁ D₃ := by
   rintro ⟨σ₁, h_reducer_1, h_D2_eq⟩ ⟨σ₂, h_reducer_2, h_D3_eq⟩
   use σ₁ + σ₂
@@ -791,7 +792,7 @@ lemma reduces_to_transitive (G : CFGraph) (q : G.V) (D₁ D₂ D₃ : CFDiv G) :
 
 /-- In a connected graph, a firing script with zero principal divisor must be constant.
 This is the key step in proving antisymmetry of `reduces_to`. -/
-lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connected G) (σ : firing_script G) : prin G σ = 0 → ∀ (v w : G.V), σ v = σ w := by
+private lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connected G) (σ : firing_script G) : prin G σ = 0 → ∀ (v w : G.V), σ v = σ w := by
   intro zero_eq
   let min_exists := Finset.exists_min_image Finset.univ σ (by use Classical.arbitrary G.V; simp)
   rcases min_exists with ⟨q, ⟨_,h_reducer⟩⟩
@@ -858,7 +859,7 @@ lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connected G) (�
 
 /-- In a connected graph, the `reduces_to` relation is antisymmetric, completing the proof
 that it is a partial order on $q$-effective divisors. -/
-lemma reduces_to_antisymmetric {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D₁ D₂ : CFDiv G) :
+private lemma reduces_to_antisymmetric {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D₁ D₂ : CFDiv G) :
   reduces_to G q D₁ D₂ → reduces_to G q D₂ D₁ → D₁ = D₂ := by
   intro h_red_12 h_red_21
   rcases h_red_12 with ⟨σ₁, h_reducer_1, h_D2_eq⟩
@@ -920,7 +921,7 @@ def q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) : Prop :=
 
 
 /-- Helper lemma: a firing script can be understood as first firing the set where the maximum occurs, and no debt is created at this step unless it will remain at the end. -/
-lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V, Nonempty S ∧ ∀ v ∈ S, (∀ w : G.V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
+private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V, Nonempty S ∧ ∀ v ∈ S, (∀ w : G.V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
   let max_exists := Finset.exists_max_image Finset.univ σ (by use Classical.arbitrary G.V; simp)
   rcases max_exists with ⟨w, ⟨_,w_argmax⟩⟩
   let S := Finset.univ.filter (σ · = σ w)
@@ -976,7 +977,7 @@ lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V
     linarith [lt_of_le_of_ne w_argmax h_u_notin_S]
 
 /-- Helper lemma: a q-reduced divisor is only equivalent to a q-effective divisor via a q-reducer, i.e. a script that doesn't fire at q. -/
-lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) (σ : firing_script G) :
+private lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) (σ : firing_script G) :
   q_reduced G q (D + prin G σ) → q_effective q D → q_reducer G q σ := by
   intro h_q_reduced h_q_effective v
   unfold q_reduced at h_q_reduced
@@ -1011,7 +1012,7 @@ lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) (σ :
   linarith
 
 /-- Alternative description of q-reduced divisors: maximum q-effective diviors with respect to reduction in a linear equivalence class.. -/
-lemma maximum_of_q_reduced (G : CFGraph) {q : G.V} {D : CFDiv G} (q_eff : q_effective q D) : q_reduced G q D → ∀ D' : CFDiv G, linear_equiv G D D' → q_effective q D' → reduces_to G q D' D := by
+private lemma maximum_of_q_reduced (G : CFGraph) {q : G.V} {D : CFDiv G} (q_eff : q_effective q D) : q_reduced G q D → ∀ D' : CFDiv G, linear_equiv G D D' → q_effective q D' → reduces_to G q D' D := by
   intro h_q_reduced D' h_lequiv h_eff
   unfold linear_equiv at h_lequiv
   simp [principal_iff_eq_prin] at h_lequiv
@@ -1053,7 +1054,7 @@ lemma maximum_of_q_reduced (G : CFGraph) {q : G.V} {D : CFDiv G} (q_eff : q_effe
     simp [D'_eq]
 
 /-- For connected graphs, the converse is true: if a divisor is q_reduced, then it is maximal in the q-reduction partial order. -/
-lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q : G.V} {D : CFDiv G} (q_eff : q_effective q D) :  (∀ D' : CFDiv G, linear_equiv G D D' → q_effective q D' → reduces_to G q D' D) →  q_reduced G q D := by
+private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q : G.V} {D : CFDiv G} (q_eff : q_effective q D) :  (∀ D' : CFDiv G, linear_equiv G D D' → q_effective q D' → reduces_to G q D' D) →  q_reduced G q D := by
   intro h_maximal
   unfold q_reduced
   constructor
@@ -1130,7 +1131,7 @@ lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q : G.V} 
 /-- Lemma: The q-reduced representative of an effective divisor is effective.
     This follows from the fact that the reduction process (like Dhar's algorithm or repeated
     legal firings) preserves effectiveness when starting with an effective divisor. -/
-lemma helper_q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' : CFDiv G) :
+private lemma helper_q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' : CFDiv G) :
   effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
   intro h_eff h_equiv h_qred
   dsimp [linear_equiv] at h_equiv
@@ -1208,7 +1209,7 @@ def active (G : CFGraph) (q : G.V) (D : CFDiv G) (v : G.V) : Prop :=
   ∃ σ : firing_script G, q_reducer G q σ ∧ q_effective q (D + prin G σ) ∧ σ q < σ v
 
 /-- A $q$-effective divisor with no active vertices is $q$-reduced. -/
-lemma q_reduced_of_no_active (G :CFGraph) {q : G.V} {D : CFDiv G} (h_eff : q_effective q D) (h_no_active : ∀ v : G.V, ¬ active G q D v) :
+private lemma q_reduced_of_no_active (G :CFGraph) {q : G.V} {D : CFDiv G} (h_eff : q_effective q D) (h_no_active : ∀ v : G.V, ¬ active G q D v) :
   q_reduced G q D := by
   contrapose! h_no_active with h_not_q_reduced
   dsimp [q_reduced] at h_not_q_reduced
@@ -1275,7 +1276,7 @@ noncomputable def reduction_excess (G : CFGraph) (q : G.V) (D : CFDiv G) : ℤ :
 
 /-- The reduction excess is nonnegative for $q$-effective divisors, since active vertices
 satisfy `v ≠ q` and thus `D v ≥ 0`. -/
-lemma reduction_excess_nonneg (G : CFGraph) {q : G.V} {D : CFDiv G} (h_eff : q_effective q D) :
+private lemma reduction_excess_nonneg (G : CFGraph) {q : G.V} {D : CFDiv G} (h_eff : q_effective q D) :
   0 ≤ reduction_excess G q D := by
   dsimp [reduction_excess]
   apply Finset.sum_nonneg

@@ -129,7 +129,7 @@ def config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q + c
   rw [show config_degree c + k - config_degree c = k by ring]
 
 /-- Prescribing degree `config_degree c - 1` gives the divisor `c - q`. -/
-@[simp] lemma toDiv_config_degree_sub_one {q : G.V} (c : Config G q) :
+@[simp] private lemma toDiv_config_degree_sub_one {q : G.V} (c : Config G q) :
   toDiv (config_degree c - 1) c = c.vertex_degree - one_chip q := by
   rw [show config_degree c - 1 = config_degree c + (-1) by ring]
   rw [toDiv_config_degree_add]
@@ -142,7 +142,7 @@ def config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q + c
 
 /-- `toConfig` is a left inverse of `to_qed`: converting a configuration to a $q$-effective
 divisor and back recovers the original configuration. -/
-lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
+private lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
   toConfig (to_qed d c) = c := by
   rcases c with ⟨vertex_degree, q_zero, non_negative⟩
   dsimp [to_qed, toConfig]
@@ -210,12 +210,12 @@ lemma q_reduced_eq_vertex_degree_sub_one_chip (G : CFGraph) (q : G.V) (D : CFDiv
     _ = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
       simp [sub_eq_add_neg]
 
-@[simp] lemma eval_toDiv_q {q : G.V} (d : ℤ) (c : Config G q) :
+@[simp] private lemma eval_toDiv_q {q : G.V} (d : ℤ) (c : Config G q) :
   toDiv d c q = d - config_degree c := by
   dsimp [toDiv]
   simp [c.q_zero]
 
-@[simp] lemma eval_toDiv_ne_q {q v : G.V} (d : ℤ) (c : Config G q) (h_v : v ≠ q) :
+@[simp] private lemma eval_toDiv_ne_q {q v : G.V} (d : ℤ) (c : Config G q) (h_v : v ≠ q) :
   toDiv d c v = c.vertex_degree v := by
   dsimp [toDiv]
   simp [h_v]
@@ -455,7 +455,7 @@ def is_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) : Prop 
       ∧ is_burn_list G c (w :: rest)
 
 /-- Every burn list contains `q` (since the base case of a burn list is `[q]`). -/
-lemma burn_list_contains_q (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) (h_bl : is_burn_list G c L) :
+private lemma burn_list_contains_q (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) (h_bl : is_burn_list G c L) :
   L.contains q := by
   induction L with
   | nil =>
@@ -477,7 +477,7 @@ lemma burn_list_contains_q (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.
 /-- If `c` is superstable and a burn list `L` does not yet contain all vertices, it can be
 extended by prepending a new vertex. This corresponds to the next edge burning in Dhar's
 burning algorithm; superstability implies that the entire graph will burn. -/
-lemma extend_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : superstable G q c) (L : List G.V) : is_burn_list G c L → (∃ v : G.V, ¬ L.contains v) → (∃ w : G.V, w ∉ L.toFinset ∧ is_burn_list G c (w :: L)) := by
+private lemma extend_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : superstable G q c) (L : List G.V) : is_burn_list G c L → (∃ v : G.V, ¬ L.contains v) → (∃ w : G.V, w ∉ L.toFinset ∧ is_burn_list G c (w :: L)) := by
   intro h_bl h_exists_v
   let S := univ \ L.toFinset
   have h_S_ne : S.Nonempty := by
@@ -534,7 +534,7 @@ structure burn_list (G : CFGraph) {q : G.V} (c : Config G q) where
 
 /-- For each `n < |G.V|`, there exists a burn list of size `n+1`. Inductive step for
 `superstable_burn_list`. -/
-lemma burn_list_helper (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : superstable G q c) (n : ℕ) : (n < Finset.card (univ : Finset G.V))→ ∃ (L : List G.V), L.toFinset.card = n+1 ∧ is_burn_list G c L := by
+private lemma burn_list_helper (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : superstable G q c) (n : ℕ) : (n < Finset.card (univ : Finset G.V))→ ∃ (L : List G.V), L.toFinset.card = n+1 ∧ is_burn_list G c L := by
   intro h_n_lt_card_V
   induction n with
   | zero =>
