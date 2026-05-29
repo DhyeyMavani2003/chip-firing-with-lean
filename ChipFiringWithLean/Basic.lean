@@ -915,7 +915,7 @@ at active vertices — strictly decreases at each reduction step.
 def q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) : Prop :=
   q_effective q D ∧
   (∀ S : Finset G.V, S ⊆ (Finset.univ.filter (· ≠ q)) → S.Nonempty →
-    ∃ v ∈ S, D v < ∑ w ∈  (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
+    ∃ v ∈ S, D v < ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
 
 
 

@@ -9,23 +9,37 @@ Project documentation (including this project's docs and its Mathlib dependencie
 
 ## Project Structure
 
-This repository is organized into the following files. Two of these files, ``CFGraphExample.lean`` and ``Algorithms.lean``, are independent material that are not dependencies for the main theorems formalized in ``RiemannRochForGraphs.lean``.
+This proof of Riemann--Roch is organized into the following files. Two additional files, ``CFGraphExample.lean`` and ``Algorithms.lean``, are independent material that are not dependencies for the main theorems.
 
-``` 
-.
-├── ChipFiringWithLean.lean          # Root library module importing project components
-├── ChipFiringWithLean/
-│   ├── Basic.lean                  # Divisor groups, winnability, q-reducedness
-│   ├── CFGraphExample.lean         # Example graphs and configurations
-│   ├── Config.lean                 # Configurations, superstability, Dhar's algorithm
-│   ├── Orientation.lean            # Orientations, consequences for superstability
-│   ├── Algorithms.lean             # Computational algorithms for chip-firing (not used elsewhere)
-│   ├── Rank.lean                   # Baker-Norine ranks
-│   ├── RRGHelpers.lean             # Helper results for Riemann-Roch
-│   └── RiemannRochForGraphs.lean   # Proof of Riemann-Roch theorem
-├── lakefile.toml                   # Build and dependency management
-└── README.md                        # Project documentation
-
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│ Basic.lean                                                             │
+│ Divisor groups, winnability,                                           │
+│ q-reducedness                                                          │
+└────────────────┬──────────────────────────────────────┬────────────────┘
+                 │                                      │
+┌────────────────┴────────────────┐    ┌────────────────┴────────────────┐
+│ Config.lean                     │    │ Rank.lean                       │
+│ Configurations, superstability, │    │ Baker-Norine ranks              │
+│ Dhar's algorithm                │    │                                 │
+└────────────────┬────────────────┘    └────────────────┬────────────────┘
+                 │                                      │
+┌────────────────┴────────────────┐                     │
+│ Orientation.lean                │                     │
+│ Orientations, consequences      │                     │
+│ for superstability              │                     │
+└────────────────┬────────────────┘                     │
+                 │                                      │
+┌────────────────┴──────────────────────────────────────┴────────────────┐
+│ RRGHelpers.lean                                                        │
+│ Helper results for Riemann-Roch                                        │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────┴────────────────────────────────────┐
+│ RiemannRochForGraphs.lean                                              │
+│ Proof of Riemann-Roch theorem and corollaries; gonality                │
+└────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Installation
 
