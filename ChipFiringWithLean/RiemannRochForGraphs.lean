@@ -441,35 +441,49 @@ private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤
     linarith
 
 /-!
-## Conjectures
+## Conjectures and partial results
 
-Below are some conjectures and existence results from Baker's *Specialization of linear systems
-from curves to graphs* that have not been formalized at the time of this writing, as far as we
-are aware. They are advertised here as targets for future formalization work.
+Baker's *Specialization of linear systems from curves to graphs* poses several conjectures
+relating Brill–Noether theory of algebraic curves to chip-firing on graphs. Two of them are, at
+the time of writing, **open problems**:
 
-See also the arXiv preprint <https://arxiv.org/abs/2508.00269> for further context on chip-firing
-and related conjectures.
+* the **Brill–Noether existence conjecture** for finite graphs (Conjecture 3.9(1)), and
+* the **gonality conjecture** `gon(G) ≤ ⌊(g+3)/2⌋` (Conjecture 3.10(1)), which is exactly the
+  `r = 1` case of the existence conjecture.
+
+The existence conjecture is known only for genus `≤ 5` (Atanasov–Ranganathan) and is open even
+for `r = 1`; the gonality conjecture has no known counterexample but no general proof. See
+arXiv:2304.07405, arXiv:1609.02091, arXiv:1911.11514, and the survey context in
+<https://arxiv.org/abs/2508.00269>.
+
+Because these statements are genuinely open, we do **not** assert them as theorems (doing so
+would require a `sorry` that can never be discharged). Instead this section:
+
+* records the conjectures as named `Prop`s (`BrillNoetherExistence`, `GonalityConjecture`),
+* proves the cases that *are* unconditionally provable from Riemann–Roch
+  (`brill_noether_existence_rank_zero`, `brill_noether_existence_of_deg_ge`), and
+* proves the conditional implications reducing the gonality statements to Brill–Noether
+  (`gonality_le_of_brillNoether`, `gonality_existence_of_cdpr`).
 -/
 
-/-- **BN-general existence with genus constraint:** for each genus `g`, there exists a connected
-  Brill–Noether general graph of genus exactly `g`. This is a strengthening of
-  `brill_noether_general_existence` that additionally constrains the genus.
+/-- A graph `G` is **Brill–Noether general** if it has no degree-`d` divisor of rank `≥ r`
+  whenever the Brill–Noether number `ρ = g − (r + 1)(g − d + r)` is negative. -/
+def BrillNoetherGeneral (G : CFGraph) : Prop :=
+  ∀ (r d : ℕ), genus G - (↑r + 1) * (genus G - ↑d + ↑r) < 0 →
+    ∀ (D : CFDiv G), deg D = (d : ℤ) → rank G D < (r : ℤ)
 
-  Proved by Cools–Draisma–Payne–Robeva in *A tropical proof of the Brill–Noether theorem*
-  using chains of loops with generic edge lengths (metric graph theory). -/
-theorem brill_noether_general_exists_genus (g : ℕ) :
-    ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
-      genus G = (g : ℤ) ∧
-      ∀ (r d : ℕ), genus G - (↑r + 1) * (genus G - ↑d + ↑r) < 0 →
-        ∀ (D : CFDiv G), deg D = (d : ℤ) → rank G D < (r : ℤ) := by
-  sorry
+/-- **Brill–Noether existence (Baker, Conjecture 3.9(1)) — OPEN.** For every `r, d` with
+  Brill–Noether number `ρ = g − (r + 1)(g − d + r) ≥ 0`, there is a degree-`d` divisor of
+  rank `≥ r`. Known only for genus `≤ 5`; open even for `r = 1`. -/
+def BrillNoetherExistence (G : CFGraph) : Prop :=
+  ∀ (r d : ℕ), genus G - (↑r + 1) * (genus G - ↑d + ↑r) ≥ 0 →
+    ∃ (D : CFDiv G), rank G D ≥ (r : ℤ) ∧ deg D = (d : ℤ)
 
 /-- On a BN-general graph of genus `g`, the gonality is at least `⌊(g + 3) / 2⌋`.
   This follows because for `r = 1` and `d < ⌊(g+3)/2⌋`, the BN number `ρ < 0`,
   so BN-generality implies no degree-`d` divisor has rank ≥ 1. -/
 private lemma gonality_ge_of_bn_general {G : CFGraph} (h_conn : graph_connected G)
-    (h_bn_gen : ∀ (r d : ℕ), genus G - (↑r + 1) * (genus G - ↑d + ↑r) < 0 →
-      ∀ (D : CFDiv G), deg D = (d : ℤ) → rank G D < (r : ℤ)) :
+    (h_bn_gen : BrillNoetherGeneral G) :
     gonality h_conn ≥ (genus G + 3) / 2 := by
   apply le_csInf ⟨genus G + 1, gonality_leq_genus_add_one h_conn⟩
   intro k ⟨D, hD_rank, hD_deg⟩
@@ -518,135 +532,113 @@ lemma genus_nonneg {G : CFGraph} (h_conn : graph_connected G) : genus G ≥ 0 :=
   have h2 := gonality_le_genus_add_one h_conn
   linarith
 
-/-- **Brill–Noether conjecture for graphs:** for every connected graph of genus `g`, and any
-  `r, d` with `ρ = g − (r + 1)(g − d + r) ≥ 0`, there exists a degree-`d` divisor of rank ≥ `r`.
-  This is an open problem.
+/-- **Brill–Noether existence, rank `0` case (provable).** Every non-negative degree `d` is the
+  degree of an effective divisor, which has rank `≥ 0`. This is the `r = 0` instance of
+  `BrillNoetherExistence`. -/
+theorem brill_noether_existence_rank_zero {G : CFGraph} (d : ℕ) :
+    ∃ (D : CFDiv G), rank G D ≥ (0 : ℤ) ∧ deg D = (d : ℤ) := by
+  refine ⟨(d : ℤ) • one_chip (Classical.arbitrary G.V), ?_, ?_⟩
+  · have h_eff : effective ((d : ℤ) • one_chip (Classical.arbitrary G.V)) :=
+      (Eff G).nsmul_mem (eff_one_chip _) d
+    exact (rank_geq_iff G _ 0).mp
+      ((rank_nonneg_iff_winnable G _).mpr (winnable_of_effective G _ h_eff))
+  · rw [map_zsmul, deg_one_chip, zsmul_one]; simp
 
-  Posed in M. Baker, *Specialization of linear series from curves to graphs*,
-  Conjecture 3.9(1). -/
-theorem brill_noether_conjecture {G : CFGraph} (h_conn : graph_connected G) (r d : ℕ) :
-    let g := genus G
-    let ρ := g - (↑r + 1) * (g - ↑d + ↑r)
-    ρ ≥ 0 → ∃ (D : CFDiv G), rank G D ≥ (r : ℤ) ∧ deg D = (d : ℤ) := by
-  intro g ρ hρ
-  -- We handle two cases:
-  -- Case 1: d ≥ g + r. Then any divisor of degree d has rank ≥ d - g ≥ r.
-  -- Case 2: d < g + r. This is the hard case (open problem).
+/-- **Brill–Noether existence in the non-special / boundary range (provable).** If the
+  Brill–Noether number is non-negative *and* `d ≥ g + r − 1`, then a degree-`d` divisor of
+  rank `≥ r` exists.
+
+  Two sub-cases, both handled by Riemann–Roch:
+  * `d ≥ g + r` (non-special range): the divisor `d • v` already has rank `≥ d − g ≥ r`;
+  * `d = g + r − 1` (boundary): take `K − E` with `E` effective of degree `g − r − 1`, so that
+    `r(K − E) = r(E) + d − g + 1 ≥ r`.
+
+  This is exactly the part of Baker's existence conjecture that is *unconditionally* true; the
+  remaining range `d < g + r − 1` (with `r ≥ 1`) is the open part. -/
+theorem brill_noether_existence_of_deg_ge {G : CFGraph} (h_conn : graph_connected G) (r d : ℕ)
+    (hρ : genus G - (↑r + 1) * (genus G - ↑d + ↑r) ≥ 0)
+    (h_deg : (d : ℤ) ≥ genus G + (r : ℤ) - 1) :
+    ∃ (D : CFDiv G), rank G D ≥ (r : ℤ) ∧ deg D = (d : ℤ) := by
   by_cases h : (d : ℤ) ≥ genus G + (r : ℤ)
-  · -- Case 1: d ≥ g + r
-    -- Take D = d • one_chip v for an arbitrary vertex v
+  · -- Non-special range d ≥ g + r: `D = d • v` has rank ≥ deg D − g = d − g ≥ r.
     let v := Classical.arbitrary G.V
-    use (d : ℤ) • one_chip v
-    constructor
-    · -- rank ≥ r: by Riemann-Roch, rank(D) ≥ deg(D) - g = d - g ≥ r
-      have h_rr := riemann_roch_for_graphs h_conn ((d : ℤ) • one_chip v)
+    refine ⟨(d : ℤ) • one_chip v, ?_, ?_⟩
+    · have h_rr := riemann_roch_for_graphs h_conn ((d : ℤ) • one_chip v)
       have h_neg := rank_geq_neg_one G (canonical_divisor G - (d : ℤ) • one_chip v)
-      have h_deg : deg ((d : ℤ) • one_chip v) = (d : ℤ) := by
+      have h_deg' : deg ((d : ℤ) • one_chip v) = (d : ℤ) := by
         rw [map_zsmul, deg_one_chip, zsmul_one]; simp
       linarith
-    · -- deg = d
-      rw [map_zsmul, deg_one_chip, zsmul_one]; simp
-  · -- Case 2: d < g + r with ρ ≥ 0
-    push Not at h
-    by_cases hr : r = 0
-    · -- Sub-case r = 0: any effective divisor of degree d works
-      subst hr
-      let D := (d : ℤ) • one_chip (Classical.arbitrary G.V)
-      have h_eff : effective D := (Eff G).nsmul_mem (eff_one_chip _) d
-      have h_deg : deg D = (d : ℤ) := by
-        show deg ((d : ℤ) • one_chip (Classical.arbitrary G.V)) = (d : ℤ)
-        rw [map_zsmul, deg_one_chip, zsmul_one]; simp
-      refine ⟨D, ?_, h_deg⟩
-      exact (rank_geq_iff G D 0).mp ((rank_nonneg_iff_winnable G D).mpr (winnable_of_effective G D h_eff))
-    · -- Sub-case r ≥ 1
-      -- Handle d = g + r - 1 (boundary case) using Serre duality
-      -- For d ≥ g: use D = K - E where E is effective of degree 2g-2-d
-      -- For d < g with r ≥ 1: genuinely open
-      have hr_pos : (r : ℤ) ≥ 1 := by omega
-      -- Use D = canonical_divisor - E where E is effective
-      -- r(D) = r(E) + d - g + 1 by Riemann-Roch
-      -- When d ≥ g, r(E) ≥ 0 gives r(D) ≥ d - g + 1
-      -- Need d - g + 1 ≥ r, i.e., d ≥ g + r - 1
-      by_cases hd_bound : (d : ℤ) ≥ genus G + (r : ℤ) - 1
-      · -- d = g + r - 1 (only possibility since d < g + r)
-        have hd_eq : (d : ℤ) = genus G + (r : ℤ) - 1 := by omega
-        -- E effective of degree g - r - 1, need g - r - 1 ≥ 0
-        have h_rho_bound : (r : ℤ) ≤ genus G - 1 := by nlinarith
-        let E := ((genus G - (r : ℤ) - 1).toNat : ℤ) • one_chip (Classical.arbitrary G.V)
-        have h_E_deg : deg E = genus G - (r : ℤ) - 1 := by
-          show deg (((genus G - (r : ℤ) - 1).toNat : ℤ) • one_chip (Classical.arbitrary G.V)) = _
-          rw [map_zsmul, deg_one_chip, zsmul_one]
-          have h_nn : (genus G - (r : ℤ) - 1).toNat = (genus G - (r : ℤ) - 1).toNat := rfl
-          rw [show ((genus G - (r : ℤ) - 1).toNat : ℤ) = genus G - (r : ℤ) - 1 from
-            Int.toNat_of_nonneg (by omega)]
-          simp
-        have h_E_eff : effective E := by
-          show effective (((genus G - (r : ℤ) - 1).toNat : ℤ) • one_chip (Classical.arbitrary G.V))
-          exact (Eff G).nsmul_mem (eff_one_chip _) _
-        let D := canonical_divisor G - E
-        use D
-        constructor
-        · -- rank ≥ r
-          have h_rr := riemann_roch_for_graphs h_conn D
-          have h_KD : canonical_divisor G - D = E := by simp [D]
-          rw [h_KD] at h_rr
-          have h_rE := (rank_nonneg_iff_winnable G E).mpr (winnable_of_effective G E h_E_eff)
-          have h_rE_ge : rank G E ≥ 0 := (rank_geq_iff G E 0).mp h_rE
-          have h_deg_D : deg D = (d : ℤ) := by
-            show deg (canonical_divisor G - E) = (d : ℤ)
-            rw [deg.map_sub, degree_of_canonical_divisor, h_E_deg, hd_eq]
-            ring
-          linarith
-        · -- deg = d
-          show deg (canonical_divisor G - E) = (d : ℤ)
-          rw [deg.map_sub, degree_of_canonical_divisor, h_E_deg, hd_eq]
-          ring
-      · -- d < g + r - 1 with r ≥ 1: genuinely open (Baker's Conjecture 3.9)
-        -- This case requires genus G ≥ 2r + 2 (otherwise ρ < 0).
-        -- The first non-trivial instance is r = 1, g = 4, d = 3.
-        sorry
+    · rw [map_zsmul, deg_one_chip, zsmul_one]; simp
+  · -- Boundary: `g + r − 1 ≤ d < g + r` forces `d = g + r − 1`; use `D = K − E` (Serre duality).
+    have hd_eq : (d : ℤ) = genus G + (r : ℤ) - 1 := by omega
+    have hgdr : genus G - (d : ℤ) + (r : ℤ) = 1 := by rw [hd_eq]; ring
+    have h_nonneg : (0 : ℤ) ≤ genus G - (r : ℤ) - 1 := by
+      have h' := hρ; rw [hgdr, mul_one] at h'; linarith
+    let E := ((genus G - (r : ℤ) - 1).toNat : ℤ) • one_chip (Classical.arbitrary G.V)
+    have h_E_deg : deg E = genus G - (r : ℤ) - 1 := by
+      show deg (((genus G - (r : ℤ) - 1).toNat : ℤ) • one_chip (Classical.arbitrary G.V)) = _
+      rw [map_zsmul, deg_one_chip, zsmul_one,
+        show ((genus G - (r : ℤ) - 1).toNat : ℤ) = genus G - (r : ℤ) - 1 from
+          Int.toNat_of_nonneg h_nonneg]
+      simp
+    have h_E_eff : effective E := (Eff G).nsmul_mem (eff_one_chip _) _
+    refine ⟨canonical_divisor G - E, ?_, ?_⟩
+    · have h_rr := riemann_roch_for_graphs h_conn (canonical_divisor G - E)
+      have h_KD : canonical_divisor G - (canonical_divisor G - E) = E := by simp
+      rw [h_KD] at h_rr
+      have h_rE_ge : rank G E ≥ 0 :=
+        (rank_geq_iff G E 0).mp
+          ((rank_nonneg_iff_winnable G E).mpr (winnable_of_effective G E h_E_eff))
+      have h_deg_D : deg (canonical_divisor G - E) = (d : ℤ) := by
+        rw [deg.map_sub, degree_of_canonical_divisor, h_E_deg, hd_eq]; ring
+      linarith
+    · rw [deg.map_sub, degree_of_canonical_divisor, h_E_deg, hd_eq]; ring
 
-/-- **Gonality conjecture:** every connected graph of genus `g` has gonality at most
-  `⌊(g + 3) / 2⌋`. This is an open problem.
+/-- **Gonality conjecture (Baker, Conjecture 3.10(1)) — OPEN.** Every connected graph satisfies
+  `gon(G) ≤ ⌊(g + 3) / 2⌋`. This is exactly the `r = 1` case of `BrillNoetherExistence`. -/
+def GonalityConjecture {G : CFGraph} (h_conn : graph_connected G) : Prop :=
+  gonality h_conn ≤ (genus G + 3) / 2
 
-  Posed in M. Baker, *Specialization of linear systems from curves to graphs*,
-  Conjecture 3.10(1).
-
-  This follows from the Brill–Noether conjecture with `r = 1`:
-  setting `ρ = g − 2(g − d + 1) = 2d − g − 2`, the condition `ρ ≥ 0`
-  holds for `d = ⌊(g + 3)/2⌋`, so BN gives a degree-`d` divisor of rank ≥ 1. -/
-theorem gonality_conjecture {G : CFGraph} (h_conn : graph_connected G) :
-    gonality h_conn ≤ (genus G + 3) / 2 := by
-  -- Derive from brill_noether_conjecture with r = 1, d = ⌊(g+3)/2⌋.
+/-- The gonality conjecture is implied by Brill–Noether existence: apply it with `r = 1` and
+  `d = ⌊(g + 3) / 2⌋`, where the Brill–Noether number `ρ = 2d − g − 2 ≥ 0`, to obtain a
+  degree-`d` divisor of rank `≥ 1`. -/
+theorem gonality_le_of_brillNoether {G : CFGraph} (h_conn : graph_connected G)
+    (h_bn : BrillNoetherExistence G) : GonalityConjecture h_conn := by
+  show gonality h_conn ≤ (genus G + 3) / 2
   set d_nat : ℕ := ((genus G + 3) / 2).toNat with d_nat_def
-  have h_bn := brill_noether_conjecture h_conn 1 d_nat
   have h_gnn := genus_nonneg h_conn
   have h_ge : (genus G + 3) / 2 ≥ 0 := by omega
   have h_cast : (d_nat : ℤ) = (genus G + 3) / 2 := Int.toNat_of_nonneg h_ge
   have h_rho : genus G - (↑(1 : ℕ) + 1) * (genus G - ↑d_nat + ↑(1 : ℕ)) ≥ 0 := by
     simp only [Nat.cast_one]; rw [h_cast]; ring_nf; omega
-  obtain ⟨D, hD_rank, hD_deg⟩ := h_bn h_rho
+  obtain ⟨D, hD_rank, hD_deg⟩ := h_bn 1 d_nat h_rho
   have h_gonality_leq : gonality_leq G (d_nat : ℤ) := ⟨D, hD_rank, hD_deg⟩
   have h_bdd : BddBelow {k : ℤ | gonality_leq G k} := ⟨1, fun k hk => one_le_of_gonality_leq hk⟩
   have h_le : gonality h_conn ≤ (d_nat : ℤ) := csInf_le h_bdd h_gonality_leq
   linarith
 
-/-- **Gonality conjecture (existence version):** for every `g ≥ 0`, there exists a connected graph
-  of genus `g` whose gonality equals `⌊(g + 3) / 2⌋`.
+/-- A graph is a **Brill–Noether general graph** if it satisfies both halves of Brill–Noether
+  theory: existence (`ρ ≥ 0 ⇒ a divisor of the predicted degree and rank exists`) and generality
+  (`ρ < 0 ⇒ no such divisor exists`). -/
+def BrillNoetherGeneralGraph (G : CFGraph) : Prop :=
+  BrillNoetherExistence G ∧ BrillNoetherGeneral G
 
-  Posed by M. Baker in *Specialization of linear systems from curves to graphs*, Conjecture 3.10(2).
-  Proved by Cools–Draisma–Payne–Robeva in *A tropical proof of the Brill–Noether theorem*.
+/-- **Cools–Draisma–Payne–Robeva existence — not yet formalized.** Every genus contains a
+  connected Brill–Noether general graph. The only known proof uses tropical chains of loops with
+  generic edge lengths; that metric-graph machinery is not in Mathlib, so we expose this as a
+  hypothesis rather than asserting it. -/
+def BrillNoetherGeneralGraphExists (g : ℕ) : Prop :=
+  ∃ (G : CFGraph.{u}) (_ : graph_connected G),
+    genus G = (g : ℤ) ∧ BrillNoetherGeneralGraph G
 
-  The proof combines two ingredients:
-  1. **Upper bound** from `gonality_conjecture` (which follows from `brill_noether_conjecture`):
-     every connected graph of genus `g` has gonality ≤ `⌊(g+3)/2⌋`.
-  2. **Lower bound** from `brill_noether_general_exists_genus` (the CDPR result):
-     there exists a BN-general graph of genus `g`, on which no degree-`(⌊(g+3)/2⌋-1)` divisor
-     has rank ≥ 1 (since the Brill–Noether number `ρ < 0` for these parameters). -/
-theorem gonality_conjecture_existence (g : ℕ) :
+/-- **Gonality conjecture, existence version (Baker, Conjecture 3.10(2)).** Conditional on the
+  Cools–Draisma–Payne–Robeva existence of a Brill–Noether general graph in genus `g`, there is a
+  connected graph of genus `g` with gonality exactly `⌊(g + 3) / 2⌋`. The upper bound is supplied
+  by `gonality_le_of_brillNoether` and the lower bound by `gonality_ge_of_bn_general`. -/
+theorem gonality_existence_of_cdpr (g : ℕ) (h : BrillNoetherGeneralGraphExists.{u} g) :
     ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
       genus G = (g : ℤ) ∧ gonality h_conn = ((g : ℤ) + 3) / 2 := by
-  obtain ⟨G, h_conn, h_genus, h_bn_gen⟩ := brill_noether_general_exists_genus g
-  exact ⟨G, h_conn, h_genus, le_antisymm
-    (h_genus ▸ gonality_conjecture h_conn)
-    (h_genus ▸ gonality_ge_of_bn_general h_conn h_bn_gen)⟩
+  obtain ⟨G, h_conn, h_genus, h_bn_exist, h_bn_gen⟩ := h
+  have hle : gonality h_conn ≤ (genus G + 3) / 2 := gonality_le_of_brillNoether h_conn h_bn_exist
+  have hge : gonality h_conn ≥ (genus G + 3) / 2 := gonality_ge_of_bn_general h_conn h_bn_gen
+  exact ⟨G, h_conn, h_genus, le_antisymm (h_genus ▸ hle) (h_genus ▸ hge)⟩
