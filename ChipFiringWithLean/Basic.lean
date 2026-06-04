@@ -197,7 +197,7 @@ def principal_divisors (G : CFGraph) : AddSubgroup (CFDiv G) :=
 def linear_equiv (G : CFGraph) (D D' : CFDiv G) : Prop :=
   D' - D ∈ principal_divisors G
 
-/-- Lemma: Principal divisors contain the firing vector at a vertex -/
+/-- Principal divisors contain the firing vector at a vertex -/
 private lemma mem_principal_divisors_firing_vector (G : CFGraph) (v : G.V) :
   firing_vector G v ∈ principal_divisors G := AddSubgroup.subset_closure (Set.mem_range_self v)
 
@@ -1128,7 +1128,7 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
       dsimp [σ] at prin_zero
       simp [q_nin_S, v_S] at prin_zero
 
-/-- Lemma: The q-reduced representative of an effective divisor is effective.
+/-- The q-reduced representative of an effective divisor is effective.
     This follows from the fact that the reduction process (like Dhar's algorithm or repeated
     legal firings) preserves effectiveness when starting with an effective divisor. -/
 private lemma helper_q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' : CFDiv G) :

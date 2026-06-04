@@ -427,11 +427,12 @@ lemma helper_superstable_to_unwinnable {G : CFGraph} (h_conn : graph_connected G
 /-!
 ## Burn lists and Dhar's burning algorithm
 
-A *burn list* for a configuration `c` is an ordered list of all vertices ending at `q`,
-built by Dhar's burning algorithm: each vertex is added when its number of chips is less
-than its out-degree into the remaining (unburned) vertices. The key property is that a
-configuration is superstable if and only if a complete burn list (containing all vertices)
-exists (`superstable_burn_list`).
+A *burn list* for a configuration `c` is an ordered list of distinct vertices ending at `q`.
+The list is stored in reverse burn order: starting from `[q]`, each new burnable vertex is
+prepended to the list. A vertex is burnable when its number of chips is less than its
+out-degree into the vertices that have already burned. The key property is that a
+configuration is superstable if and only if a complete burn list, one containing all
+vertices, exists (`superstable_burn_list`).
 
 The `burn_flow` function extracts an orientation from a burn list by directing each edge
 toward the vertex that appears earlier in the list. This is used to construct the bijection
@@ -441,9 +442,10 @@ between maximal superstable configurations and acyclic orientations with unique 
 
 
 /-- Definition: A burn list for a configuration `c` is a list `[v_1, v_2, ..., v_n, q]`
-  of distinct vertices ending at `q`, where the following condition holds at each vertex
-  except `q`: if `S` is the set `G.V \ {v_1, ..., v_(n-1)}` (which contains `v_n`), then the
-  out-degree of `v_n` with respect to `S` is greater than the number of chips at `v_n`. -/
+  of distinct vertices ending at `q`, stored in reverse burn order. For each `i`, let
+  `S_i = G.V \ {v_{i+1}, ..., v_n, q}`. Then `v_i ∈ S_i`, and the out-degree of `v_i`
+  with respect to `S_i`, i.e. the number of edges from `v_i` to the later vertices
+  `{v_{i+1}, ..., v_n, q}`, is greater than the number of chips at `v_i`. -/
 def is_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) : Prop :=
   match L with
   | [] => False

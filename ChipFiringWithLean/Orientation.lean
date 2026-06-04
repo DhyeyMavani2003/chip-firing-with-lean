@@ -1500,7 +1500,7 @@ let c' := orientation_to_config G O q hO
 have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q hO) h_ge
 rw [← h_eq]
 
-/-- Proposition 4.1.11: Bijection between acyclic orientations with source q and maximal superstable configurations
+/-- Bijection between acyclic orientations with source q and maximal superstable configurations
 Corry-Perkinson], Theorem 4.8, part 3 (bijection)-/
 theorem orientation_superstable_bijection (G : CFGraph) (q : G.V) :
     let α := {O : CFOrientation G // acyclic_with_unique_source G O q};
