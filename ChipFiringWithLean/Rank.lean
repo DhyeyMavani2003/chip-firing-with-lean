@@ -11,9 +11,9 @@ open Multiset Finset
 ## The rank function
 
 The *rank* of a divisor $D$ is the integer $r(D) \in \{-1, 0, 1, \ldots\}$ defined by
-$r(D) \geq k$ iff $D - E$ is winnable for every effective divisor $E$ of degree $k$
-Equivalently, $r(D) \geq 0$ iff $D$ is winnable,
-and $r(D) = -1$ iff $D$ is unwinnable.
+$r(D) \geq k$ if and only if $D - E$ is winnable for every effective divisor $E$ of degree $k$.
+Equivalently, $r(D) \geq 0$ if and only if $D$ is winnable, and $r(D) = -1$ if and
+only if $D$ is unwinnable.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Section 5.1.
 
@@ -35,8 +35,8 @@ lemma winnable_equiv_winnable (G : CFGraph) (D1 D2 : CFDiv G) :
   exact ⟨D1', h_D1'_eff, (linear_equiv_is_equivalence G).trans ((linear_equiv_is_equivalence G).symm h_lequiv) h_lequiv1⟩
 
 
-/-- A divisor is maximal unwinnable if it is unwinnable but adding
-    a chip to any vertex makes it winnable -/
+/-- A divisor is maximal unwinnable if it is unwinnable but adding a chip to any vertex
+makes it winnable. -/
 def maximal_unwinnable (G : CFGraph) (D : CFDiv G) : Prop :=
   ¬winnable G D ∧ ∀ v : G.V, winnable G (D + one_chip v)
 
@@ -52,12 +52,14 @@ lemma maximal_unwinnable_preserved (G : CFGraph) (D1 D2 : CFDiv G) :
       unfold linear_equiv at *
       simpa using h_lequiv
 
-/-- The set of effective divisors of degree `k`. Used to define `rank_geq`: `rank G D ≥ k`
-means `D - E` is winnable for every `E` in `eff_of_degree D k`. -/
+/-- The set of effective divisors of degree $k$.
+
+This is used to define `rank_geq`: the relation $r(D) \ge k$ means that $D-E$ is
+winnable for every effective divisor $E$ of degree $k$. -/
 def eff_of_degree (D : CFDiv G) (k : ℤ) : Set (CFDiv G) :=
   {E | effective E ∧ deg E = k}
 
-/-- For any natural number `k`, the set of effective divisors of degree `k` is nonempty. -/
+/-- For any natural number $k$, the set of effective divisors of degree $k$ is nonempty. -/
 private lemma eff_of_degree_nonempty (D : CFDiv G) (k : ℕ) : k ≥ 0 → (eff_of_degree D k).Nonempty := by
   let v : G.V := Classical.arbitrary G.V
   intro h_nonneg
@@ -66,17 +68,17 @@ private lemma eff_of_degree_nonempty (D : CFDiv G) (k : ℕ) : k ≥ 0 → (eff_
   · exact (Eff G).nsmul_mem (eff_one_chip v) k
   · simpa [deg_one_chip] using (AddMonoidHom.map_nsmul deg (one_chip v) k)
 
-/-- A divisor D has rank ≥ k if the game is winnable after removing any k dollars -/
+/-- The relation $r(D) \ge k$: the game remains winnable after removing any effective
+divisor of degree $k$. -/
 def rank_geq (G : CFGraph) (D : CFDiv G) (k : ℤ) : Prop :=
   ∀ E ∈ eff_of_degree D k, winnable G (D-E)
 
-/-- `rank_eq G D r` holds when `r` is exactly the rank of `D`: `rank_geq G D r` holds but
-`rank_geq G D (r+1)` does not. -/
+/-- The relation $r(D)=r$: `rank_geq G D r` holds, but `rank_geq G D (r+1)` does not. -/
 def rank_eq (G : CFGraph) (D : CFDiv G) (r : ℤ) : Prop :=
   rank_geq G D r ∧ ¬(rank_geq G D (r+1))
 
-/-- `rank_geq G D k` holds vacuously for `k < 0`, since there are no effective divisors of
-negative degree. -/
+/-- The relation `rank_geq G D k` holds vacuously for $k < 0$, since there are no effective
+divisors of negative degree. -/
 private lemma rank_geq_neg (G : CFGraph) (D : CFDiv G) (k : ℤ): (k < 0) → rank_geq G D k := by
   intro k_neg E ⟨h_eff_E, h_deg_E⟩
   have := deg_of_eff_nonneg E h_eff_E
@@ -112,8 +114,9 @@ lemma winnable_add_winnable (G : CFGraph) (D1 D2 : CFDiv G)
     rw [this]
     exact AddSubgroup.add_mem (principal_divisors G) h_lequiv1 h_lequiv2
 
-/-- If `rank_geq G D r` holds for some `r ≥ 0`, then `r ≤ deg D`. In particular,
-`rank G D ≤ deg D` when `rank G D ≥ 0`. -/
+/-- If $r(D) \ge r$ for some $r \ge 0$, then $r \le \deg(D)$.
+
+In particular, `rank G D ≤ deg D` when `rank G D ≥ 0`. -/
 lemma rank_le_degree (G : CFGraph) (D : CFDiv G) : ∀ (r : ℤ), r ≥ 0 → rank_geq G D r → r ≤ deg D := by
   intro r r_nonneg h_rank
   contrapose! h_rank
@@ -136,7 +139,8 @@ lemma rank_le_degree (G : CFGraph) (D : CFDiv G) : ∀ (r : ℤ), r ≥ 0 → ra
   rw [h_E_deg] at deg_nonneg
   exact deg_nonneg
 
-/-- `rank_geq` is downward closed: if `rank G D ≥ r1` and `r2 ≤ r1`, then `rank G D ≥ r2`. -/
+/-- The relation `rank_geq` is downward closed: if $r(D)\ge r_1$ and $r_2 \le r_1$,
+then $r(D)\ge r_2$. -/
 private lemma rank_geq_trans (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
   rank_geq G D r1 → r2 ≤ r1 → rank_geq G D r2 := by
   intro h_r1 h_leq
@@ -169,7 +173,7 @@ private lemma rank_geq_trans (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
     have sum_winnable := winnable_add_winnable G _ _ h_E_nonwin E_diff_winnable
     simpa [sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using sum_winnable
 
-/-- If `rank_geq G D r1` holds but `rank_geq G D r2` does not, then `r1 < r2`. -/
+/-- If $r(D) \ge r_1$ holds but $r(D) \ge r_2$ does not, then $r_1 < r_2$. -/
 def lt_of_rank_geq_not (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
   rank_geq G D r1 → ¬(rank_geq G D r2) → r1 < r2 := by
   intro h_r1 h_r2
@@ -199,7 +203,7 @@ private lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph) (D : CFDiv G) :
       norm_num
     · simp
 
-/-- `rank G D ≥ 0` if and only if `D` is winnable. -/
+/-- The inequality $r(D)\ge 0$ holds if and only if $D$ is winnable. -/
 lemma rank_nonneg_iff_winnable (G : CFGraph) (D : CFDiv G) :
   rank_geq G D 0 ↔ winnable G D := by
   constructor
@@ -212,7 +216,8 @@ lemma rank_nonneg_iff_winnable (G : CFGraph) (D : CFDiv G) :
     have E_zero := eff_degree_zero _ h_eff_E h_deg_E
     simpa [E_zero] using h_winnable
 
-/-- If `rank_geq G D m` fails for some natural number `m`, there exists an exact rank `r < m`. -/
+/-- If $r(D) \ge m$ fails for some natural number $m$, then there exists an exact rank
+$r < m$. -/
 private lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (rank_geq G D m) → ∃ r < (m:ℤ), rank_eq G D r := by
   induction m with
   | zero =>
@@ -229,7 +234,7 @@ private lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (ran
         linarith [h_r_lt]
       exact ⟨r, r_le, h_rank_eq⟩
 
-/-- Every divisor has a well-defined rank: there exists `r` with `rank_eq G D r`. -/
+/-- Every divisor has a well-defined rank: there exists an integer $r$ with $r(D)=r$. -/
 private lemma rank_exists (G : CFGraph) (D : CFDiv G) :
   ∃ r : ℤ, rank_eq G D r := by
   let m := (deg D).toNat + 1
@@ -243,7 +248,7 @@ private lemma rank_exists (G : CFGraph) (D : CFDiv G) :
   rcases rank_exists_helper G D m h_not_geq with ⟨r, _, h_rank_eq⟩
   exact ⟨r, h_rank_eq⟩
 
-/-- The rank of a divisor is unique: if `rank_eq G D r1` and `rank_eq G D r2`, then `r1 = r2`. -/
+/-- The rank of a divisor is unique: if $r(D)=r_1$ and $r(D)=r_2$, then $r_1=r_2$. -/
 private lemma rank_unique (G : CFGraph) (D : CFDiv G) :
   ∀ r1 r2 : ℤ, rank_eq G D r1 → rank_eq G D r2 → r1 = r2 := by
   rintro r1 r2 ⟨h_r1_geq, h_r1_not_geq⟩ ⟨h_r2_geq, h_r2_not_geq⟩
@@ -251,11 +256,11 @@ private lemma rank_unique (G : CFGraph) (D : CFDiv G) :
   have ineq2 : r2 < r1 + 1 := lt_of_rank_geq_not G D r2 (r1+1) h_r2_geq h_r1_not_geq
   linarith
 
-/-- The rank function for divisors -/
+/-- The rank function for divisors. -/
 noncomputable def rank (G : CFGraph) (D : CFDiv G) : ℤ :=
   Classical.choose (rank_exists G D)
 
-/-- `rank_geq G D k` is equivalent to `rank G D ≥ k`. -/
+/-- The relation `rank_geq G D k` is equivalent to the inequality `rank G D ≥ k`. -/
 lemma rank_geq_iff (G : CFGraph) (D : CFDiv G) (k : ℤ) :
   rank_geq G D k ↔ rank G D ≥ k := by
   let r := rank G D
@@ -272,7 +277,7 @@ lemma rank_geq_iff (G : CFGraph) (D : CFDiv G) (k : ℤ) :
     have h_r_geq := h_r.left
     exact rank_geq_trans G D r k h_r_geq h_rank_leq
 
-/-- `rank_eq G D r` is equivalent to `rank G D = r`. -/
+/-- The relation `rank_eq G D r` is equivalent to the equality `rank G D = r`. -/
 private lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
   rank_eq G D r ↔ rank G D = r := by
   dsimp [rank_eq]
@@ -284,13 +289,13 @@ private lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
   rw [split_eq (rank G D)]
   rw [rank_geq_iff G D r, rank_geq_iff G D (r+1)]
 
-/-- Lemma: If a divisor is winnable, there exists an effective divisor linearly equivalent to it -/
+/-- A divisor is winnable if and only if it is linearly equivalent to an effective divisor. -/
 lemma winnable_iff_exists_effective (G : CFGraph) (D : CFDiv G) :
   winnable G D ↔ ∃ D' : CFDiv G, effective D' ∧ linear_equiv G D D' := by
   unfold winnable Eff
   simp
 
-/-- Lemma: Helper for rank characterization to get effective divisor -/
+/-- There is an effective divisor $E$ of degree $r(D)+1$ such that $D-E$ is not winnable. -/
 lemma rank_get_effective (G : CFGraph) (D : CFDiv G) :
   ∃ E : CFDiv G, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (D-E)) := by
   have h : rank_eq G D (rank G D) := by rw [rank_eq_iff]
@@ -300,7 +305,7 @@ lemma rank_get_effective (G : CFGraph) (D : CFDiv G) :
   rcases h_r_not_geq with ⟨E, ⟨h_E_eff, h_E_deg⟩, h_E_not_winnable⟩
   exact ⟨E, h_E_eff, h_E_deg, h_E_not_winnable⟩
 
-/-- Helpful corollary: rank = -1 exactly when divisor is not winnable -/
+/-- A divisor has rank $-1$ if and only if it is not winnable. -/
 lemma rank_neg_one_iff_unwinnable (G : CFGraph) (D : CFDiv G) :
   rank G D = -1 ↔ ¬(winnable G D) := by
   have h := rank_eq_neg_one_iff_unwinnable  G D
@@ -315,7 +320,7 @@ lemma rank_neg_one_iff_unwinnable (G : CFGraph) (D : CFDiv G) :
   · intro hwin
     exact rank_unique G D r (-1) h_r (h.mpr hwin)
 
-/-- Lemma: If rank is not non-negative, then it equals -1 -/
+/-- If the rank is not nonnegative, then it is $-1$. -/
 lemma rank_neg_one_of_not_nonneg (G : CFGraph) (D : CFDiv G) (h_not_nonneg : ¬(rank G D ≥ 0)) : rank G D = -1 := by
   have h_spec := Classical.choose_spec (rank_exists G D)
   let r := rank G D
@@ -328,7 +333,7 @@ lemma rank_neg_one_of_not_nonneg (G : CFGraph) (D : CFDiv G) (h_not_nonneg : ¬(
     linarith
   exact (rank_neg_one_iff_unwinnable G D).mpr nwin
 
-/-- Lemma: rank ≥ -1 -/
+/-- The rank of a divisor is at least $-1$. -/
 lemma rank_geq_neg_one (G : CFGraph) (D : CFDiv G) : rank G D ≥ -1 := by
   by_contra h
   have h_not_nonneg : ¬(rank G D ≥ 0) := by

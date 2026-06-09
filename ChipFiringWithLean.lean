@@ -7,4 +7,4 @@ import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Algorithms
 import ChipFiringWithLean.Rank
 import ChipFiringWithLean.RRGHelpers
-import ChipFiringWithLean.RiemannRochForGraphs
+import ChipFiringWithLean.RiemannRoch

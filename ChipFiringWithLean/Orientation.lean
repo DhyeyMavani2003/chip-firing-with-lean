@@ -14,16 +14,17 @@ open Multiset Finset
 This file defines orientations of chip-firing graphs and establishes their relationship to
 divisors, configurations, and the Riemann-Roch theorem.
 
-An *orientation* (`CFOrientation G`) assigns a direction to each edge of `G`. The key
+An *orientation* (`CFOrientation G`) assigns a direction to each edge of $G$. The key
 objects are:
-- `indeg G O v`: in-degree of vertex `v` under orientation $\mathcal{O}$.
+- `indeg G O v`: the in-degree of vertex $v$ under orientation $\mathcal{O}$.
 - `ordiv G O`: the divisor $D(\mathcal{O})$ assigning $\mathrm{indeg}(v) - 1$ to each vertex.
 - `orientation_to_config G O q`: the configuration $c(\mathcal{O})$ for acyclic orientations
-  with unique source `q`.
+  with unique source $q$.
 
 The main results are:
 - **Theorem 4.8**: There is a bijection between acyclic orientations
-  with unique source `q` and maximal superstable configurations (`orientation_superstable_bijection`).
+  with unique source $q$ and maximal superstable configurations
+  (`orientation_superstable_bijection`).
 - The divisor of an acyclic orientation is unwinnable (`ordiv_unwinnable`).
 - The canonical divisor $K_G = D(\mathcal{O}) + D(\overline{\mathcal{O}})$ where
   $\overline{\mathcal{O}}$ is the reverse orientation (`divisor_reverse_orientation`).
@@ -32,32 +33,36 @@ The main results are:
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 -/
 
-/-- An *orientation* of `G` assigns a direction to each edge: `directed_edges` is a multiset
-of directed pairs summing to `G.edges` (with each undirected edge directed exactly one way).
+/-- An *orientation* of $G$ assigns a direction to each edge.
+
+The field `directed_edges` is a multiset of directed pairs whose underlying undirected
+edge multiplicities agree with those of $G$, so that each undirected edge is directed
+exactly one way.
 The `count_preserving` field ensures total flow on each edge equals its multiplicity, and
 `no_bidirectional` ensures no edge is directed both ways. -/
 structure CFOrientation (G : CFGraph) where
-  /-- The set of directed edges in the orientation -/
+  /-- The multiset of directed edges in the orientation. -/
   directed_edges : Multiset (G.V × G.V)
-  /-- Preserves edge counts between vertex pairs -/
+  /-- The total directed flow between two vertices preserves the graph's edge multiplicity. -/
   count_preserving : ∀ v w,
     num_edges G v w =
     Multiset.count (v, w) directed_edges + Multiset.count (w, v) directed_edges
-  /-- No bidirectional edges in the orientation -/
+  /-- No edge is directed both ways. -/
   no_bidirectional : ∀ v w,
     Multiset.count (v, w) directed_edges = 0 ∨
     Multiset.count (w, v) directed_edges = 0
 
-/-- The flow from `u` to `v` under orientation `O`: the multiplicity of the directed edge `(u,v)`. -/
+/-- The flow from $u$ to $v$ under an orientation $\mathcal{O}$ is the multiplicity of
+the directed edge $(u,v)$. -/
 abbrev flow {G: CFGraph} (O : CFOrientation G) (u v : G.V) : ℕ :=
   Multiset.count (u,v) O.directed_edges
 
-/-- The total flow on an undirected edge equals its multiplicity: `flow O u v + flow O v u = num_edges G u v`. -/
+/-- The total flow on an undirected edge equals its multiplicity. -/
 private lemma opp_flow {G : CFGraph} (O : CFOrientation G) (u v : G.V) :
   flow O u v + flow O v u= (num_edges G u v) := by
   rw[O.count_preserving u v]
 
-/-- Two orientations are equal iff they assign the same flow to every directed pair. -/
+/-- Two orientations are equal if and only if they assign the same flow to every directed pair. -/
 private lemma eq_orient {G : CFGraph} (O1 O2 : CFOrientation G) : O1 = O2 ↔ ∀ (u v : G.V), flow O1 u v = flow O2 u v := by
   constructor
   · intro h_eq u v
@@ -74,15 +79,14 @@ private lemma eq_orient {G : CFGraph} (O1 O2 : CFOrientation G) : O1 = O2 ↔ �
     cases h_directed_edges_eq
     rfl
 
-/-- Helper lema for the count below.-/
+/-- Rewrites a double sum over a finite type as a sum over ordered pairs. -/
 private lemma double_sum {T : Type*} [DecidableEq T] [Fintype T] (f : T × T → ℕ) :
     ∑ (u : T), ∑ (v : T), f ⟨u, v⟩ = ∑ (e : T × T), f e := by
   rw [← Finset.sum_product]
   simp
 
-/-- Helper lemma for later calculations. Puzzlingly
-  intricate for such a simple statement! Perhaps it can
-  be simplified. -/
+/-- The multiset of directed edges in an orientation has the same cardinality as the
+underlying multiset of graph edges. -/
 private lemma card_directed_edges_eq_card_edges {G : CFGraph} (O : CFOrientation G) : Multiset.card  O.directed_edges = Multiset.card G.edges := by
   have hms (M : Multiset (G.V × G.V)): ∀ e ∈ M, e ∈ univ := by
       intro e _
@@ -141,11 +145,11 @@ private lemma card_directed_edges_eq_card_edges {G : CFGraph} (O : CFOrientation
   rw [lhs] at rhs
   linarith
 
-/-- Number of edges directed into a vertex under an orientation -/
+/-- The number of edges directed into a vertex under an orientation. -/
 def indeg (G : CFGraph) (O : CFOrientation G) (v : G.V) : ℕ :=
   Multiset.card (O.directed_edges.filter (λ e => e.snd = v))
 
-/-- The in-degree of `v` equals the sum of flows into `v` from all vertices. -/
+/-- The in-degree of $v$ equals the sum of flows into $v$ from all vertices. -/
 private lemma indeg_eq_sum_flow {G : CFGraph} (O : CFOrientation G) (v : G.V) :
   indeg G O v = ∑ w : G.V, flow O w v := by
   dsimp [indeg, flow]
@@ -183,51 +187,52 @@ private lemma indeg_eq_sum_flow {G : CFGraph} (O : CFOrientation G) (v : G.V) :
       rw [this]
 
 
-/-- Number of edges directed out of a vertex under an orientation -/
+/-- The number of edges directed out of a vertex under an orientation. -/
 def outdeg (G : CFGraph) (O : CFOrientation G) (v : G.V) : ℕ :=
   Multiset.card (O.directed_edges.filter (λ e => e.fst = v))
 
-/-- A vertex is a source if it has no incoming edges (indegree = 0) -/
+/-- A vertex is a source if it has no incoming edges. -/
 def is_source (G : CFGraph) (O : CFOrientation G) (v : G.V) : Prop :=
   indeg G O v = 0
 
-/-- A vertex is a sink if it has no outgoing edges (outdegree = 0) -/
+/-- A vertex is a sink if it has no outgoing edges. -/
 def is_sink (G : CFGraph) (O : CFOrientation G) (v : G.V) : Prop :=
   outdeg G O v = 0
 
-/-- `directed_edge G O u v` holds when there is a directed edge from `u` to `v` in orientation `O`. -/
+/-- The proposition `directed_edge G O u v` holds when there is a directed edge from $u$
+to $v$ in orientation $\mathcal{O}$. -/
 def directed_edge (G : CFGraph) (O : CFOrientation G) (u v : G.V) : Prop :=
   (u, v) ∈ O.directed_edges
 
-/-- Helper function for safe list access -/
+/-- Safely accesses the $i$th element of a list. -/
 def list_get_safe {α : Type} (l : List α) (i : Nat) : Option α :=
   if h: i < l.length then some (l.get ⟨i, h⟩) else none
 
-/-- A directed path in a graph under an orientation -/
+/-- A directed path in a graph under an orientation. -/
 structure DirectedPath {G : CFGraph} (O : CFOrientation G) where
-  /-- The sequence of vertices in the path -/
+  /-- The sequence of vertices in the path. -/
   vertices : List G.V
-  /-- Path must not be empty (at least one vertex) -/
+  /-- The path is nonempty. -/
   non_empty : vertices.length > 0
-  /-- Every consecutive pair forms a directed edge -/
+  /-- Every consecutive pair forms a directed edge. -/
   valid_edges : List.IsChain (directed_edge G O) vertices
 
 /-- A directed path is *non-repeating* if its vertex list has no duplicates. -/
 def non_repeating {G: CFGraph} {O : CFOrientation G} (p : DirectedPath O) : Prop :=
   p.vertices.Nodup
 
-/-- A non-repeating directed path has length at most `|G.V|`. -/
+/-- A non-repeating directed path has length at most $|V(G)|$. -/
 private lemma path_length_bound {G : CFGraph} {O : CFOrientation G} (p : DirectedPath O) :
   non_repeating p → p.vertices.length ≤ Fintype.card G.V := by
   intro h_distinct
   exact List.Nodup.length_le_card h_distinct
 
-/-- An orientation is acyclic if it has no directed cycles and
-    maintains consistent edge directions between vertices -/
+/-- An orientation is acyclic if every directed path has no repeated vertices. -/
 def is_acyclic (G : CFGraph) (O : CFOrientation G) : Prop :=
   ∀ (p : DirectedPath O), non_repeating p
 
-/-- The set of ancestors of a vertex v (nodes x such that there is a path x -> ... -> v) -/
+/-- The set of ancestors of a vertex $v$, i.e. vertices $x$ such that there is a directed
+path $x \to \cdots \to v$. -/
 noncomputable def ancestors (G : CFGraph) (O : CFOrientation G) (v : G.V) : Finset G.V :=
   let R : G.V → G.V → Prop := fun a b => directed_edge G O a b
   open Classical in univ.filter (fun x => Relation.TransGen R x v)
@@ -245,7 +250,7 @@ private lemma indeg_ge_one_of_not_source (G : CFGraph) (O : CFOrientation G) (v 
   intro h_eq_zero -- Assume indeg G O v = 0
   exact h_not_source h_eq_zero
 
-/-- For vertices that are not sources, indegree - 1 is non-negative. -/
+/-- For vertices that are not sources, $\mathrm{indeg}(v)-1$ is nonnegative. -/
 private lemma indeg_minus_one_nonneg_of_not_source (G : CFGraph) (O : CFOrientation G) (v : G.V) :
     ¬ is_source G O v → 0 ≤ (indeg G O v : ℤ) - 1 := by
   intro h_not_source
@@ -345,7 +350,7 @@ private lemma subset_source (G : CFGraph) (O : CFOrientation G) (S : Finset G.V)
   have ineq := path_length_bound p (h_acyclic p)
   linarith
 
-/-- Lemma: A non-empty graph with an acyclic orientation must have at least one source. -/
+/-- A nonempty graph with an acyclic orientation has at least one source. -/
 private lemma acyclic_has_source (G : CFGraph) (O : CFOrientation G) :
   is_acyclic G O → ∃ v : G.V, is_source G O v := by
   intro h_acyclic
@@ -357,7 +362,7 @@ private lemma acyclic_has_source (G : CFGraph) (O : CFOrientation G) :
   apply Finset.sum_eq_zero
   exact h_source
 
-/-- If every source of an acyclic orientation must equal `q`, then `q` is indeed a source. -/
+/-- If every source of an acyclic orientation must equal $q$, then $q$ is itself a source. -/
 private lemma is_source_of_unique_source {G : CFGraph} (O : CFOrientation G) {q : G.V} (h_acyclic : is_acyclic G O)
     (h_unique_source : ∀ w, is_source G O w → w = q) :
   is_source G O q := by
@@ -367,19 +372,19 @@ private lemma is_source_of_unique_source {G : CFGraph} (O : CFOrientation G) {q 
   rw [this] at h_q'
   exact h_q'
 
-/-- `acyclic_with_unique_source G O q` means that `O` is acyclic and every source of `O`
-is equal to `q`. -/
+/-- The proposition `acyclic_with_unique_source G O q` means that $\mathcal{O}$ is acyclic
+and every source of $\mathcal{O}$ is equal to $q$. -/
 def acyclic_with_unique_source (G : CFGraph) (O : CFOrientation G) (q : G.V) : Prop :=
   is_acyclic G O ∧ ∀ w, is_source G O w → w = q
 
-/-- In an acyclic orientation with unique source `q`, the vertex `q` is a source. -/
+/-- In an acyclic orientation with unique source $q$, the vertex $q$ is a source. -/
 private lemma source_of_acyclic_with_unique_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
     (hO : acyclic_with_unique_source G O q) : is_source G O q :=
   is_source_of_unique_source O hO.1 hO.2
 
 
-/-- The configuration associated to an acyclic orientation with unique source `q`:
-assigns $\mathrm{indeg}(v) - 1$ chips to each vertex $v \neq q$, and $0$ at $q$. -/
+/-- The configuration associated to an acyclic orientation with unique source $q$ assigns
+$\mathrm{indeg}(v)-1$ chips to each vertex $v \ne q$, and $0$ at $q$. -/
 def config_of_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
     (hO : acyclic_with_unique_source G O q) : Config G q :=
   { vertex_degree := λ v => if v = q then 0 else (indeg G O v : ℤ) - 1,
@@ -403,22 +408,22 @@ $D(\mathcal{O})(v) = \mathrm{indeg}_{\mathcal{O}}(v) - 1$.
 
 For an acyclic orientation $\mathcal{O}$ with unique source $q$, the associated
 *configuration* `orientation_to_config G O q` assigns $\mathrm{indeg}(v) - 1$ chips to
-each non-$q$ vertex. An acyclic orientation is uniquely determined by its in-degree
+each vertex $v \ne q$. An acyclic orientation is uniquely determined by its in-degree
 sequence (`orientation_determined_by_indegrees`), and the divisor of an acyclic orientation
 is always $q$-reduced and unwinnable.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7.
 -/
 
-/-- The divisor associated with an orientation assigns indegree - 1 to each vertex
+/-- The divisor associated with an orientation assigns $\mathrm{indeg}(v)-1$ to each vertex.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7,
-part 1; written D(O) there. -/
+part 1; written $D_{\mathcal{O}}$ there. -/
 def ordiv (G : CFGraph) (O : CFOrientation G) : CFDiv G :=
   λ v => indeg G O v - 1
 
-/-- The orientation divisor `ordiv G O` bundled as a `q_eff_div`, using acyclicity to prove
-$q$-effectivity. -/
+/-- The orientation divisor `ordiv G O` bundled as a $q$-effective divisor, using
+acyclicity to prove $q$-effectivity. -/
 def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V}
     (hO : acyclic_with_unique_source G O q) : q_eff_div G q := {
       D := ordiv G O,
@@ -439,7 +444,7 @@ def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V}
         simp at h_not_source
     }
 
-/-- The configuration c(O) associated to an acyclic orientation O.
+/-- The configuration $c(\mathcal{O})$ associated to an acyclic orientation $\mathcal{O}$.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7
 (part 2). -/
@@ -447,7 +452,7 @@ def orientation_to_config (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) : Config G q :=
   config_of_source hO
 
-/-- Lemma: CFOrientation to config preserves indegrees -/
+/-- The configuration associated to an orientation records the expected in-degree data. -/
 private lemma orientation_to_config_indeg (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) (v : G.V) :
     (orientation_to_config G O q hO).vertex_degree v =
@@ -459,8 +464,8 @@ private lemma orientation_to_config_indeg (G : CFGraph) (O : CFOrientation G) (q
 
 
 
-/-- Compatibility between configurations and divisors from
-  an orientation -/
+/-- The configuration associated to an orientation agrees with the configuration obtained
+from its orientation divisor. -/
 lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
     (hO : acyclic_with_unique_source G O q) :
   orientation_to_config G O q hO = toConfig (orqed O hO) := by
@@ -479,8 +484,7 @@ lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
     simp [h_v]
 
 
-/-- Helper lemma to simplify handshking argument. Is something
-  like this already in Mathlib somewhere? -/
+/-- Rewrites a sum of filtered multiset cardinalities as a sum over mapped incidence counts. -/
 private lemma sum_filter_eq_map (G : CFGraph) (M : Multiset (G.V × G.V)) (crit  : G.V → G.V × G.V → Prop)
     [∀ v e, Decidable (crit v e)] :
   ∑ v : G.V, Multiset.card (M.filter (crit v))
@@ -687,7 +691,7 @@ lemma orientation_determined_by_indegrees {G : CFGraph}
   rcases S_path with ⟨p, h_len, _⟩
   linarith  [path_length_bound p (h_acyc p)]
 
-/-- Lemma proving uniqueness of orientations giving same config -/
+/-- Two acyclic orientations with unique source $q$ that give the same configuration are equal. -/
 private theorem helper_config_to_orientation_unique (G : CFGraph) (q : G.V)
     (c : Config G q)
     (O₁ O₂ : CFOrientation G)
@@ -996,20 +1000,22 @@ private lemma helper_orientation_config_superstable (G : CFGraph) (O : CFOrienta
 /-!
 ## The canonical divisor and reverse orientations
 
-The *canonical divisor* of $G$ is $K_G(v) = \deg(v) - 2$ for each vertex $v$
+The *canonical divisor* of $G$ is $K_G(v) = \deg(v) - 2$ for each vertex $v$.
 The *reverse orientation* $\overline{\mathcal{O}}$
 of an orientation $\mathcal{O}$ is obtained by reversing all edge directions. The key
 identity is $D(\mathcal{O}) + D(\overline{\mathcal{O}}) = K_G$ (`divisor_reverse_orientation`).
 
 This section also contains the **handshaking theorem** (`helper_sum_vertex_degrees`):
-$\sum_{v \in G.V} \deg(v) = 2|E|$, and its corollary that $\deg(K_G) = 2g - 2$
+$\sum_{v \in V(G)} \deg(v) = 2|E(G)|$, and its corollary that $\deg(K_G) = 2g - 2$
 (`degree_of_canonical_divisor`).
 
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7.
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 5.7.
 -/
 
-/-- The canonical divisor assigns degree - 2 to each vertex.
-    This is independent of orientation and equals D(O) + D(reverse(O)) -/
+/-- The canonical divisor assigns $\deg(v)-2$ to each vertex $v$.
+
+It is independent of orientation and equals
+$D(\mathcal{O}) + D(\overline{\mathcal{O}})$. -/
 def canonical_divisor (G : CFGraph) : CFDiv G :=
   λ v => (vertex_degree G v) - 2
 
@@ -1045,7 +1051,8 @@ def CFOrientation.reverse (G : CFGraph) (O : CFOrientation G) : CFOrientation G 
         rw [h_wv_rev_eq_vw_orig]
 
     rw [add_comm (Multiset.count (w,v) O.directed_edges)]
-  no_bidirectional v w := by -- The `directed_edges` for this proof is O.directed_edges.map Prod.swap
+  -- The `directed_edges` for this proof is `O.directed_edges.map Prod.swap`.
+  no_bidirectional v w := by
     cases O.no_bidirectional v w with
     | inl h_vw_O_zero => -- Multiset.count (v, w) O.directed_edges = 0
       apply Or.inr
@@ -1153,7 +1160,7 @@ lemma divisor_reverse_orientation {G : CFGraph} (O : CFOrientation G)  : ordiv G
   -- Goal is now: flow O' w v = flow O v w
   rw [flow_reverse O w v]
 
-/-- Helper lemma: In a loopless graph, each edge has distinct endpoints -/
+/-- In a loopless graph, each edge has distinct endpoints. -/
 private lemma edge_endpoints_distinct (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
     e.1 ≠ e.2 := by
   by_contra eq_endpoints
@@ -1162,7 +1169,7 @@ private lemma edge_endpoints_distinct (G : CFGraph) (e : G.V × G.V) (he : e ∈
   rw [this] at he
   exact G.loopless v he
 
-/-- Helper lemma: Each edge is incident to exactly two vertices -/
+/-- Each edge is incident to exactly two vertices. -/
 private lemma edge_incident_vertices_count (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
     (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card = 2 := by
   rw [Finset.card_eq_two]
@@ -1185,7 +1192,7 @@ private lemma edge_incident_vertices_count (G : CFGraph) (e : G.V × G.V) (he : 
       | inr h => exact Or.inr (Eq.symm h)
 
 
-/-- Helper lemma: Summing mapped incidence counts equals summing constant 2 (Nat version). -/
+/-- Summing mapped incidence counts equals summing the constant $2$ in `Nat`. -/
 private lemma map_inc_eq_map_two_nat (G : CFGraph) :
   Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))
     = 2 * (Multiset.card G.edges) := by
@@ -1203,8 +1210,7 @@ private lemma map_inc_eq_map_two_nat (G : CFGraph) :
   -- Apply rewrites step-by-step
   rw [Multiset.map_const', Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
 
-/-- Helper lemma to rewrite (in-)degree in terms of edge counts from each direction.
-This proof is quite clunky, and I suspect it can be simplified. -/
+/-- Rewrites degree in terms of edge counts from each direction. -/
 private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
     ∀ (S : Multiset (T × T)) (v : T), (∀ e ∈ S, e.1 ≠ e.2) →
       ∑ u : T, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) =
@@ -1260,12 +1266,12 @@ private lemma sum_num_edges_eq_filter_count (G : CFGraph) (v : G.V) :
   exact degree_eq_total_flow G.edges v (h_loopless)
 
 /--
-**Handshaking Theorem:** In a loopless multigraph \(G\),
+**Handshaking theorem:** In a loopless multigraph $G$,
 the sum of the degrees of all vertices is twice the number of edges:
 
-\[
-  \sum_{v \in G.V} \deg(v) = 2 \cdot \#(\text{edges of }G).
-\]
+$$
+\sum_{v \in V(G)} \deg(v) = 2 |E(G)|.
+$$
 -/
 private theorem helper_sum_vertex_degrees (G : CFGraph) :
     ∑ v, vertex_degree G v = 2 * ↑(Multiset.card G.edges) := by
@@ -1307,8 +1313,8 @@ theorem degree_of_canonical_divisor (G : CFGraph) :
 /-!
 ## Orientations from burn lists
 
-Given a complete burn list `L` for a superstable configuration `c`, the function
-`burn_orientation L h_full` constructs an acyclic orientation of `G` with unique source `q`
+Given a complete burn list $L$ for a superstable configuration $c$, the function
+`burn_orientation L h_full` constructs an acyclic orientation of $G$ with unique source $q$
 (`burn_acyclic`, `burn_unique_source`). Acyclicity is proved by showing that position in
 the burn list gives a strictly decreasing labeling along any directed path (`dp_dec`).
 
@@ -1331,7 +1337,7 @@ def multiset_of_count {T : Type*} [DecidableEq T] [Fintype T] (f : T → ℕ) : 
     _ = f e := by
       simpa using congrFun (Equiv.apply_symm_apply DFinsupp.equivFunOnFintype f) e
 
-/-- Construct a `CFOrientation` from an explicit flow function, given proofs that it respects
+/-- Constructs a `CFOrientation` from an explicit flow function, given proofs that it respects
 edge multiplicities and has no bidirectional edges. -/
 def orientation_from_flow {G : CFGraph} (f : G.V × G.V → ℕ) (h_count_preserving : ∀ v w : G.V, f (v,w) + f (w,v) = num_edges G v w)
     (h_no_bidirectional : ∀ v w : G.V, f (v,w) = 0 ∨ f (w,v) = 0) : CFOrientation G :=
@@ -1345,7 +1351,7 @@ def orientation_from_flow {G : CFGraph} (f : G.V × G.V → ℕ) (h_count_preser
       simpa using h_no_bidirectional v w
   }
 
-/-- The orientation constructed from a complete burn list `L` for a superstable configuration,
+/-- The orientation constructed from a complete burn list $L$ for a superstable configuration,
 via `burn_flow`. This is shown to be acyclic with unique source $q$ by `burn_acyclic` and
 `burn_unique_source`. -/
 def burn_orientation {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list): CFOrientation G := orientation_from_flow (burn_flow L) (burn_flow_reverse L h_full) (burn_flow_directed L h_full)
@@ -1406,7 +1412,7 @@ private lemma burn_unique_source {G : CFGraph} {q : G.V} {c : Config G q} (L : b
   simp at ineq
   simp [ineq]
 
-/-- The orientation constructed from a complete burn list is acyclic with unique source `q`. -/
+/-- The orientation constructed from a complete burn list is acyclic with unique source $q$. -/
 private lemma burn_acyclic_with_unique_source {G : CFGraph} {q : G.V} {c : Config G q}
     (L : burn_list G c) (h_full : ∀ (v : G.V), v ∈ L.list) :
     acyclic_with_unique_source G (burn_orientation L h_full) q :=
@@ -1420,8 +1426,8 @@ private lemma burn_acyclic_with_unique_source {G : CFGraph} {q : G.V} {c : Confi
 This section establishes Theorem 4.8: there is a bijection between
 acyclic orientations with unique source $q$ and maximal superstable configurations.
 
-- `superstable_dhar`: Given a superstable configuration `c`, Dhar's algorithm produces an
-  acyclic orientation whose associated configuration dominates `c`.
+- `superstable_dhar`: given a superstable configuration $c$, Dhar's algorithm produces an
+  acyclic orientation whose associated configuration dominates $c$.
 - `orientation_config_maximal`: Every acyclic orientation with unique source $q$ gives a
   maximal superstable configuration.
 - `maximal_superstable_orientation`: Every maximal superstable configuration arises from
@@ -1431,7 +1437,8 @@ acyclic orientations with unique source $q$ and maximal superstable configuratio
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 -/
 
-/-- Theorem: Dhar's burning algorithm produces, from a superstable configuration, an orientation giving a maximal superstable above it. -/
+/-- Dhar's burning algorithm produces, from a superstable configuration, an orientation whose
+associated configuration dominates it. -/
 theorem superstable_dhar {G : CFGraph} {q : G.V} {c : Config G q} (h_ss : superstable G q c) :
     ∃ (O : CFOrientation G) (hO : acyclic_with_unique_source G O q),
       c ≤ orientation_to_config G O q hO := by
@@ -1455,10 +1462,11 @@ theorem superstable_dhar {G : CFGraph} {q : G.V} {c : Config G q} (h_ss : supers
     have ineq := burnin_degree L v (h_full v) h_vq
     linarith
 
-/-- The configuration asssociated to an acyclic orientation with unique source is maximal superstable.
+/-- The configuration associated to an acyclic orientation with unique source is maximal
+superstable.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8,
-part 1 (c(O) is maximal superstable). -/
+part 1 ($c(\mathcal{O})$ is maximal superstable). -/
 theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) :
     maximal_superstable G (orientation_to_config G O q hO) := by
@@ -1497,7 +1505,7 @@ theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
   -- Now apply config equality from degree and ge
   exact config_eq_of_le_and_degree h_ge h_deg
 
-/-- Every superstable configuration extends to a maximal superstable configuration -/
+/-- Every superstable configuration extends to a maximal superstable configuration. -/
 theorem maximal_superstable_exists (G : CFGraph) (q : G.V) (c : Config G q)
     (h_super : superstable G q c) :
     ∃ c' : Config G q, maximal_superstable G c' ∧ c ≤ c' := by
@@ -1522,7 +1530,8 @@ let c' := orientation_to_config G O q hO
 have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q hO) h_ge
 rw [← h_eq]
 
-/-- Bijection between acyclic orientations with source q and maximal superstable configurations.
+/-- The bijection between acyclic orientations with source $q$ and maximal superstable
+configurations.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8,
 part 3 (bijection). -/

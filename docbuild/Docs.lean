@@ -3,6 +3,6 @@ import ChipFiringWithLean.Config
 import ChipFiringWithLean.Orientation
 import ChipFiringWithLean.Rank
 import ChipFiringWithLean.RRGHelpers
-import ChipFiringWithLean.RiemannRochForGraphs
+import ChipFiringWithLean.RiemannRoch
 import ChipFiringWithLean.Algorithms
 import ChipFiringWithLean.CFGraphExample
