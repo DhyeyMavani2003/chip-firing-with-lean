@@ -135,7 +135,9 @@ private lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D
   linarith
 
 /-- A maximal superstable configuration has degree equal to the genus.
-This is [Corry-Perkinson], Corollary 4.9(1), "only if" direction. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(1),
+"only if" direction. -/
 private lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h_max : maximal_superstable G c): config_degree c = genus G := by
   have := maximal_superstable_orientation G q c h_max
   rcases this with ⟨O, hO, h_orient_eq⟩
@@ -143,8 +145,11 @@ private lemma degree_max_superstable {G : CFGraph} {q : G.V} (c : Config G q) (h
   exact config_degree_from_O O hO
 
 /-- If `D` is maximal unwinnable and `q`-reduced, then any configuration `c` satisfying
-`D = toDiv (deg D) c` must realize `D` as `c - q`. This is the `q`-reduced core of
-[Corry-Perkinson], Corollary 4.9(2), "only if" direction. -/
+`D = toDiv (deg D) c` must realize `D` as `c - q`. This is the `q`-reduced core of the
+cited statement.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(2),
+"only if" direction. -/
 private lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFDiv G) (c : Config G q) :
   maximal_unwinnable G D → q_reduced G q D → D = toDiv (deg D) c → D = c.vertex_degree - one_chip q := by
   intro h_max_unwinnable h_qred h_toDeg
@@ -172,8 +177,10 @@ private lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Confi
   specialize h_ge_c v
   exact h_ge_c
 
-/-- Lemma: If a superstable configuration has degree equal to g, it is maximal
-[Corry-Perkinson], Corollary 4.9(1), "if" direction. -/
+/-- Lemma: If a superstable configuration has degree equal to `g`, it is maximal.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(1),
+"if" direction. -/
 private lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → config_degree c = genus G → maximal_superstable G c := by
   intro h_super h_deg_eq
@@ -203,7 +210,8 @@ private lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Confi
   exact h_maximal
 
 /-- A superstable configuration is maximal if and only if its degree equals the genus.
-This is [Corry-Perkinson], Corollary 4.9(1). -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(1). -/
 private theorem maximal_superstable_config_prop (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → (maximal_superstable G c ↔ config_degree c = genus G) := by
   intro h_super
@@ -359,7 +367,9 @@ private lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
 
 /-- A divisor $D$ is maximal unwinnable if and only if its canonical `q`-reduced representative
 is `qReducedConfig h_conn q D - q`, with `qReducedConfig h_conn q D` maximal superstable.
-This is [Corry-Perkinson], Corollary 4.9(2), in canonical form. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(2),
+in canonical form. -/
 theorem maximal_unwinnable_char {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
   maximal_unwinnable G D ↔
     maximal_superstable G (qReducedConfig h_conn q D) ∧
@@ -394,7 +404,8 @@ theorem superstable_and_maximal_unwinnable {G : CFGraph} (h_conn : graph_connect
 
 /-- A maximal unwinnable divisor has degree $g - 1$, computed from its canonical
 `q`-reduced representative and canonical configuration.
-This is [Corry-Perkinson], Corollary 4.9(4). -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(4). -/
 theorem maximal_unwinnable_deg
   {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   maximal_unwinnable G D → deg D = genus G - 1 := by
@@ -419,7 +430,9 @@ theorem maximal_unwinnable_deg
 
 /-- The map sending an acyclic orientation with source $q$ to its orientation divisor is
 injective, and every maximal unwinnable divisor has degree $g - 1$.
-The injectivity claim is [Corry-Perkinson], Corollary 4.9(3). -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(3)
+for the injectivity claim. -/
 theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
     {G : CFGraph} (h_conn : graph_connected G) (q : G.V) :
     (Function.Injective (λ (O : {O : CFOrientation G // is_acyclic G O ∧ is_source G O q}) =>

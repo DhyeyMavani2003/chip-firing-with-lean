@@ -12,17 +12,20 @@ open Multiset Finset
 
 Fix a vertex $q \in G.V$. A *configuration* (`Config G q`) is a nonnegative integer assignment
 to the vertices `G.V \ {q}`, extended by zero at $q$. This corresponds to what
-[Corry-Perkinson] calls a *nonnegative configuration* (Definition 2.9); we use "configuration"
+Corry-Perkinson call a *nonnegative configuration*; we use "configuration"
 to mean "nonnegative configuration" throughout this library.
 
 A configuration $c$ is *superstable* if for every nonempty $S \subseteq G.V \setminus \{q\}$,
 some vertex in $S$ has fewer chips than its out-degree into `G.V \ S`
-([Corry-Perkinson], Definition 3.12). By `superstable_iff_q_reduced`, this is equivalent
 to the associated divisor being $q$-reduced. A *maximal superstable* configuration is one
 that is not dominated by any other superstable configuration.
 
 The set `outdeg_S G q S v` counts edges from `v` to vertices outside `S`, and is the
 relevant threshold for the superstability condition.
+
+Sources:
+- [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.9.
+- [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.12.
 -/
 
 /-- The set of vertices other than `q`: $\tilde{V} = G.V \setminus \{q\}$. -/
@@ -31,7 +34,9 @@ abbrev Vtilde {G : CFGraph} (q : G.V) : Finset G.V :=
 
 /-- A *configuration* on `G` with respect to distinguished vertex `q` is a nonnegative integer
 assignment to all vertices, with the convention that `q` holds zero chips. This is what
-[Corry-Perkinson] calls a *nonnegative configuration* (Definition 2.9). -/
+Corry-Perkinson call a *nonnegative configuration*.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.9. -/
 structure Config (G : CFGraph) (q : G.V) where
   /-- Assignment of integers to vertices representing the number of chips at each vertex -/
   (vertex_degree : CFDiv G)
@@ -288,13 +293,15 @@ def outdeg_S (G : CFGraph) (q : G.V) (S : Finset G.V) (v : G.V) : ℤ :=
 
 /-- A configuration `c` is *superstable* if for every nonempty $S \subseteq G.V \setminus \{q\}$,
 some vertex in $S$ has fewer chips than its out-degree into `G.V \ S`.
-[Corry-Perkinson], Definition 3.12 -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.12. -/
 def superstable (G : CFGraph) (q : G.V) (c : Config G q) : Prop :=
   ∀ S ⊆  Vtilde q, S.Nonempty →
     ∃ v ∈ S, c.vertex_degree v < outdeg_S G q S v
 
 /-- A configuration `c` is superstable iff `toDiv d c` is $q$-reduced (for any `d`).
-[Corry-Perkinson], Remark 3.14 -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Remark 3.14. -/
 lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G q) :
   superstable G q c ↔ q_reduced G q (toDiv d c) := by
 

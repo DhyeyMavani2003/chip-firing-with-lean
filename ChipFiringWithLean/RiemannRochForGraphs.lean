@@ -11,21 +11,14 @@ open Multiset Finset
 /-!
 # Riemann-Roch for graphs
 
-The Riemann-Roch theorem for graphs and its main corollaries,
-following [Corry-Perkinson], Chapter 5.
+The Riemann-Roch theorem for graphs and its main corollaries.
 
-- `riemann_roch_for_graphs`: The Riemann-Roch theorem, $r(D) - r(K_G - D) = \deg(D) - g + 1$
-  ([Corry-Perkinson], Theorem 5.9).
-- `maximal_unwinnable_symmetry`: $D$ is maximal unwinnable iff $K_G - D$ is
-  ([Corry-Perkinson], Corollary 5.11).
-- `clifford_theorem`: If $r(D) \geq 0$ and $r(K_G - D) \geq 0$, then $r(D) \leq \deg(D)/2$
-  ([Corry-Perkinson], Corollary 5.13).
-- `riemann_roch_deg_to_rank_corollary`: Nonspecial range results
-  ([Corry-Perkinson], Corollary 5.14).
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Chapter 5.
 -/
 
 /-- **Riemann-Roch theorem for graphs:** $r(D) - r(K_G - D) = \deg(D) - g + 1$.
-This is [Corry-Perkinson], Theorem 5.9. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 5.9. -/
 theorem riemann_roch_for_graphs {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
   let K := canonical_divisor G
@@ -56,7 +49,8 @@ theorem riemann_roch_for_graphs {G : CFGraph} (h_conn : graph_connected G) (D : 
     linarith
 
 /-- $D$ is maximal unwinnable if and only if $K_G - D$ is maximal unwinnable.
-This is [Corry-Perkinson], Corollary 5.11. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 5.11. -/
 theorem maximal_unwinnable_symmetry
     {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   maximal_unwinnable G D ↔ maximal_unwinnable G (canonical_divisor G - D) := by
@@ -112,7 +106,7 @@ theorem maximal_unwinnable_symmetry
         linarith [rank_geq_neg_one G (K - E)]
       _ = 0 := by linarith[h_deg_E]
 
-/-- Rank of divisors is subadditive. -/
+/-- Rank of divisors is subadditive: $r(D_1 + D_2) \geq r(D_1) + r(D_2)$. -/
 private lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
     (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
     rank G (D+D') ≥ rank G D + rank G D' := by
@@ -172,7 +166,9 @@ private lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
   linarith
 
 /-- **Clifford's theorem:** If $r(D) \geq 0$ and $r(K_G - D) \geq 0$, then
-$r(D) \leq \deg(D)/2$. This is [Corry-Perkinson], Corollary 5.13. -/
+$r(D) \leq \frac12 \deg(D)$.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 5.13. -/
 theorem clifford_theorem
     {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G)
     (h_D : rank G D ≥ 0)
@@ -234,10 +230,13 @@ theorem clifford_theorem
 
   exact h5
 
-/-- Nonspecial range: (1) $\deg(D) < 0 \Rightarrow r(D) = -1$; (2) $0 \leq \deg(D) \leq 2g-2
-\Rightarrow r(D) \leq \deg(D)/2$; (3) $\deg(D) > 2g-2 \Rightarrow r(D) = \deg(D) - g$.
-This is [Corry-Perkinson], Corollary 5.14. -/
-theorem riemann_roch_deg_to_rank_corollary
+/-- Ranks of divisors with degrees in nonspecial ranges:
+  - $\deg(D) < 0 \Rightarrow r(D) = -1$
+  - $0 \leq \deg(D) \leq 2g-2 \Rightarrow r(D) \leq \deg(D)/2$
+  - $\deg(D) > 2g-2 \Rightarrow r(D) = \deg(D) - g$.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 5.14. -/
+theorem rank_nonspecial_range
   {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   -- Part 1
   (deg D < 0 → rank G D = -1) ∧
@@ -352,16 +351,17 @@ theorem riemann_roch_deg_to_rank_corollary
 
 /-!
 ## Gonality
-The Riemann-Roch theorem provides some basic information about the *gonality* of a graph.
+The Riemann-Roch theorem provides some basic information about the *(divisorial) gonality* of a graph.
 -/
 
+/-- Upper bounds on divisorial gonality: $\operatorname{gon}(G) \leq k$ if and only if there exists a divisor of degree $k$ with rank at least $1$. -/
 def gonality_leq (G : CFGraph) (k : ℤ) : Prop := ∃ D : CFDiv G, rank G D ≥ 1 ∧ deg D = k
 
-/-- `gonality_geq G k` means that no divisor of degree `< k` has rank at least `1`. -/
+/-- Lower bounds on divisorial gonality: $\operatorname{gon}(G) \ge k$ if and only if no divisor of degree less than $k$ has rank $1$. -/
 def gonality_geq (G : CFGraph) (k : ℤ) : Prop :=
   ∀ l : ℤ, l < k → ¬ gonality_leq G l
 
-/-- A connected graph has gonality at most `g + 1`, where `g` is its genus. -/
+/-- A connected graph has gonality at most $g+1$, where $g$ is its genus. -/
 theorem gonality_leq_genus_add_one
     {G : CFGraph} (h_conn : graph_connected G) : gonality_leq G (genus G + 1) := by
   let q : G.V := Classical.arbitrary G.V
@@ -381,18 +381,17 @@ theorem gonality_leq_genus_add_one
     rw [h_deg_sub]
   refine ⟨D, (rank_geq_iff G D 1).mp h_rank_geq, h_deg_D⟩
 
-/-- Any degree realizing `gonality_leq` is at least `1`. -/
 private theorem one_le_of_gonality_leq {G : CFGraph} {k : ℤ} (h_gon : gonality_leq G k) : 1 ≤ k := by
   rcases h_gon with ⟨D, h_rank, h_deg⟩
   have h_rank_geq : rank_geq G D 1 := (rank_geq_iff G D 1).mpr h_rank
   have h_deg_lower : (1 : ℤ) ≤ deg D := rank_le_degree G D 1 (by norm_num) h_rank_geq
   simpa [h_deg] using h_deg_lower
 
-/-- The gonality of a connected graph is the smallest degree of a divisor of rank at least `1`. -/
+/-- The *(divisorial) gonality* of a connected graph is the smallest degree of a divisor of rank at least one. -/
 noncomputable def gonality {G : CFGraph} (h_conn : graph_connected G) : ℤ :=
   sInf {k : ℤ | gonality_leq G k}
 
-/-- A connected graph has gonality at most `g + 1`, where `g` is its genus. -/
+/-- A connected graph has gonality at most $g+1$, where $g$ is its genus. -/
 private lemma gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected G) :
     gonality h_conn ≤ genus G + 1 := by
   let S : Set ℤ := {k : ℤ | gonality_leq G k}
@@ -403,7 +402,7 @@ private lemma gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected 
   dsimp [gonality, S]
   exact csInf_le h_bdd (gonality_leq_genus_add_one h_conn)
 
-/-- The gonality of a connected graph is at least `1`. -/
+/-- The gonality of a connected graph is at least $1$. -/
 private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤ gonality h_conn := by
   let S : Set ℤ := {k : ℤ | gonality_leq G k}
   have h_nonempty : S.Nonempty := by
@@ -445,42 +444,40 @@ Below are some conjectures and theorems that have not been formalized at the tim
 as far as we are aware.
 -/
 
-/-- The existence version of the gonality conjecture: for every $g \ge 0$, there exists a connected
+/-- The existence version of graphs with maximum gonality: for every $g \ge 0$, there exists a connected
   graph of genus $g$ with gonality exactly $\lfloor \frac12 (g+3) \rfloor$.
-  Posed by M. Baker in *Specialization of linear systems from curves to graphs*, Conjecture 3.10(2).
-  This is proved by Cools-Draisma-Payne-Robeva in *A tropcial proof of the Brill--Noether Theroem,*
-  but we are not aware of a formalization of this result.
+  Posed by M. Baker in [Specialization of linear systems from curves to graphs](https://doi.org/10.2140/ant.2008.2.613), Conjecture 3.10(2).
+  This is proved by Cools-Draisma-Payne-Robeva in [A tropical proof of the Brill--Noether Theorem](https://doi.org/10.1016/j.aim.2012.02.019),
+  and via a different construction by Hendrey in [Sparse graphs of high gonality](https://doi.org/10.1137/16M1095329).
+  We are not aware of a formalization of this result.
   -/
 def gonality_conjecture_existence (g : ℕ) : Prop :=
-  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
-    genus G = (g : ℤ) ∧ gonality h_conn = ((g : ℤ) + 3) / 2
+  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G) (g_eq : genus G = g),
+    gonality h_conn = (g + 3) / 2
 
 /-- The statement that in a given genus $g$, there exists a Brill--Noether general graph. That is,
   a graph with no degree $d$ divisors of rank $r$ for which $\rho = g - (r+1)(g-d+r) < 0$.
-  This is a slightly strengthened form of a conjecuture posed in M. Baker,
-  *Specialization of linear series from curves to graphs*, namely Conjecture 3.9(2).
-  It was proved by Cools-Draisma-Payne-Robeva in *A tropical proof of the Brill--Noether Theroem,*
+  This is a slightly strengthened form of a conjecture posed in M. Baker,
+  [Specialization of linear systems from curves to graphs](https://doi.org/10.2140/ant.2008.2.613), namely Conjecture 3.9(2).
+  It was proved by Cools-Draisma-Payne-Robeva in [A tropical proof of the Brill--Noether Theorem](https://doi.org/10.1016/j.aim.2012.02.019),
   but we are not aware of a formalization of this result.
+
+  The statement below is phrased in the equivalent form $(r(D) + 1)(r(K_G - D) + 1) \le g$, for all divisors $D$, to avoid issues in converting between natural number and integers.
   -/
-def brill_noether_general_existence {G : CFGraph} (g : ℕ) : Prop :=
-  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G),
-  ∀ (r d : ℕ),
-  let g := genus G
-  let ρ := g - (r + 1) * (g - d + r)
-  ρ < 0 → ∀ (D : CFDiv G), deg D = d → rank G D < r
+def brill_noether_general_existence (g : ℤ) : Prop :=
+  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G) (g_eq : genus G = g),
+    ∀ (D : CFDiv G), (rank G D + 1) * (rank G (canonical_divisor G - D) + 1) ≤ g
 
 /-- The gonality conjecture for finite graphs: every genus $g$ connected graph has gonality at most
-  $\lfloor \frac12 (g+3) \rfloor$. This is an open problem.
-  Posted in M. Baker, *Specialization of linear systems from curves to graphs*, Conjecture 3.10(1).
+  $\lfloor \frac12 (g+3) \rfloor$. This is an open problem, posed by Baker in [Specialization of linear systems from curves to graphs](https://doi.org/10.2140/ant.2008.2.613), Conjecture 3.10(1).
  -/
 def gonality_conjecture {G : CFGraph} (h_conn : graph_connected G) : Prop :=
   gonality h_conn ≤ (genus G + 3) / 2
 
 /-- The Brill--Noether conjecture for finite graphs: for every genus $g$ connected graph, and any
   $r, d$ with $\rho = g - (r+1)(g-d+r) \ge 0$, there exists a degree $d$ divisor of rank at least $r$.
-  This is an open problem.
-  Posed in M. Baker, *Specialization of linear series from curves to graphs*, Conjecture 3.9(1).-/
-def brill_noether_conjecture {G : CFGraph} (h_conn : graph_connected G) (r d : ℕ) : Prop :=
+  This is an open problem, posed in slightly different form by Baker in [Specialization of linear systems from curves to graphs](https://doi.org/10.2140/ant.2008.2.613), Conjecture 3.9(1). -/
+def brill_noether_conjecture {G : CFGraph} (h_conn : graph_connected G) (r d : ℤ) : Prop :=
   let g := genus G
   let ρ := g - (r + 1) * (g - d + r)
-  ρ ≥ 0 → ∃ (D : CFDiv G), rank G D ≥ r ∧ deg D = d
+  0 ≤ ρ → ∃ (D : CFDiv G), rank G D ≥ r ∧ deg D = d

@@ -12,8 +12,10 @@ open Multiset Finset
 
 The *rank* of a divisor $D$ is the integer $r(D) \in \{-1, 0, 1, \ldots\}$ defined by
 $r(D) \geq k$ iff $D - E$ is winnable for every effective divisor $E$ of degree $k$
-([Corry-Perkinson], Section 5.1). Equivalently, $r(D) \geq 0$ iff $D$ is winnable,
+Equivalently, $r(D) \geq 0$ iff $D$ is winnable,
 and $r(D) = -1$ iff $D$ is unwinnable.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Section 5.1.
 
 The rank is well-defined (`rank_exists`, `rank_unique`) and realized by the noncomputable
 `rank` function. Key properties established here include:
@@ -80,7 +82,9 @@ private lemma rank_geq_neg (G : CFGraph) (D : CFDiv G) (k : ℤ): (k < 0) → ra
   have := deg_of_eff_nonneg E h_eff_E
   linarith
 
-/-- A winnable divisor has nonnegative degree. [Corry-Perkinson], Corollary 1.16 -/
+/-- A winnable divisor has nonnegative degree.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 1.16. -/
 private lemma deg_winnable_nonneg (G : CFGraph) (D : CFDiv G) (h_winnable : winnable G D) : deg D ≥ 0 := by
   rcases h_winnable with ⟨D', h_D'_eff, h_lequiv⟩
   have same_deg: deg D = deg D' := linear_equiv_preserves_deg G D D' h_lequiv

@@ -22,12 +22,14 @@ objects are:
   with unique source `q`.
 
 The main results are:
-- **Theorem 4.8** ([Corry-Perkinson]): There is a bijection between acyclic orientations
+- **Theorem 4.8**: There is a bijection between acyclic orientations
   with unique source `q` and maximal superstable configurations (`orientation_superstable_bijection`).
 - The divisor of an acyclic orientation is unwinnable (`ordiv_unwinnable`).
 - The canonical divisor $K_G = D(\mathcal{O}) + D(\overline{\mathcal{O}})$ where
   $\overline{\mathcal{O}}$ is the reverse orientation (`divisor_reverse_orientation`).
 - The **handshaking theorem**: $\sum_v \deg(v) = 2|E|$ (`helper_sum_vertex_degrees`).
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 -/
 
 /-- An *orientation* of `G` assigns a direction to each edge: `directed_edges` is a multiset
@@ -397,17 +399,21 @@ def config_of_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
 ## Orientation divisors and configurations
 
 For an orientation $\mathcal{O}$ of $G$, the *orientation divisor* `ordiv G O` is
-$D(\mathcal{O})(v) = \mathrm{indeg}_{\mathcal{O}}(v) - 1$ ([Corry-Perkinson], Definition 4.7).
+$D(\mathcal{O})(v) = \mathrm{indeg}_{\mathcal{O}}(v) - 1$.
 
 For an acyclic orientation $\mathcal{O}$ with unique source $q$, the associated
 *configuration* `orientation_to_config G O q` assigns $\mathrm{indeg}(v) - 1$ chips to
 each non-$q$ vertex. An acyclic orientation is uniquely determined by its in-degree
 sequence (`orientation_determined_by_indegrees`), and the divisor of an acyclic orientation
 is always $q$-reduced and unwinnable.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7.
 -/
 
 /-- The divisor associated with an orientation assigns indegree - 1 to each vertex
-[Corry-Perkinson], Definition 4.7, part 1; written D(O) there. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7,
+part 1; written D(O) there. -/
 def ordiv (G : CFGraph) (O : CFOrientation G) : CFDiv G :=
   λ v => indeg G O v - 1
 
@@ -434,7 +440,9 @@ def orqed {G : CFGraph} (O : CFOrientation G) {q : G.V}
     }
 
 /-- The configuration c(O) associated to an acyclic orientation O.
-[Corry-Perkinson], Definition 4.7 (part 2) -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7
+(part 2). -/
 def orientation_to_config (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) : Config G q :=
   config_of_source hO
@@ -511,7 +519,8 @@ private lemma sum_filter_eq_map (G : CFGraph) (M : Multiset (G.V × G.V)) (crit 
 
 
 /-- An acyclic orientation is uniquely determined by its indegree sequence.
-See [Corry-Perkinson], Lemma 4.3. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Lemma 4.3. -/
 lemma orientation_determined_by_indegrees {G : CFGraph}
   (O O' : CFOrientation G) :
   is_acyclic G O → is_acyclic G O' →
@@ -772,7 +781,9 @@ lemma config_degree_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
   linarith
 
 /-- The orientation divisor $D(\mathcal{O})$ of an acyclic orientation $\mathcal{O}$ is not
-winnable. This is part of [Corry-Perkinson], Proposition 4.11. -/
+winnable.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Proposition 4.11. -/
 lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
   is_acyclic G O → ¬ winnable G (ordiv G O) := by
   intro h_acyclic
@@ -907,8 +918,9 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
     linarith
 
 /-- The orientation divisor $D(\mathcal{O})$ of an acyclic orientation with unique source $q$
-is $q$-reduced. Together with `ordiv_unwinnable`, this proves
-[Corry-Perkinson], Proposition 4.11. -/
+is $q$-reduced. Together with `ordiv_unwinnable`, this proves Proposition 4.11.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Proposition 4.11. -/
 private lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
     (hO : acyclic_with_unique_source G O q) : q_reduced G q (ordiv G O) := by
   constructor
@@ -985,13 +997,15 @@ private lemma helper_orientation_config_superstable (G : CFGraph) (O : CFOrienta
 ## The canonical divisor and reverse orientations
 
 The *canonical divisor* of $G$ is $K_G(v) = \deg(v) - 2$ for each vertex $v$
-([Corry-Perkinson], Definition 4.7). The *reverse orientation* $\overline{\mathcal{O}}$
+The *reverse orientation* $\overline{\mathcal{O}}$
 of an orientation $\mathcal{O}$ is obtained by reversing all edge directions. The key
 identity is $D(\mathcal{O}) + D(\overline{\mathcal{O}}) = K_G$ (`divisor_reverse_orientation`).
 
 This section also contains the **handshaking theorem** (`helper_sum_vertex_degrees`):
 $\sum_{v \in G.V} \deg(v) = 2|E|$, and its corollary that $\deg(K_G) = 2g - 2$
 (`degree_of_canonical_divisor`).
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7.
 -/
 
 /-- The canonical divisor assigns degree - 2 to each vertex.
@@ -1000,7 +1014,8 @@ def canonical_divisor (G : CFGraph) : CFDiv G :=
   λ v => (vertex_degree G v) - 2
 
 /-- The *reverse orientation* $\overline{\mathcal{O}}$ obtained by reversing all edge directions.
-See [Corry-Perkinson], Definition 5.7. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 5.7. -/
 def CFOrientation.reverse (G : CFGraph) (O : CFOrientation G) : CFOrientation G where
   directed_edges := O.directed_edges.map Prod.swap -- Use Prod.swap directly
   count_preserving v w := by
@@ -1265,7 +1280,8 @@ private theorem helper_sum_vertex_degrees (G : CFGraph) :
     _ = 2 * ↑(Multiset.card G.edges) := by rw [Nat.cast_mul, Nat.cast_two]
 
 /-- The degree of the canonical divisor is $2g - 2$, where $g$ is the genus of $G$.
-This is [Corry-Perkinson], Exercise 5.8. -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Exercise 5.8. -/
 theorem degree_of_canonical_divisor (G : CFGraph) :
     deg (canonical_divisor G) = 2 * genus G - 2 := by
   -- Use sum_sub_distrib to split the sum
@@ -1401,7 +1417,7 @@ private lemma burn_acyclic_with_unique_source {G : CFGraph} {q : G.V} {c : Confi
 /-!
 ## The bijection between orientations and maximal superstable configurations
 
-This section establishes [Corry-Perkinson], Theorem 4.8: there is a bijection between
+This section establishes Theorem 4.8: there is a bijection between
 acyclic orientations with unique source $q$ and maximal superstable configurations.
 
 - `superstable_dhar`: Given a superstable configuration `c`, Dhar's algorithm produces an
@@ -1411,6 +1427,8 @@ acyclic orientations with unique source $q$ and maximal superstable configuratio
 - `maximal_superstable_orientation`: Every maximal superstable configuration arises from
   some acyclic orientation.
 - `orientation_superstable_bijection`: The full bijection statement.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 -/
 
 /-- Theorem: Dhar's burning algorithm produces, from a superstable configuration, an orientation giving a maximal superstable above it. -/
@@ -1438,7 +1456,9 @@ theorem superstable_dhar {G : CFGraph} {q : G.V} {c : Config G q} (h_ss : supers
     linarith
 
 /-- The configuration asssociated to an acyclic orientation with unique source is maximal superstable.
-[Corry-Perkinson], Theorem 4.8, part 1 (c(O) is maximal superstable) -/
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8,
+part 1 (c(O) is maximal superstable). -/
 theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) :
     maximal_superstable G (orientation_to_config G O q hO) := by
@@ -1488,8 +1508,10 @@ theorem maximal_superstable_exists (G : CFGraph) (q : G.V) (c : Config G q)
     -- Remains to show c' is maximal superstable
     exact orientation_config_maximal G O q hO
 
-/-- Every maximal superstable configuration comes from an acyclic orientation
-[Corry-Perkinson], Theorem 4.8, part 2 (surjectivity) -/
+/-- Every maximal superstable configuration comes from an acyclic orientation.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8,
+part 2 (surjectivity). -/
 theorem maximal_superstable_orientation (G : CFGraph) (q : G.V) (c : Config G q)
     (h_max : maximal_superstable G c) :
     ∃ (O : CFOrientation G) (hO : acyclic_with_unique_source G O q),
@@ -1500,8 +1522,10 @@ let c' := orientation_to_config G O q hO
 have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q hO) h_ge
 rw [← h_eq]
 
-/-- Bijection between acyclic orientations with source q and maximal superstable configurations
-Corry-Perkinson], Theorem 4.8, part 3 (bijection)-/
+/-- Bijection between acyclic orientations with source q and maximal superstable configurations.
+
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8,
+part 3 (bijection). -/
 theorem orientation_superstable_bijection (G : CFGraph) (q : G.V) :
     let α := {O : CFOrientation G // acyclic_with_unique_source G O q};
     let β := {c : Config G q // maximal_superstable G c};
