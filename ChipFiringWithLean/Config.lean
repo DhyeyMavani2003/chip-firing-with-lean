@@ -23,10 +23,6 @@ superstable configuration.
 
 The set `outdeg_S G q S v` counts edges from $v$ to vertices outside $S$, and is the
 relevant threshold for the superstability condition.
-
-Sources:
-- [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.9.
-- [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.12.
 -/
 
 /-- The set of vertices other than $q$: $\widetilde V = V(G) \setminus \{q\}$. -/
