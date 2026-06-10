@@ -125,7 +125,7 @@ private lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
 
     -- Decompose E'' into E₁ and E₂ of degrees k₁ and k₂
     obtain ⟨E₁, E₂, h_E₁_eff, h_E₂_eff, h_E₁_deg, h_E₂_deg, h_sum⟩ :=
-      helper_divisor_decomposition G E'' k₁ k₂ h_eff h_deg
+      effective_divisor_decomposition G E'' k₁ k₂ h_eff h_deg
 
     -- Apply rank_geq to get winnability for both parts
     have h_D_win := (rank_geq_iff G D k₁).mpr (le_of_eq h_k₁) E₁ ⟨h_E₁_eff, h_E₁_deg⟩

@@ -394,7 +394,7 @@ def maximal_superstable (G : CFGraph) {q : G.V} (c : Config G q) : Prop :=
 
 /-- Subtracting a chip at $q$ from a superstable configuration gives an unwinnable
 divisor. -/
-lemma helper_superstable_to_unwinnable {G : CFGraph} (q : G.V) (c : Config G q) :
+lemma superstable_sub_chip_unwinnable {G : CFGraph} (q : G.V) (c : Config G q) :
   superstable G q c →
   ¬winnable G (c.chips - one_chip q) := by
   intro h_superstable

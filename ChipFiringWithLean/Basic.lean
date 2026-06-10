@@ -453,7 +453,7 @@ theorem linear_equiv_preserves_deg (G : CFGraph) (D D' : CFDiv G) (h_equiv : lin
 
 /-- An effective divisor of degree $k_1+k_2$ can be decomposed into a sum of two effective
 divisors of degrees $k_1$ and $k_2$, respectively. -/
-lemma helper_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ : ℕ)
+lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ : ℕ)
   (h_effective : effective E'') (h_deg : deg E'' = k₁ + k₂) :
   ∃ (E₁ E₂ : CFDiv G),
     effective E₁ ∧ effective E₂ ∧
@@ -1140,7 +1140,7 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
 
 This follows from the fact that the reduction process, such as Dhar's algorithm or repeated
 legal firings, preserves effectiveness when starting with an effective divisor. -/
-private lemma helper_q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' : CFDiv G) :
+private lemma q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' : CFDiv G) :
   effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
   intro h_eff h_equiv h_qred
   -- E' is the maximum of its class, so E reduces to E'; chips at q only increase along
@@ -1159,7 +1159,7 @@ lemma effective_of_winnable_and_q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) 
   winnable G D → q_reduced G q D → effective D := by
   intro h_winnable h_qred
   rcases h_winnable with ⟨E, h_eff_E, h_equiv⟩
-  exact helper_q_reduced_of_effective_is_effective G q E D h_eff_E h_equiv.symm h_qred
+  exact q_reduced_of_effective_is_effective G q E D h_eff_E h_equiv.symm h_qred
 
 /-- The $q$-reduced representative of a divisor class is unique.
 
@@ -1537,7 +1537,7 @@ theorem winnable_iff_q_reduced_effective {G : CFGraph} (h_conn : graph_connected
     · exact h_D'.1.2  -- D' is q-reduced
     · -- D' is effective: E ~ D ~ D', and the q-reduced form of an effective divisor
       -- is effective
-      exact helper_q_reduced_of_effective_is_effective G q E D' h_eff
+      exact q_reduced_of_effective_is_effective G q E D' h_eff
         (h_equiv.symm.trans h_D'.1.1) h_D'.1.2
   }
   { -- Reverse direction
@@ -1546,3 +1546,151 @@ theorem winnable_iff_q_reduced_effective {G : CFGraph} (h_conn : graph_connected
     use D'
     exact ⟨h_eff, h_equiv⟩
   }
+
+/-!
+## The handshaking theorem
+
+The classical handshaking theorem for loopless multigraphs: the sum of all vertex degrees
+is twice the number of edges (`sum_vertex_degree_eq_twice_card_edges`). The proof double
+counts vertex-edge incidences, via the general counting lemma `sum_card_filter_eq_mul`.
+These facts concern only the graph itself, not its divisor theory; they are collected here
+for independent use. In this library, the handshaking theorem computes the degree of the
+canonical divisor (see `degree_of_canonical_divisor` in `Orientation.lean`).
+-/
+
+/-- Rewrites a sum of filtered multiset cardinalities as a sum over mapped incidence counts. -/
+private lemma sum_filter_eq_map (G : CFGraph) (M : Multiset (G.V × G.V)) (crit  : G.V → G.V × G.V → Prop)
+    [∀ v e, Decidable (crit v e)] :
+  ∑ v : G.V, Multiset.card (M.filter (crit v))
+    = Multiset.sum (M.map (λ e => (Finset.univ.filter (λ v => (crit v e) )).card)) := by
+  -- Define P and g using Prop for clarity in the proof - Available throughout
+  let P : G.V → G.V × G.V → Prop := fun v e => crit v e
+  let g : G.V × G.V → ℕ := fun e => (Finset.univ.filter (P · e)).card
+
+  -- Rewrite the goal using P and g for proof readability
+  suffices goal_rewritten : ∑ v : G.V, Multiset.card (M.filter (P v)) = Multiset.sum (M.map g) by
+    exact goal_rewritten -- The goal is now exactly the statement `goal_rewritten`
+
+  -- Prove the rewritten goal by induction on the multiset G.edges
+  induction M using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero,
+               Multiset.map_zero, Multiset.sum_zero] -- Use _zero lemmas
+  | cons e_head s_tail ih_s_tail =>
+    -- Rewrite RHS: sum(map(g, e_head::s_tail)) = g e_head + sum(map(g, s_tail))
+    rw [Multiset.map_cons, Multiset.sum_cons]
+
+    -- Rewrite LHS: ∑ v, card(filter(P v, e_head::s_tail))
+    simp_rw [← Multiset.countP_eq_card_filter]
+    simp only [Multiset.countP_cons]
+    rw [Finset.sum_add_distrib]
+
+    -- Simplify the second sum (∑ v, ite (P v e_head) 1 0) to g e_head
+    have h_sum_ite_eq_card : ∑ v : G.V, ite (P v e_head) 1 0 = g e_head := by
+      rw [← Finset.card_filter] -- This completes the proof for h_sum_ite_eq_card
+    rw [h_sum_ite_eq_card]
+
+    simp_rw [Multiset.countP_eq_card_filter]
+    rw [add_comm, ih_s_tail]
+
+/-- If every element of $M$ matches exactly $c$ vertices under `crit`, then summing the
+filtered counts over all vertices gives $c$ times the size of $M$. -/
+lemma sum_card_filter_eq_mul (G : CFGraph) (M : Multiset (G.V × G.V))
+    (crit : G.V → G.V × G.V → Prop) [∀ v e, Decidable (crit v e)] (c : ℕ)
+    (h_count : ∀ e ∈ M, (Finset.univ.filter (λ v => crit v e)).card = c) :
+  ∑ v : G.V, Multiset.card (M.filter (crit v)) = c * Multiset.card M := by
+  rw [sum_filter_eq_map G M crit, Multiset.map_congr rfl h_count, Multiset.map_const',
+    Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
+
+/-- In a loopless graph, each edge has distinct endpoints. -/
+private lemma edge_endpoints_distinct (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
+    e.1 ≠ e.2 := by
+  by_contra eq_endpoints
+  rcases e with ⟨u,v⟩
+  have : u = v := eq_endpoints
+  rw [this] at he
+  exact G.loopless v he
+
+/-- Each edge is incident to exactly two vertices. -/
+private lemma edge_incident_vertices_count (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
+    (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card = 2 := by
+  rw [Finset.card_eq_two]
+  refine ⟨e.1, e.2, edge_endpoints_distinct G e he, ?_⟩
+  ext v
+  simp [eq_comm]
+
+/-- Rewrites degree in terms of edge counts from each direction. -/
+private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
+    ∀ (S : Multiset (T × T)) (v : T), (∀ e ∈ S, e.1 ≠ e.2) →
+      ∑ u : T, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) =
+        Multiset.card (S.filter (λ e => e.fst = v ∨ e.snd = v)) := by
+  -- Induct on the multiset S
+  intro S v h_loopless
+  induction S using Multiset.induction_on with
+  | empty =>
+    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
+  | cons e_head s_tail ih_s_tail =>
+    -- Rewrite both sides using the head and tail
+    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
+    rw [ih_s_tail]
+    -- Cancel the like terms in a + b = a + c
+    suffices h :
+        ∑ x : T, Multiset.card (if e_head = (v, x) ∨ e_head = (x, v) then {e_head} else 0) =
+          Multiset.card (if e_head.1 = v ∨ e_head.2 = v then {e_head} else 0) by
+      linarith
+
+    rcases e_head with ⟨e, f⟩
+    by_cases h_ev : e = v
+    · subst h_ev
+      have h_ef : e ≠ f := h_loopless (e, f) (by simp)
+      have h_fv : f ≠ e := by simpa [eq_comm] using h_ef
+      rw [Finset.sum_eq_single f]
+      · simp
+      · intro x _ h_x
+        have h_fx : f ≠ x := fun h => h_x h.symm
+        simp [h_fx, h_fv]
+      · simp
+    · by_cases h_fv : f = v
+      · subst h_fv
+        rw [Finset.sum_eq_single e]
+        · simp
+        · intro x _ h_x
+          have h_ex : e ≠ x := fun h => h_x h.symm
+          simp [h_ev, h_ex]
+        · simp
+      · simp [h_ev, h_fv]
+    intro e
+    specialize h_loopless e
+    intro h_tail
+    apply h_loopless
+    simp [h_tail]
+
+-- Key lemma for handshaking theorem: Sum of edge counts equals incident edge count
+private lemma sum_num_edges_eq_filter_count (G : CFGraph) (v : G.V) :
+  ∑ u, num_edges G v u = Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v)) := by
+  dsimp [num_edges]
+  have h_loopless: ∀ e ∈ G.edges, e.1 ≠ e.2 := by
+    intro e he
+    exact edge_endpoints_distinct G e he
+  exact degree_eq_total_flow G.edges v (h_loopless)
+
+/--
+**Handshaking theorem:** In a loopless multigraph $G$,
+the sum of the degrees of all vertices is twice the number of edges:
+
+$$
+\sum_{v \in V(G)} \deg(v) = 2 |E(G)|.
+$$
+-/
+theorem sum_vertex_degree_eq_twice_card_edges (G : CFGraph) :
+    ∑ v, vertex_degree G v = 2 * ↑(Multiset.card G.edges) := by
+  calc ∑ v, vertex_degree G v
+    = ∑ v, ∑ u, (num_edges G v u : ℤ) := by simp_rw [vertex_degree]
+    _ = ∑ v, ↑(∑ u, num_edges G v u) := by simp_rw [← Nat.cast_sum]
+    _ = ∑ v, ↑(Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by simp_rw [sum_num_edges_eq_filter_count G]
+    _ = ↑(∑ v, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by rw [← Nat.cast_sum]
+    _ = ↑(2 * Multiset.card G.edges) := by
+      -- Each edge is incident to exactly two vertices
+      rw [sum_card_filter_eq_mul G G.edges (λ v e => e.fst = v ∨ e.snd = v) 2
+        (edge_incident_vertices_count G)]
+    _ = 2 * ↑(Multiset.card G.edges) := by rw [Nat.cast_mul, Nat.cast_two]

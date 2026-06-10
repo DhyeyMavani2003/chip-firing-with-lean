@@ -161,7 +161,7 @@ private lemma maximal_unwinnable_q_reduced_form (G : CFGraph) (q : G.V) (D : CFD
     _ = c.chips - one_chip q := by rw [h_c_eq]
 
 /-- The degree of a superstable configuration is bounded above by the genus. -/
-private lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Config G q) :
+private lemma superstable_degree_le_genus (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → config_degree c ≤ genus G := by
   intro h_super
   rcases maximal_superstable_exists G q c h_super with ⟨c_max, h_maximal, h_ge_c⟩
@@ -172,7 +172,7 @@ private lemma helper_superstable_degree_bound (G : CFGraph) (q : G.V) (c : Confi
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(1),
 "if" direction. -/
-private lemma helper_degree_g_implies_maximal (G : CFGraph) (q : G.V) (c : Config G q) :
+private lemma maximal_superstable_of_degree_eq_genus (G : CFGraph) (q : G.V) (c : Config G q) :
   superstable G q c → config_degree c = genus G → maximal_superstable G c := by
   intro h_super h_deg_eq
   -- Choose a maximal above c (we'll show it's equal to c)
@@ -214,7 +214,7 @@ private theorem maximal_superstable_config_prop (G : CFGraph) (q : G.V) (c : Con
   { -- Reverse direction: degree = g → maximal_superstable
     intro h_deg
     -- Apply the lemma that degree g implies maximality
-    exact helper_degree_g_implies_maximal G q c h_super h_deg }
+    exact maximal_superstable_of_degree_eq_genus G q c h_super h_deg }
 
 
 /-- A divisor of degree at least $g$ is winnable. -/
@@ -223,7 +223,7 @@ lemma winnable_of_deg_ge_genus {G : CFGraph} (h_conn : graph_connected G) (D : C
   let q := Classical.arbitrary G.V
   rcases (exists_q_reduced_representative h_conn q D) with ⟨D_qred, h_equiv, h_qred⟩
   rcases (q_reduced_superstable_correspondence G q D_qred).mp h_qred with ⟨c, h_super, h_D_eq⟩
-  have h_deg_c : config_degree c ≤ genus G := helper_superstable_degree_bound G q c h_super
+  have h_deg_c : config_degree c ≤ genus G := superstable_degree_le_genus G q c h_super
   have D_deg : deg D = deg D_qred := linear_equiv_preserves_deg G D D_qred h_equiv
   refine ⟨D_qred, ?_, h_equiv⟩
   -- D_qred = toDiv (deg D_qred) c is effective: there are enough chips at q, since
@@ -232,7 +232,7 @@ lemma winnable_of_deg_ge_genus {G : CFGraph} (h_conn : graph_connected G) (D : C
   exact (config_eff _ c).mpr (by linarith)
 
 /-- Adding a chip anywhere to $c'-q$ makes it winnable when $c'$ is maximal superstable. -/
-private lemma helper_maximal_superstable_chip_winnable_exact {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (c' : Config G q) :
+private lemma maximal_superstable_chip_winnable {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (c' : Config G q) :
   maximal_superstable G c' →
   ∀ (v : G.V), winnable G (c'.chips- (one_chip q) + (one_chip v)) := by
   intro h_max_superstable v
@@ -259,9 +259,9 @@ private lemma maximal_unwinnable_of_maximal_superstable_form {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (c : Config G q) :
     maximal_superstable G c → maximal_unwinnable G (c.chips - one_chip q) := by
   intro h_max_c
-  refine ⟨helper_superstable_to_unwinnable q c h_max_c.1, ?_⟩
+  refine ⟨superstable_sub_chip_unwinnable q c h_max_c.1, ?_⟩
   intro v
-  exact helper_maximal_superstable_chip_winnable_exact h_conn q c h_max_c v
+  exact maximal_superstable_chip_winnable h_conn q c h_max_c v
 
 /-- For a $q$-reduced divisor, maximal unwinnability is equivalent to the maximal
 superstability of its canonical configuration together with the canonical $c-q$ form. -/
@@ -307,7 +307,7 @@ private lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
         simp [sub_eq_add_neg]
         abel_nf
       have h_D''_unwin : ¬winnable G (c'.chips - one_chip q) :=
-        helper_superstable_to_unwinnable q c' h_max_c'.1
+        superstable_sub_chip_unwinnable q c' h_max_c'.1
       apply h_D''_unwin
       rw [h_D''_eq]
       exact winnable_add_winnable G (c'.chips - c.chips - one_chip v) (D + one_chip v)
@@ -504,10 +504,10 @@ theorem rank_degree_inequality
   have h_DO_unwin : maximal_unwinnable G M := by
     constructor
     · -- First show it's unwinnable
-      exact helper_superstable_to_unwinnable q c' h_max'.1
+      exact superstable_sub_chip_unwinnable q c' h_max'.1
 
     · -- Then show adding a chip anywhere makes it winnable
-      exact helper_maximal_superstable_chip_winnable_exact h_conn q c' h_max'
+      exact maximal_superstable_chip_winnable h_conn q c' h_max'
 
   -- Now dualize, to get a statement about the reverse orientation
   let O' := O.reverse

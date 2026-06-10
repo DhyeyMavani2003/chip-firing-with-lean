@@ -28,7 +28,7 @@ The main results are:
 - The divisor of an acyclic orientation is unwinnable (`ordiv_unwinnable`).
 - The canonical divisor $K_G = D(\mathcal{O}) + D(\overline{\mathcal{O}})$ where
   $\overline{\mathcal{O}}$ is the reverse orientation (`divisor_reverse_orientation`).
-- The **handshaking theorem**: $\sum_v \deg(v) = 2|E|$ (`helper_sum_vertex_degrees`).
+- The degree of the canonical divisor is $2g-2$ (`degree_of_canonical_divisor`).
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 -/
@@ -466,49 +466,8 @@ lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
     simp [h_v]
 
 
-/-- Rewrites a sum of filtered multiset cardinalities as a sum over mapped incidence counts. -/
-private lemma sum_filter_eq_map (G : CFGraph) (M : Multiset (G.V × G.V)) (crit  : G.V → G.V × G.V → Prop)
-    [∀ v e, Decidable (crit v e)] :
-  ∑ v : G.V, Multiset.card (M.filter (crit v))
-    = Multiset.sum (M.map (λ e => (Finset.univ.filter (λ v => (crit v e) )).card)) := by
-  -- Define P and g using Prop for clarity in the proof - Available throughout
-  let P : G.V → G.V × G.V → Prop := fun v e => crit v e
-  let g : G.V × G.V → ℕ := fun e => (Finset.univ.filter (P · e)).card
-
-  -- Rewrite the goal using P and g for proof readability
-  suffices goal_rewritten : ∑ v : G.V, Multiset.card (M.filter (P v)) = Multiset.sum (M.map g) by
-    exact goal_rewritten -- The goal is now exactly the statement `goal_rewritten`
-
-  -- Prove the rewritten goal by induction on the multiset G.edges
-  induction M using Multiset.induction_on with
-  | empty =>
-    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero,
-               Multiset.map_zero, Multiset.sum_zero] -- Use _zero lemmas
-  | cons e_head s_tail ih_s_tail =>
-    -- Rewrite RHS: sum(map(g, e_head::s_tail)) = g e_head + sum(map(g, s_tail))
-    rw [Multiset.map_cons, Multiset.sum_cons]
-
-    -- Rewrite LHS: ∑ v, card(filter(P v, e_head::s_tail))
-    simp_rw [← Multiset.countP_eq_card_filter]
-    simp only [Multiset.countP_cons]
-    rw [Finset.sum_add_distrib]
-
-    -- Simplify the second sum (∑ v, ite (P v e_head) 1 0) to g e_head
-    have h_sum_ite_eq_card : ∑ v : G.V, ite (P v e_head) 1 0 = g e_head := by
-      rw [← Finset.card_filter] -- This completes the proof for h_sum_ite_eq_card
-    rw [h_sum_ite_eq_card]
-
-    simp_rw [Multiset.countP_eq_card_filter]
-    rw [add_comm, ih_s_tail]
-
-/-- If every element of $M$ matches exactly $c$ vertices under `crit`, then summing the
-filtered counts over all vertices gives $c$ times the size of $M$. -/
-private lemma sum_card_filter_eq_mul (G : CFGraph) (M : Multiset (G.V × G.V))
-    (crit : G.V → G.V × G.V → Prop) [∀ v e, Decidable (crit v e)] (c : ℕ)
-    (h_count : ∀ e ∈ M, (Finset.univ.filter (λ v => crit v e)).card = c) :
-  ∑ v : G.V, Multiset.card (M.filter (crit v)) = c * Multiset.card M := by
-  rw [sum_filter_eq_map G M crit, Multiset.map_congr rfl h_count, Multiset.map_const',
-    Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
+-- The double-counting lemmas `sum_filter_eq_map` and `sum_card_filter_eq_mul` used below
+-- are proved at the end of Basic.lean.
 
 
 
@@ -618,7 +577,7 @@ lemma orientation_determined_by_indegrees {G : CFGraph}
   omega
 
 /-- Two acyclic orientations with unique source $q$ that give the same configuration are equal. -/
-private theorem helper_config_to_orientation_unique (G : CFGraph) (q : G.V)
+private theorem config_to_orientation_unique (G : CFGraph) (q : G.V)
     (c : Config G q)
     (O₁ O₂ : CFOrientation G)
     (hO₁ : acyclic_with_unique_source G O₁ q)
@@ -879,7 +838,7 @@ private lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
 
 /-- The configuration associated to an acyclic orientation with unique source $q$ is
 superstable. -/
-private lemma helper_orientation_config_superstable (G : CFGraph) (O : CFOrientation G) (q : G.V)
+private lemma orientation_config_superstable (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) :
     superstable G q (orientation_to_config G O q hO) := by
     let c := orientation_to_config G O q hO
@@ -904,8 +863,8 @@ The *reverse orientation* $\overline{\mathcal{O}}$
 of an orientation $\mathcal{O}$ is obtained by reversing all edge directions. The key
 identity is $D(\mathcal{O}) + D(\overline{\mathcal{O}}) = K_G$ (`divisor_reverse_orientation`).
 
-This section also contains the **handshaking theorem** (`helper_sum_vertex_degrees`):
-$\sum_{v \in V(G)} \deg(v) = 2|E(G)|$, and its corollary that $\deg(K_G) = 2g - 2$
+Combining the handshaking theorem (`sum_vertex_degree_eq_twice_card_edges`, proved at the
+end of `Basic.lean`) with the definition of the genus shows that $\deg(K_G) = 2g - 2$
 (`degree_of_canonical_divisor`).
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 5.7.
@@ -1002,100 +961,6 @@ lemma divisor_reverse_orientation {G : CFGraph} (O : CFOrientation G)  : ordiv G
   -- Goal is now: flow O' w v = flow O v w
   rw [flow_reverse O w v]
 
-/-- In a loopless graph, each edge has distinct endpoints. -/
-private lemma edge_endpoints_distinct (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
-    e.1 ≠ e.2 := by
-  by_contra eq_endpoints
-  rcases e with ⟨u,v⟩
-  have : u = v := eq_endpoints
-  rw [this] at he
-  exact G.loopless v he
-
-/-- Each edge is incident to exactly two vertices. -/
-private lemma edge_incident_vertices_count (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
-    (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card = 2 := by
-  rw [Finset.card_eq_two]
-  refine ⟨e.1, e.2, edge_endpoints_distinct G e he, ?_⟩
-  ext v
-  simp [eq_comm]
-
-/-- Rewrites degree in terms of edge counts from each direction. -/
-private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
-    ∀ (S : Multiset (T × T)) (v : T), (∀ e ∈ S, e.1 ≠ e.2) →
-      ∑ u : T, Multiset.card (Multiset.filter (fun e ↦ e = (v, u) ∨ e = (u, v)) S) =
-        Multiset.card (S.filter (λ e => e.fst = v ∨ e.snd = v)) := by
-  -- Induct on the multiset S
-  intro S v h_loopless
-  induction S using Multiset.induction_on with
-  | empty =>
-    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
-  | cons e_head s_tail ih_s_tail =>
-    -- Rewrite both sides using the head and tail
-    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
-    rw [ih_s_tail]
-    -- Cancel the like terms in a + b = a + c
-    suffices h :
-        ∑ x : T, Multiset.card (if e_head = (v, x) ∨ e_head = (x, v) then {e_head} else 0) =
-          Multiset.card (if e_head.1 = v ∨ e_head.2 = v then {e_head} else 0) by
-      linarith
-
-    rcases e_head with ⟨e, f⟩
-    by_cases h_ev : e = v
-    · subst h_ev
-      have h_ef : e ≠ f := h_loopless (e, f) (by simp)
-      have h_fv : f ≠ e := by simpa [eq_comm] using h_ef
-      rw [Finset.sum_eq_single f]
-      · simp
-      · intro x _ h_x
-        have h_fx : f ≠ x := fun h => h_x h.symm
-        simp [h_fx, h_fv]
-      · simp
-    · by_cases h_fv : f = v
-      · subst h_fv
-        rw [Finset.sum_eq_single e]
-        · simp
-        · intro x _ h_x
-          have h_ex : e ≠ x := fun h => h_x h.symm
-          simp [h_ev, h_ex]
-        · simp
-      · simp [h_ev, h_fv]
-    intro e
-    specialize h_loopless e
-    intro h_tail
-    apply h_loopless
-    simp [h_tail]
-
--- Key lemma for handshaking theorem: Sum of edge counts equals incident edge count
-private lemma sum_num_edges_eq_filter_count (G : CFGraph) (v : G.V) :
-  ∑ u, num_edges G v u = Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v)) := by
-  dsimp [num_edges]
-  have h_loopless: ∀ e ∈ G.edges, e.1 ≠ e.2 := by
-    intro e he
-    exact edge_endpoints_distinct G e he
-  exact degree_eq_total_flow G.edges v (h_loopless)
-
-/--
-**Handshaking theorem:** In a loopless multigraph $G$,
-the sum of the degrees of all vertices is twice the number of edges:
-
-$$
-\sum_{v \in V(G)} \deg(v) = 2 |E(G)|.
-$$
--/
-private theorem helper_sum_vertex_degrees (G : CFGraph) :
-    ∑ v, vertex_degree G v = 2 * ↑(Multiset.card G.edges) := by
-  -- The proof follows from the existing helper lemmas
-  calc ∑ v, vertex_degree G v
-    = ∑ v, ∑ u, (num_edges G v u : ℤ) := by simp_rw [vertex_degree]
-    _ = ∑ v, ↑(∑ u, num_edges G v u) := by simp_rw [← Nat.cast_sum]
-    _ = ∑ v, ↑(Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by simp_rw [sum_num_edges_eq_filter_count G]
-    _ = ↑(∑ v, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by rw [← Nat.cast_sum]
-    _ = ↑(2 * Multiset.card G.edges) := by
-      -- Each edge is incident to exactly two vertices
-      rw [sum_card_filter_eq_mul G G.edges (λ v e => e.fst = v ∨ e.snd = v) 2
-        (edge_incident_vertices_count G)]
-    _ = 2 * ↑(Multiset.card G.edges) := by rw [Nat.cast_mul, Nat.cast_two]
-
 /-- The degree of the canonical divisor is $2g - 2$, where $g$ is the genus of $G$.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Exercise 5.8. -/
@@ -1113,7 +978,7 @@ theorem degree_of_canonical_divisor (G : CFGraph) :
 
   -- Use the fact that sum of vertex degrees = 2|E|
   have h2 : ∑ v, vertex_degree G v = 2 * Multiset.card G.edges := by
-    exact helper_sum_vertex_degrees G
+    exact sum_vertex_degree_eq_twice_card_edges G
   rw [h2]
 
   -- Use genus definition: g = |E| - |G.V| + 1
@@ -1283,7 +1148,7 @@ theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
     maximal_superstable G (orientation_to_config G O q hO) := by
   dsimp [maximal_superstable]
   let cO := orientation_to_config G O q hO
-  have h_ssO : superstable G q cO := helper_orientation_config_superstable G O q hO
+  have h_ssO : superstable G q cO := orientation_config_superstable G O q hO
   refine ⟨h_ssO, ?_⟩
   -- Goal is now just maximality of cO.
   -- Suppose another divisor is bigger. THere's an orientation divisor yet above that one.
@@ -1325,7 +1190,7 @@ theorem maximal_superstable_orientation (G : CFGraph) (q : G.V) (c : Config G q)
 rcases superstable_dhar h_max.1 with ⟨O, hO, h_ge⟩
 use O, hO
 let c' := orientation_to_config G O q hO
-have h_eq := h_max.2 c' (helper_orientation_config_superstable G O q hO) h_ge
+have h_eq := h_max.2 c' (orientation_config_superstable G O q hO) h_ge
 rw [← h_eq]
 
 /-- The bijection between acyclic orientations with source $q$ and maximal superstable
@@ -1364,7 +1229,7 @@ theorem orientation_superstable_bijection (G : CFGraph) (q : G.V) :
       exact h_f_raw_eq.symm.trans h_eq₁
 
     apply Subtype.ext
-    exact helper_config_to_orientation_unique G q c O₁ O₂ h₁ h₂ h_eq₁ h_eq₂
+    exact config_to_orientation_unique G q c O₁ O₂ h₁ h₂ h_eq₁ h_eq₂
   }
 
   -- Surjectivity
