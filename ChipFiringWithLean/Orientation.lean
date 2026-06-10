@@ -195,18 +195,10 @@ def outdeg (G : CFGraph) (O : CFOrientation G) (v : G.V) : ℕ :=
 def is_source (G : CFGraph) (O : CFOrientation G) (v : G.V) : Prop :=
   indeg G O v = 0
 
-/-- A vertex is a sink if it has no outgoing edges. -/
-def is_sink (G : CFGraph) (O : CFOrientation G) (v : G.V) : Prop :=
-  outdeg G O v = 0
-
 /-- The proposition `directed_edge G O u v` holds when there is a directed edge from $u$
 to $v$ in orientation $\mathcal{O}$. -/
 def directed_edge (G : CFGraph) (O : CFOrientation G) (u v : G.V) : Prop :=
   (u, v) ∈ O.directed_edges
-
-/-- Safely accesses the $i$th element of a list. -/
-def list_get_safe {α : Type} (l : List α) (i : Nat) : Option α :=
-  if h: i < l.length then some (l.get ⟨i, h⟩) else none
 
 /-- A directed path in a graph under an orientation. -/
 structure DirectedPath {G : CFGraph} (O : CFOrientation G) where
@@ -230,16 +222,6 @@ private lemma path_length_bound {G : CFGraph} {O : CFOrientation G} (p : Directe
 /-- An orientation is acyclic if every directed path has no repeated vertices. -/
 def is_acyclic (G : CFGraph) (O : CFOrientation G) : Prop :=
   ∀ (p : DirectedPath O), non_repeating p
-
-/-- The set of ancestors of a vertex $v$, i.e. vertices $x$ such that there is a directed
-path $x \to \cdots \to v$. -/
-noncomputable def ancestors (G : CFGraph) (O : CFOrientation G) (v : G.V) : Finset G.V :=
-  let R : G.V → G.V → Prop := fun a b => directed_edge G O a b
-  open Classical in univ.filter (fun x => Relation.TransGen R x v)
-
-/-- Measure for vertex_level termination: number of ancestors. -/
-noncomputable def vertexLevelMeasure (G : CFGraph) (O : CFOrientation G) (v : G.V) : Nat :=
-  (ancestors G O v).card
 
 /-- Vertices that are not sources must have at least one incoming edge. -/
 private lemma indeg_ge_one_of_not_source (G : CFGraph) (O : CFOrientation G) (v : G.V) :
@@ -387,7 +369,7 @@ private lemma source_of_acyclic_with_unique_source {G : CFGraph} {O : CFOrientat
 $\mathrm{indeg}(v)-1$ chips to each vertex $v \ne q$, and $0$ at $q$. -/
 def config_of_source {G : CFGraph} {O : CFOrientation G} {q : G.V}
     (hO : acyclic_with_unique_source G O q) : Config G q :=
-  { vertex_degree := λ v => if v = q then 0 else (indeg G O v : ℤ) - 1,
+  { chips := λ v => if v = q then 0 else (indeg G O v : ℤ) - 1,
     q_zero := by simp
     non_negative := by
       intro v
@@ -455,7 +437,7 @@ def orientation_to_config (G : CFGraph) (O : CFOrientation G) (q : G.V)
 /-- The configuration associated to an orientation records the expected in-degree data. -/
 private lemma orientation_to_config_indeg (G : CFGraph) (O : CFOrientation G) (q : G.V)
     (hO : acyclic_with_unique_source G O q) (v : G.V) :
-    (orientation_to_config G O q hO).vertex_degree v =
+    (orientation_to_config G O q hO).chips v =
     if v = q then 0 else (indeg G O v : ℤ) - 1 := by
   -- This follows directly from the definition of config_of_source
   simp only [orientation_to_config] at *
@@ -471,12 +453,12 @@ lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
   orientation_to_config G O q hO = toConfig (orqed O hO) := by
   let c := orientation_to_config G O q hO
   let D := orqed O hO
-  rw [eq_config_iff_eq_vertex_degree]
+  rw [eq_config_iff_eq_chips]
   funext v
   by_cases h_v: v = q
   · -- Case v = q
     rw [h_v]
-    have (c d : Config G q) : c.vertex_degree q = d.vertex_degree q := by
+    have (c d : Config G q) : c.chips q = d.chips q := by
       rw [c.q_zero, d.q_zero]
     rw [this]
   · -- Case v ≠ q
@@ -518,6 +500,15 @@ private lemma sum_filter_eq_map (G : CFGraph) (M : Multiset (G.V × G.V)) (crit 
 
     simp_rw [Multiset.countP_eq_card_filter]
     rw [add_comm, ih_s_tail]
+
+/-- If every element of $M$ matches exactly $c$ vertices under `crit`, then summing the
+filtered counts over all vertices gives $c$ times the size of $M$. -/
+private lemma sum_card_filter_eq_mul (G : CFGraph) (M : Multiset (G.V × G.V))
+    (crit : G.V → G.V × G.V → Prop) [∀ v e, Decidable (crit v e)] (c : ℕ)
+    (h_count : ∀ e ∈ M, (Finset.univ.filter (λ v => crit v e)).card = c) :
+  ∑ v : G.V, Multiset.card (M.filter (crit v)) = c * Multiset.card M := by
+  rw [sum_filter_eq_map G M crit, Multiset.map_congr rfl h_count, Multiset.map_const',
+    Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
 
 
 
@@ -604,92 +595,27 @@ lemma orientation_determined_by_indegrees {G : CFGraph}
     specialize h_indeg_eq u
     linarith
 
-  -- For contradiction, we can build an infinite directed path in G under O
+  -- Suppose S is nonempty, and consider the set T of vertices where an edge of S
+  -- originates. By going_up, every vertex of T receives positive flow from another
+  -- vertex of T, contradicting the relative source provided by subset_source.
   by_contra! h_S_nonempty
   rcases h_S_nonempty with ⟨e_start, h_e_start_in_S⟩
-  have S_path (n : ℕ) : ∃ (p : DirectedPath O), p.vertices.length = n + 2 ∧ List.IsChain (λ ( u v : G.V) => ⟨u,v⟩ ∈ S) p.vertices := by
-    induction n with
-    | zero =>
-    . -- Base case: n = 0, i.e. length 2 path
-      use {
-        vertices := [e_start.1, e_start.2],
-        non_empty := by simp,
-        valid_edges := by
-          simp [List.isChain_cons]
-          exact directed_edge_of_S e_start h_e_start_in_S
-      }
-      simp [h_e_start_in_S]
-
-    | succ n ih =>
-      rcases ih with ⟨p0, h_len, h_chain⟩
-      -- Write p0 as v :: w :: rest, using the fact that its length is at least 2
-      have : ∃ (v w : G.V) (rest : List G.V), p0.vertices = v :: w :: rest := by
-        cases h_p0 : p0.vertices with
-        | nil =>
-          -- This case should not happen since p0.vertices has length n + 2 ≥ 2
-          exfalso
-          rw [h_p0] at h_len
-          simp at h_len
-        | cons v ws =>
-          cases h_ws : ws with
-          | nil =>
-            -- This case should not happen since p0.vertices has length n + 2 ≥ 2
-            exfalso
-            rw [h_p0,h_ws] at h_len
-            simp at h_len
-          | cons w rest =>
-            use v, w, rest
-      rcases this with ⟨v, w, rest, h_p0_eq⟩
-      -- Now, p0.vertices = v :: w :: rest
-      specialize going_up ⟨v,w⟩
-      have h_vw_in_S : ⟨v,w⟩ ∈ S := by
-        -- From h_chain, we know that ⟨v,w⟩ ∈ S
-        rw [h_p0_eq] at h_chain
-        simp [List.isChain_cons] at h_chain
-        exact h_chain.left
-      specialize going_up h_vw_in_S
-      rcases going_up with ⟨f, h_f_in_S, h_f_to_v⟩
-      let new_path_list : List G.V := f.1 :: p0.vertices
-      use {
-        vertices := new_path_list,
-        non_empty := by
-          rw [List.length_cons]
-          exact Nat.succ_pos _,
-        valid_edges := by
-          dsimp [new_path_list]
-          -- Check that the first edge is valid
-          rw [h_p0_eq]
-          simp [List.isChain_cons]
-          constructor
-          have : f.2 = v := h_f_to_v
-          rw [← this]
-          exact directed_edge_of_S f h_f_in_S
-          -- The rest of the path is valid from induction
-          have h_ind := p0.valid_edges
-          rw [h_p0_eq] at h_ind
-          simp [List.isChain_cons] at h_ind
-          exact h_ind
-        }
-      -- Now must verify that this new path has the right length
-      constructor
-      rw [List.length_cons]
-      rw [h_len]
-      -- Verify the chain property
-      dsimp [new_path_list]
-      simp [List.isChain_cons, h_p0_eq]
-      -- Verify the first link is in S
-      constructor
-      have : f.2 = v := h_f_to_v
-      rw [← this]
-      exact h_f_in_S
-      -- The rest of the chain follows from h_chain
-      have h_ind := h_chain
-      simp only [h_p0_eq] at h_ind
-      simp [List.isChain_cons] at h_ind
-      exact h_ind
-  specialize S_path (Fintype.card G.V)
-  rcases S_path with ⟨p, h_len, _⟩
-  linarith  [path_length_bound p (h_acyc p)]
+  classical
+  let T : Finset G.V := Finset.univ.filter (fun v => ∃ e ∈ S, e.1 = v)
+  have h_mem_T : ∀ v : G.V, v ∈ T ↔ ∃ e ∈ S, e.1 = v := by
+    intro v
+    simp [T]
+  have h_T_nonempty : T.Nonempty :=
+    ⟨e_start.1, (h_mem_T e_start.1).mpr ⟨e_start, h_e_start_in_S, rfl⟩⟩
+  obtain ⟨v, h_v_T, h_v_source⟩ := subset_source G O T h_T_nonempty h_acyc
+  obtain ⟨e, h_e_S, h_e_fst⟩ := (h_mem_T v).mp h_v_T
+  obtain ⟨f, h_f_S, h_f_snd⟩ := going_up e h_e_S
+  have h_flow_pos : 0 < flow O f.1 v := by
+    rw [← h_e_fst, ← h_f_snd]
+    exact Multiset.count_pos.mpr (directed_edge_of_S f h_f_S)
+  have h_flow_zero : flow O f.1 v = 0 :=
+    h_v_source f.1 ((h_mem_T f.1).mpr ⟨f, h_f_S, rfl⟩)
+  omega
 
 /-- Two acyclic orientations with unique source $q$ that give the same configuration are equal. -/
 private theorem helper_config_to_orientation_unique (G : CFGraph) (q : G.V)
@@ -706,8 +632,8 @@ private theorem helper_config_to_orientation_unique (G : CFGraph) (q : G.V)
   have h_deg₁ := orientation_to_config_indeg G O₁ q hO₁ v
   have h_deg₂ := orientation_to_config_indeg G O₂ q hO₂ v
 
-  have h_config_eq : (orientation_to_config G O₁ q hO₁).vertex_degree v =
-                     (orientation_to_config G O₂ q hO₂).vertex_degree v := by
+  have h_config_eq : (orientation_to_config G O₁ q hO₁).chips v =
+                     (orientation_to_config G O₂ q hO₂).chips v := by
     rw [h_eq₁, h_eq₂]
 
   by_cases hv : v = q
@@ -750,21 +676,13 @@ lemma degree_ordiv {G : CFGraph} (O : CFOrientation G) :
         rw [indeg_eq_sum_flow]
     _ = ∑ v : G.V, Multiset.card (O.directed_edges.filter (λ e => e.snd = v)) := by
       dsimp [indeg]
-    _ = Multiset.sum (O.directed_edges.map (λ e => (Finset.univ.filter (λ v => e.snd = v)).card)) := by
-      exact (sum_filter_eq_map G O.directed_edges (λ v e => e.snd = v))
     _ = ↑(Multiset.card O.directed_edges) := by
-      have h_singleton : ∀ e ∈ O.directed_edges, (Finset.filter (fun v ↦ e.2 = v) univ).card = 1  := by
-        intro e h_e
-        refine Finset.card_eq_one.mpr ?_
-        use e.2
-        refine eq_singleton_iff_unique_mem.mpr ?h.a
-        constructor
-        simp
-        intro x h_x
-        rw [Finset.mem_filter] at h_x
-        rw [h_x.2]
-      rw [Multiset.map_congr rfl h_singleton]
-      rw [Multiset.map_const', Multiset.sum_replicate,Nat.nsmul_eq_mul, mul_one]
+      -- Each directed edge points into exactly one vertex
+      rw [sum_card_filter_eq_mul G O.directed_edges (λ v e => e.snd = v) 1 ?_, one_mul]
+      intro e _
+      refine Finset.card_eq_one.mpr ⟨e.2, ?_⟩
+      ext x
+      simp [eq_comm]
     _ = ↑(Multiset.card G.edges) := by
       exact card_directed_edges_eq_card_edges O
     _ = Multiset.card G.edges := by
@@ -800,27 +718,8 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
   rcases E_equiv with ⟨σ, h_σ⟩
   apply eq_add_of_sub_eq at h_σ
 
-  let σvals := Finset.univ.image σ
-  have h_nonempty : σvals.Nonempty :=
-    Finset.image_nonempty.mpr Finset.univ_nonempty
-  let v_max := Finset.max' σvals h_nonempty
-
-  have : ∃ v : G.V, ∀ w : G.V, σ w ≤ σ v := by
-    have : v_max ∈ σvals := Finset.max'_mem σvals h_nonempty
-    dsimp [σvals] at this
-    have : ∃ v : G.V, σ v = v_max := by
-      rw [Finset.mem_image] at this
-      rcases this with ⟨v, _, h_eq⟩
-      use v
-    rcases this with ⟨v, h_v⟩
-    use v
-    intro w
-    have : σ w ∈ σvals := Finset.mem_image.mpr ⟨w, Finset.mem_univ w, rfl⟩
-    have := Finset.le_max' σvals (σ w) this
-    rw [h_v]
-    exact this
-
-  rcases this with ⟨v_max, h_max⟩
+  obtain ⟨v_max, -, h_max⟩ := Finset.exists_max_image Finset.univ σ Finset.univ_nonempty
+  have h_max : ∀ w : G.V, σ w ≤ σ v_max := fun w => h_max w (Finset.mem_univ w)
   let S := {v : G.V | σ v = σ v_max}
   have S_nonempty : S.Nonempty := by
     use v_max
@@ -1019,86 +918,29 @@ $D(\mathcal{O}) + D(\overline{\mathcal{O}})$. -/
 def canonical_divisor (G : CFGraph) : CFDiv G :=
   λ v => (vertex_degree G v) - 2
 
+/-- Counting a pair in a multiset mapped by `Prod.swap` counts the swapped pair in the
+original multiset. Specialization of `Multiset.count_map_eq_count'` to `Prod.swap`. -/
+private lemma count_map_swap {G : CFGraph} (M : Multiset (G.V × G.V)) (v w : G.V) :
+  Multiset.count (v, w) (M.map Prod.swap) = Multiset.count (w, v) M :=
+  Multiset.count_map_eq_count' Prod.swap M Prod.swap_injective (w, v)
+
 /-- The *reverse orientation* $\overline{\mathcal{O}}$ obtained by reversing all edge directions.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 5.7. -/
 def CFOrientation.reverse (G : CFGraph) (O : CFOrientation G) : CFOrientation G where
-  directed_edges := O.directed_edges.map Prod.swap -- Use Prod.swap directly
+  directed_edges := O.directed_edges.map Prod.swap
   count_preserving v w := by
-    rw [O.count_preserving v w]
-
-    have h_vw_rev_eq_wv_orig :
-        Multiset.count (v,w) (O.directed_edges.map Prod.swap) = Multiset.count (w,v) O.directed_edges := by
-      rw [Multiset.count_map (f := Prod.swap)]
-      rw [Multiset.count_eq_card_filter_eq] -- Or Multiset.count, Multiset.countP_eq_card_filter
-      apply congr_arg Multiset.card
-      ext e
-      simp only [Prod.ext_iff, Prod.fst_swap, Prod.snd_swap, eq_comm, and_comm]
-
-    have h_wv_rev_eq_vw_orig :
-        Multiset.count (w,v) (O.directed_edges.map Prod.swap) = Multiset.count (v,w) O.directed_edges := by
-      rw [Multiset.count_map (f := Prod.swap)]
-      rw [Multiset.count_eq_card_filter_eq]
-      apply congr_arg Multiset.card
-      ext e
-      simp only [Prod.ext_iff, Prod.fst_swap, Prod.snd_swap, eq_comm, and_comm]
-
-    conv_rhs =>
-      congr
-      · change Multiset.count (v,w) (O.directed_edges.map Prod.swap)
-        rw [h_vw_rev_eq_wv_orig]
-      · change Multiset.count (w,v) (O.directed_edges.map Prod.swap)
-        rw [h_wv_rev_eq_vw_orig]
-
-    rw [add_comm (Multiset.count (w,v) O.directed_edges)]
-  -- The `directed_edges` for this proof is `O.directed_edges.map Prod.swap`.
+    rw [count_map_swap, count_map_swap, add_comm]
+    exact O.count_preserving v w
   no_bidirectional v w := by
-    cases O.no_bidirectional v w with
-    | inl h_vw_O_zero => -- Multiset.count (v, w) O.directed_edges = 0
-      apply Or.inr
-      rw [Multiset.count_eq_zero]
-      intro h_wv_mem_rev_contra
-      have h_vw_mem_O_derived : (v,w) ∈ O.directed_edges := by
-        obtain ⟨p, h_p_mem_O, h_swap_p_eq_wv⟩ := Multiset.mem_map.mp h_wv_mem_rev_contra
-        have h_p_is_vw : p = (v,w) := by { apply Prod.ext; exact (Prod.mk.inj h_swap_p_eq_wv).2; exact (Prod.mk.inj h_swap_p_eq_wv).1 }
-        rwa [h_p_is_vw] at h_p_mem_O
-      exact (Multiset.count_eq_zero.mp h_vw_O_zero) h_vw_mem_O_derived
-    | inr h_wv_O_zero => -- Multiset.count (w, v) O.directed_edges = 0
-      apply Or.inl
-      rw [Multiset.count_eq_zero]
-      intro h_vw_mem_rev_contra
-      have h_wv_mem_O_derived : (w,v) ∈ O.directed_edges := by
-        obtain ⟨p, h_p_mem_O, h_swap_p_eq_vw⟩ := Multiset.mem_map.mp h_vw_mem_rev_contra
-        have h_p_is_wv : p = (w,v) := by { apply Prod.ext; exact (Prod.mk.inj h_swap_p_eq_vw).2; exact (Prod.mk.inj h_swap_p_eq_vw).1 }
-        rwa [h_p_is_wv] at h_p_mem_O
-      exact (Multiset.count_eq_zero.mp h_wv_O_zero) h_wv_mem_O_derived
+    rw [count_map_swap, count_map_swap]
+    exact (O.no_bidirectional v w).symm
 
 /-- The flow of the reverse orientation $\overline{\mathcal{O}}$ from $v$ to $w$ equals the
 flow of $\mathcal{O}$ from $w$ to $v$. -/
 private lemma flow_reverse {G : CFGraph} (O : CFOrientation G) (v w : G.V) :
-  flow (O.reverse G) v w = flow O w v := by
-  dsimp [flow, CFOrientation.reverse]
-  rw [Multiset.count_map (f := Prod.swap)]
-  rw [Multiset.count_eq_card_filter_eq]
-  apply congr_arg Multiset.card
-  have : ∀ a : (G.V × G.V), a = ⟨w,v⟩ ↔ ⟨v,w⟩ = Prod.swap a := by
-    intro a
-    constructor
-    · intro h_eq
-      rw [h_eq]
-      rfl
-    · intro h_eq
-      rw [← Prod.swap_swap a]
-      rw [← h_eq]
-      simp
-  apply Multiset.filter_congr
-  intro e _
-  specialize this e
-  -- "this" is now our statement, but with the iff in the opposite order
-  rw [← this]
-  constructor
-  intro h; rw [h]
-  intro h; rw [h]
+  flow (O.reverse G) v w = flow O w v :=
+  count_map_swap O.directed_edges v w
 
 /-- The indegree of $v$ in the reverse orientation $\overline{\mathcal{O}}$ equals the outdegree
 of $v$ in $\mathcal{O}$. -/
@@ -1173,42 +1015,9 @@ private lemma edge_endpoints_distinct (G : CFGraph) (e : G.V × G.V) (he : e ∈
 private lemma edge_incident_vertices_count (G : CFGraph) (e : G.V × G.V) (he : e ∈ G.edges) :
     (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card = 2 := by
   rw [Finset.card_eq_two]
-  exists e.1
-  exists e.2
-  constructor
-  · exact edge_endpoints_distinct G e he
-  · ext v
-    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
-               Finset.mem_insert, Finset.mem_singleton]
-    -- The proof here can be simplified using Iff.intro and cases
-    apply Iff.intro
-    · intro h_mem_filter -- Goal: v ∈ {e.1, e.2}
-      cases h_mem_filter with
-      | inl h => exact Or.inl (Eq.symm h)
-      | inr h => exact Or.inr (Eq.symm h)
-    · intro h_mem_set -- Goal: e.1 = v ∨ e.2 = v
-      cases h_mem_set with
-      | inl h => exact Or.inl (Eq.symm h)
-      | inr h => exact Or.inr (Eq.symm h)
-
-
-/-- Summing mapped incidence counts equals summing the constant $2$ in `Nat`. -/
-private lemma map_inc_eq_map_two_nat (G : CFGraph) :
-  Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))
-    = 2 * (Multiset.card G.edges) := by
-  -- Define the function being mapped
-  let f : G.V × G.V → ℕ := λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card
-  -- Define the constant function 2
-  let g (_ : G.V × G.V) : ℕ := 2
-  -- Show f equals g for all edges in G.edges
-  have h_congr : ∀ e ∈ G.edges, f e = g e := by
-    intro e he
-    simp [f, g]
-    exact edge_incident_vertices_count G e he
-  -- Apply congruence to the map function itself first using map_congr with rfl
-  rw [Multiset.map_congr rfl h_congr] -- Use map_congr with rfl
-  -- Apply rewrites step-by-step
-  rw [Multiset.map_const', Multiset.sum_replicate, Nat.nsmul_eq_mul, Nat.mul_comm]
+  refine ⟨e.1, e.2, edge_endpoints_distinct G e he, ?_⟩
+  ext v
+  simp [eq_comm]
 
 /-- Rewrites degree in terms of edge counts from each direction. -/
 private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
@@ -1281,8 +1090,10 @@ private theorem helper_sum_vertex_degrees (G : CFGraph) :
     _ = ∑ v, ↑(∑ u, num_edges G v u) := by simp_rw [← Nat.cast_sum]
     _ = ∑ v, ↑(Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by simp_rw [sum_num_edges_eq_filter_count G]
     _ = ↑(∑ v, Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v))) := by rw [← Nat.cast_sum]
-    _ = ↑(Multiset.sum (G.edges.map (λ e => (Finset.univ.filter (λ v => e.1 = v ∨ e.2 = v)).card))) := by rw [sum_filter_eq_map G (G.edges) (λ v e => e.fst = v ∨ e.snd = v)]
-    _ = ↑(2 * Multiset.card G.edges) := by rw [map_inc_eq_map_two_nat G]
+    _ = ↑(2 * Multiset.card G.edges) := by
+      -- Each edge is incident to exactly two vertices
+      rw [sum_card_filter_eq_mul G G.edges (λ v e => e.fst = v ∨ e.snd = v) 2
+        (edge_incident_vertices_count G)]
     _ = 2 * ↑(Multiset.card G.edges) := by rw [Nat.cast_mul, Nat.cast_two]
 
 /-- The degree of the canonical divisor is $2g - 2$, where $g$ is the genus of $G$.
@@ -1403,7 +1214,7 @@ private lemma burn_unique_source {G : CFGraph} {q : G.V} {c : Config G q} (L : b
   contrapose! h_source with h_ne
   have ineq := burnin_degree L w (h_full w) h_ne
   -- rw [Nat.cast_sum] at ineq
-  have : c.vertex_degree w ≥ 0 := by
+  have : c.chips w ≥ 0 := by
     apply c.non_negative w
   let ineq := lt_of_le_of_lt this ineq
   apply ne_of_lt at ineq
@@ -1480,21 +1291,8 @@ theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
   rcases superstable_dhar h_ss with ⟨O', hO', h_ge'⟩
   let c' := orientation_to_config G O' q hO'
   -- Sandwich c between cO and c', which have the same degree
-  -- These two blocks are repetitive; could factor them out
-  have h_deg_le : config_degree cO ≤ config_degree c := by
-    rw [config_degree]
-    rw [config_degree]
-    dsimp [deg]
-    apply Finset.sum_le_sum
-    intro v _
-    exact h_ge v
-  have h_deg_le' : config_degree c ≤ config_degree c' := by
-    rw [config_degree]
-    rw [config_degree]
-    dsimp [deg]
-    apply Finset.sum_le_sum
-    intro v _
-    exact h_ge' v
+  have h_deg_le : config_degree cO ≤ config_degree c := config_degree_mono h_ge
+  have h_deg_le' : config_degree c ≤ config_degree c' := config_degree_mono h_ge'
   rw [config_degree_from_O O hO] at h_deg_le
   rw [config_degree_from_O O' hO'] at h_deg_le'
   have h_deg : config_degree c = genus G := by

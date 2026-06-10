@@ -114,59 +114,30 @@ $$
 private lemma rank_subadditive (G : CFGraph) (D D' : CFDiv G)
     (h_D : rank G D ≥ 0) (h_D' : rank G D' ≥ 0) :
     rank G (D+D') ≥ rank G D + rank G D' := by
-  -- Convert ranks to natural numbers
-  let k₁ := (rank G D).toNat
-  let k₂ := (rank G D').toNat
+  -- Express the two (nonnegative) ranks as natural numbers
+  obtain ⟨k₁, h_k₁⟩ : ∃ k : ℕ, (k : ℤ) = rank G D := ⟨_, Int.toNat_of_nonneg h_D⟩
+  obtain ⟨k₂, h_k₂⟩ : ∃ k : ℕ, (k : ℤ) = rank G D' := ⟨_, Int.toNat_of_nonneg h_D'⟩
 
   -- Show rank is ≥ k₁ + k₂ by proving rank_geq
   have h_rank_geq : rank_geq G (D + D') (k₁ + k₂) := by
     -- Take any effective divisor E'' of degree k₁ + k₂
-    intro E'' h_E''
-    have ⟨h_eff, h_deg⟩ := h_E''
+    rintro E'' ⟨h_eff, h_deg⟩
 
     -- Decompose E'' into E₁ and E₂ of degrees k₁ and k₂
-    have ⟨E₁, E₂, h_E₁_eff, h_E₂_eff, h_E₁_deg, h_E₂_deg, h_sum⟩ :=
+    obtain ⟨E₁, E₂, h_E₁_eff, h_E₂_eff, h_E₁_deg, h_E₂_deg, h_sum⟩ :=
       helper_divisor_decomposition G E'' k₁ k₂ h_eff h_deg
 
-    -- Convert our nat-based hypotheses to ℤ-based ones
-    have h_D_nat : rank G D ≥ ↑k₁ := by
-      have h_conv : ↑((rank G D).toNat) = rank G D := Int.toNat_of_nonneg h_D
-      rw [←h_conv]
-
-    have h_D'_nat : rank G D' ≥ ↑k₂ := by
-      have h_conv : ↑((rank G D').toNat) = rank G D' := Int.toNat_of_nonneg h_D'
-      rw [←h_conv]
-
-    -- Get rank_geq properties
-    have h_D_rank_geq : rank_geq G D k₁ := (rank_geq_iff G D k₁).mpr h_D_nat
-    have h_D'_rank_geq : rank_geq G D' k₂ := (rank_geq_iff G D' k₂).mpr h_D'_nat
-
     -- Apply rank_geq to get winnability for both parts
-    have h_D_win := h_D_rank_geq E₁ (by exact ⟨h_E₁_eff, h_E₁_deg⟩)
-    have h_D'_win := h_D'_rank_geq E₂ (by exact ⟨h_E₂_eff, h_E₂_deg⟩)
+    have h_D_win := (rank_geq_iff G D k₁).mpr (le_of_eq h_k₁) E₁ ⟨h_E₁_eff, h_E₁_deg⟩
+    have h_D'_win := (rank_geq_iff G D' k₂).mpr (le_of_eq h_k₂) E₂ ⟨h_E₂_eff, h_E₂_deg⟩
 
-    -- Show winnability of sum using helper_winnable_add and rearrangement
+    -- Show winnability of sum
     rw [h_sum]
     have h := winnable_add_winnable G (D-E₁) (D'-E₂) h_D_win h_D'_win
-    have h_arr : D - E₁ + (D' - E₂) = (D + D') - (E₁ + E₂) := by
-      abel
-    rw [h_arr] at h
+    rw [show D - E₁ + (D' - E₂) = (D + D') - (E₁ + E₂) by abel] at h
     exact h
 
-  -- Connect k₁, k₂ back to original ranks
-  have h_k₁ : ↑k₁ = rank G D := by
-    exact Int.toNat_of_nonneg h_D
-
-  have h_k₂ : ↑k₂ = rank G D' := by
-    exact Int.toNat_of_nonneg h_D'
-
-  -- Show final inequality using transitivity
   have h_final := (rank_geq_iff G (D+D') (k₁+k₂)).mp h_rank_geq
-
-  have h_sum : ↑(k₁ + k₂) = rank G D + rank G D' := by
-    simp only [Nat.cast_add]  -- Use Nat.cast_add instead of Int.coe_add
-    rw [h_k₁, h_k₂]
-
   linarith
 
 /-- **Clifford's theorem:** If $r(D) \geq 0$ and $r(K_G - D) \geq 0$, then
@@ -210,29 +181,10 @@ theorem clifford_theorem
   -- Use Riemann-Roch to get r(K-D) in terms of r(D)
   have h_rr := riemann_roch_for_graphs h_conn D
 
-  -- Explicit algebraic manipulation
-  have h1 : rank G (canonical_divisor G - D) =
-           rank G D - (deg D - genus G + 1) := by
-    linarith
-
-  -- Substitute this into the subadditivity inequality
-  have h2 : genus G - 1 ≥ rank G D + (rank G D - (deg D - genus G + 1)) := by
-    rw [h1] at h_subadd
-    exact h_subadd
-
-  -- Solve for rank G D
-  have h3 : 2 * rank G D - (deg D - genus G + 1) ≤ genus G - 1 := by
-    linarith
-
-  have h4 : 2 * rank G D ≤ deg D := by
-    linarith
-
-  have h5 : (rank G D : ℚ) ≤ (deg D : ℚ) / 2 := by
-    have h_cast : (2 : ℚ) * (rank G D : ℚ) ≤ (deg D : ℚ) := by
-      exact_mod_cast h4
-    linarith
-
-  exact h5
+  -- Combining subadditivity and Riemann-Roch gives 2 r(D) ≤ deg D; conclude in ℚ
+  have h_two : 2 * rank G D ≤ deg D := by linarith
+  have h_two' : (2 : ℚ) * (rank G D : ℚ) ≤ (deg D : ℚ) := by exact_mod_cast h_two
+  linarith
 
 /-- Ranks of divisors with degrees in nonspecial ranges:
   - $\deg(D) < 0 \Rightarrow r(D) = -1$
@@ -250,20 +202,7 @@ theorem rank_nonspecial_range
   (deg D > 2 * genus G - 2 → rank G D = deg D - genus G) := by
   constructor
   · -- Part 1: deg(D) < 0 implies r(D) = -1
-    intro h_deg_neg
-    rw [rank_neg_one_iff_unwinnable]
-    intro h_winnable
-    -- Use winnable_iff_exists_effective
-    obtain ⟨D', h_eff, h_equiv⟩ := winnable_iff_exists_effective G D |>.mp h_winnable
-    -- Linear equivalence preserves degree
-    have h_deg_eq : deg D = deg D' := by
-      exact linear_equiv_preserves_deg G D D' h_equiv
-    -- Effective divisors have non-negative degree
-    have h_D'_nonneg : deg D' ≥ 0 := by
-      exact deg_of_eff_nonneg D' h_eff
-    -- Contradiction: D has negative degree but is equivalent to non-negative degree divisor
-    rw [←h_deg_eq] at h_D'_nonneg
-    exact not_le_of_gt h_deg_neg h_D'_nonneg
+    exact rank_neg_one_of_deg_neg G D
 
   constructor
   · -- Part 2: 0 ≤ deg(D) ≤ 2g-2 implies r(D) ≤ deg(D)/2
@@ -276,81 +215,28 @@ theorem rank_nonspecial_range
         exact clifford_theorem h_conn D h_rank h_rankKD
       · -- Case where r(K-D) = -1: use Riemann-Roch
         have h_rr := riemann_roch_for_graphs h_conn D
-        have h_rankKD_eq : rank G (K - D) = -1 :=
-          rank_neg_one_of_not_nonneg G (K - D) h_rankKD
-
-        rw [h_rankKD_eq] at h_rr
-
-        -- Arithmetic manipulation to get r(D) equality
-        have this : rank G D = deg D - genus G := by
-          -- Convert h_rr from (rank G D - (-1)) to (rank G D + 1)
-          rw [sub_neg_eq_add] at h_rr
-          have := calc
-            rank G D = rank G D + 1 - 1 := by ring
-            _ = deg D - genus G + 1 - 1 := by rw [h_rr]
-            _ = deg D - genus G := by ring
-          exact this
-
-        -- Apply the result
-        rw [this]
-
-        -- Show that deg D - genus G ≤ deg D / 2 using rational numbers
-        have h_bound : (deg D - genus G : ℚ) ≤ (deg D : ℚ) / 2 := by
-          linarith [h_deg_upper]
-
-        -- Make sure types match with explicit cast
-        have h_cast : (deg D - genus G : ℚ) = (↑(deg D - genus G) : ℚ) := by
-          exact_mod_cast rfl
-        rw [← h_cast]
-        exact h_bound
+        rw [rank_neg_one_of_not_nonneg G (K - D) h_rankKD] at h_rr
+        -- So r(D) = deg D - g, which is at most deg D / 2 since deg D ≤ 2g - 2
+        have h_rank_eq : rank G D = deg D - genus G := by linarith
+        rw [h_rank_eq]
+        push_cast
+        linarith
 
     · -- Case where r(D) < 0
-      have h_rank_eq := rank_neg_one_of_not_nonneg G D h_rank
-      have h_bound : -1 ≤ deg D / 2 := by
-        -- The division by 2 preserves non-negativity for deg D
-        have h_div_nonneg : deg D / 2 ≥ 0 := by
-          have h : deg D ≥ 0 := by exact_mod_cast h_deg_nonneg
-          omega
-
-        linarith
-      rw [h_rank_eq]
-
-      -- Convert to rational numbers
-      have h_bound_rat : ((-1) : ℚ) ≤ (deg D : ℚ) / 2 := by linarith [h_bound]
-
-      exact h_bound_rat
+      rw [rank_neg_one_of_not_nonneg G D h_rank]
+      push_cast
+      linarith
 
   · -- Part 3: deg(D) > 2g-2 implies r(D) = deg(D) - g
     intro h_deg_large
-    have h_canon := degree_of_canonical_divisor G
-    -- Show K-D has negative degree
-    have h_KD_neg : deg (λ v => canonical_divisor G v - D v) < 0 := by
-      -- Calculate deg(K-D)
-      calc
-        deg (λ v => canonical_divisor G v - D v)
-        _ = deg (canonical_divisor G) - deg D := by
-          unfold deg
-          simp
-        _ = 2 * genus G - 2 - deg D := by rw [h_canon]
-        _ < 0 := by linarith
-
-    -- Show K-D is unwinnable, so rank = -1
+    -- K-D has negative degree, hence rank -1
     have h_rankKD : rank G (canonical_divisor G - D) = -1 := by
-      rw [rank_neg_one_iff_unwinnable]
-      intro h_win
-      -- If winnable, would be linearly equivalent to effective divisor
-      obtain ⟨E, h_eff, h_equiv⟩ := winnable_iff_exists_effective G _ |>.mp h_win
-      have h_deg_eq := linear_equiv_preserves_deg G _ E h_equiv
-      -- But effective divisors have non-negative degree
-      have h_E_nonneg := deg_of_eff_nonneg E h_eff
-      rw [←h_deg_eq] at h_E_nonneg
-      -- Contradiction: K-D has negative degree
-      exact not_le_of_gt h_KD_neg h_E_nonneg
-
+      apply rank_neg_one_of_deg_neg
+      rw [deg.map_sub, degree_of_canonical_divisor]
+      linarith
     -- Apply Riemann-Roch to get r(D) = deg(D) - g
     have h_rr := riemann_roch_for_graphs h_conn D
     rw [h_rankKD] at h_rr
-    rw [sub_neg_eq_add] at h_rr
     linarith
 
 /-!

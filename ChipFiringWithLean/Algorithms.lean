@@ -116,11 +116,6 @@ noncomputable def fireSet (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G
   -- Use foldl directly now (List is open)
   foldl (fun current_D v => firing_move G current_D v) D S.toList
 
-/-- Calculates the degree of a divisor. -/
-@[simp]
-def degree (D : CFDiv G) : ℤ :=
-  ∑ v ∈ Finset.univ, D v
-
 /--
 The preprocessing step for Algorithms 3 and 4.
 

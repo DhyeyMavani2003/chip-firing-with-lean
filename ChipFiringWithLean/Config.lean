@@ -35,12 +35,12 @@ Corry-Perkinson call a *nonnegative configuration*.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.9. -/
 structure Config (G : CFGraph) (q : G.V) where
-  /-- The divisor representing the chip count at each vertex. -/
-  (vertex_degree : CFDiv G)
+  /-- The divisor recording the chip count at each vertex. -/
+  (chips : CFDiv G)
   /-- The distinguished vertex $q$ has no chips. -/
-  (q_zero : vertex_degree q = 0)
+  (q_zero : chips q = 0)
   /-- All chip counts are nonnegative. -/
-  (non_negative : ∀ v : G.V, vertex_degree v ≥ 0)
+  (non_negative : ∀ v : G.V, chips v ≥ 0)
 
 /-- The degree of a configuration is the sum of all values away from $q$:
 $$
@@ -48,25 +48,25 @@ $$
 $$
 Since $c(q)=0$, this is implemented as the degree of the underlying divisor. -/
 def config_degree {G : CFGraph} {q : G.V} (c : Config G q) : ℤ :=
-  deg (c.vertex_degree)
+  deg (c.chips)
 
 /-- Converts a configuration $c$ to a divisor of prescribed degree $d$ by placing
 $d-\deg(c)$ chips at $q$. -/
 def toDiv {G : CFGraph} {q : G.V} (d : ℤ) (c : Config G q) : CFDiv G :=
-  c.vertex_degree + (d - config_degree c) • (one_chip q)
+  c.chips + (d - config_degree c) • (one_chip q)
+
+/-- Two configurations are equal if their chip counts agree at every vertex. -/
+@[ext] lemma Config.ext {q : G.V} {c₁ c₂ : Config G q}
+    (h : ∀ v : G.V, c₁.chips v = c₂.chips v) : c₁ = c₂ := by
+  obtain ⟨vd₁, _, _⟩ := c₁
+  obtain ⟨vd₂, _, _⟩ := c₂
+  simp only [Config.mk.injEq]
+  exact funext h
 
 /-- Two configurations are equal if and only if their underlying divisors agree. -/
-lemma eq_config_iff_eq_vertex_degree {q : G.V} (c₁ c₂ : Config G q) :
-  c₁ = c₂ ↔ c₁.vertex_degree = c₂.vertex_degree := by
-  constructor
-  · intro h_eq
-    rw [h_eq]
-  · intro h_eq
-    obtain ⟨vd₁, _, _⟩ := c₁
-    obtain ⟨vd₂, _, _⟩ := c₂
-    simp only [Config.mk.injEq]
-    funext v
-    exact congrFun h_eq v
+lemma eq_config_iff_eq_chips {q : G.V} (c₁ c₂ : Config G q) :
+  c₁ = c₂ ↔ c₁.chips = c₂.chips :=
+  ⟨fun h => by rw [h], fun h => Config.ext (congrFun h)⟩
 
 /-- Two configurations are equal if and only if their images under `toDiv d` agree. -/
 lemma eq_config_iff_eq_div {q : G.V} (d : ℤ) (c₁ c₂ : Config G q) : c₁ = c₂ ↔ toDiv d c₁ = toDiv d c₂ := by
@@ -77,13 +77,7 @@ lemma eq_config_iff_eq_div {q : G.V} (d : ℤ) (c₁ c₂ : Config G q) : c₁ =
   -- Reverse direction takes more
   intro h_eq
   apply congrFun at h_eq
-  suffices h: c₁.vertex_degree = c₂.vertex_degree by
-    obtain ⟨vd₁, _, _⟩ := c₁
-    obtain ⟨vd₂, _, _⟩ := c₂
-    simp only [Config.mk.injEq]
-    funext v
-    apply congrFun h v
-  funext v
+  ext v
   specialize h_eq v
   dsimp [toDiv] at h_eq
   by_cases h_v : q = v
@@ -107,7 +101,7 @@ def to_qed {q : G.V} (d : ℤ) (c : Config G q) : q_eff_div G q :=
   }
 /-- Converts a $q$-effective divisor to a configuration by zeroing out the chip count at $q$. -/
 def toConfig {q : G.V} (D : q_eff_div G q) : Config G q := {
-  vertex_degree := D.D - (D.D q) • (one_chip q)
+  chips := D.D - (D.D q) • (one_chip q)
   q_zero := by
     rw [sub_apply,smul_apply]
     dsimp [one_chip]
@@ -123,33 +117,33 @@ def toConfig {q : G.V} (D : q_eff_div G q) : Config G q := {
 }
 
 /-- The degree of a $q$-effective divisor equals its value at $q$ plus the configuration degree. -/
-def config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q + config_degree (toConfig D) := by
+lemma config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q + config_degree (toConfig D) := by
   simp only [config_degree, toConfig, map_sub, map_zsmul, deg_one_chip, smul_eq_mul, mul_one]
   ring
 
 /-- Shifting the prescribed degree by $k$ adds $k$ chips at $q$. -/
 @[simp] lemma toDiv_config_degree_add {q : G.V} (c : Config G q) (k : ℤ) :
-  toDiv (config_degree c + k) c = c.vertex_degree + k • one_chip q := by
+  toDiv (config_degree c + k) c = c.chips + k • one_chip q := by
   dsimp [toDiv]
   rw [show config_degree c + k - config_degree c = k by ring]
 
 /-- Prescribing degree $\deg(c)-1$ gives the divisor $c-q$. -/
 @[simp] private lemma toDiv_config_degree_sub_one {q : G.V} (c : Config G q) :
-  toDiv (config_degree c - 1) c = c.vertex_degree - one_chip q := by
+  toDiv (config_degree c - 1) c = c.chips - one_chip q := by
   rw [show config_degree c - 1 = config_degree c + (-1) by ring]
   rw [toDiv_config_degree_add]
   simp [sub_eq_add_neg]
 
 /-- The divisor $c-q$ has degree $\deg(c)-1$. -/
-@[simp] lemma deg_vertex_degree_sub_one_chip {q : G.V} (c : Config G q) :
-  deg (c.vertex_degree - one_chip q) = config_degree c - 1 := by
+@[simp] lemma deg_chips_sub_one_chip {q : G.V} (c : Config G q) :
+  deg (c.chips - one_chip q) = config_degree c - 1 := by
   rw [map_sub, config_degree, deg_one_chip]
 
 /-- `toConfig` is a left inverse of `to_qed`: converting a configuration to a $q$-effective
 divisor and back recovers the original configuration. -/
 private lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
   toConfig (to_qed d c) = c := by
-  rcases c with ⟨vertex_degree, q_zero, non_negative⟩
+  rcases c with ⟨chips, q_zero, non_negative⟩
   dsimp [to_qed, toConfig]
   simp
   apply funext
@@ -191,9 +185,9 @@ lemma div_of_config_of_div (D : q_eff_div G q) :
   div_of_config_of_div ⟨D, h_qred.1⟩
 
 /-- A $q$-reduced divisor is its canonical configuration plus its chips at $q$. -/
-lemma q_reduced_eq_vertex_degree_add_q (G : CFGraph) (q : G.V) (D : CFDiv G)
+lemma q_reduced_eq_chips_add_q (G : CFGraph) (q : G.V) (D : CFDiv G)
     (h_qred : q_reduced G q D) :
-    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree + D q • one_chip q := by
+    D = (toConfig ⟨D, h_qred.1⟩).chips + D q • one_chip q := by
   let c : Config G q := toConfig ⟨D, h_qred.1⟩
   have h_deg : deg D = config_degree c + D q := by
     simpa [c, add_comm] using (config_degree_div_degree ⟨D, h_qred.1⟩)
@@ -201,18 +195,18 @@ lemma q_reduced_eq_vertex_degree_add_q (G : CFGraph) (q : G.V) (D : CFDiv G)
     D = toDiv (deg D) c := by
       exact (q_reduced_toDiv_toConfig G q D h_qred).symm
     _ = toDiv (config_degree c + D q) c := by rw [h_deg]
-    _ = c.vertex_degree + D q • one_chip q := toDiv_config_degree_add c (D q)
+    _ = c.chips + D q • one_chip q := toDiv_config_degree_add c (D q)
 
 /-- If a $q$-reduced divisor has value $-1$ at $q$, it is exactly $c-q$ for its
 canonical configuration $c$. -/
-lemma q_reduced_eq_vertex_degree_sub_one_chip (G : CFGraph) (q : G.V) (D : CFDiv G)
+lemma q_reduced_eq_chips_sub_one_chip (G : CFGraph) (q : G.V) (D : CFDiv G)
     (h_qred : q_reduced G q D) (h_q : D q = -1) :
-    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+    D = (toConfig ⟨D, h_qred.1⟩).chips - one_chip q := by
   calc
-    D = (toConfig ⟨D, h_qred.1⟩).vertex_degree + D q • one_chip q :=
-      q_reduced_eq_vertex_degree_add_q G q D h_qred
-    _ = (toConfig ⟨D, h_qred.1⟩).vertex_degree + (-1 : ℤ) • one_chip q := by rw [h_q]
-    _ = (toConfig ⟨D, h_qred.1⟩).vertex_degree - one_chip q := by
+    D = (toConfig ⟨D, h_qred.1⟩).chips + D q • one_chip q :=
+      q_reduced_eq_chips_add_q G q D h_qred
+    _ = (toConfig ⟨D, h_qred.1⟩).chips + (-1 : ℤ) • one_chip q := by rw [h_q]
+    _ = (toConfig ⟨D, h_qred.1⟩).chips - one_chip q := by
       simp [sub_eq_add_neg]
 
 @[simp] private lemma eval_toDiv_q {q : G.V} (d : ℤ) (c : Config G q) :
@@ -221,7 +215,7 @@ lemma q_reduced_eq_vertex_degree_sub_one_chip (G : CFGraph) (q : G.V) (D : CFDiv
   simp [c.q_zero]
 
 @[simp] private lemma eval_toDiv_ne_q {q v : G.V} (d : ℤ) (c : Config G q) (h_v : v ≠ q) :
-  toDiv d c v = c.vertex_degree v := by
+  toDiv d c v = c.chips v := by
   dsimp [toDiv]
   simp [h_v]
 
@@ -245,7 +239,7 @@ lemma config_eff {q : G.V} (d : ℤ) (c : Config G q) : effective (toDiv d c) �
     exact c.non_negative v
 
 instance : PartialOrder (Config G q) := {
-  le := λ c₁ c₂ => c₁.vertex_degree ≤ c₂.vertex_degree,
+  le := λ c₁ c₂ => c₁.chips ≤ c₂.chips,
   le_refl := by
     intro _
     simp,
@@ -255,24 +249,31 @@ instance : PartialOrder (Config G q) := {
   le_antisymm := by
     intro c1 c2 h_le h_ge
     have h_eq := le_antisymm h_le h_ge
-    exact (eq_config_iff_eq_vertex_degree c1 c2).mpr h_eq
+    exact (eq_config_iff_eq_chips c1 c2).mpr h_eq
 }
+
+/-- The configuration degree is monotone: if $c \le c'$ pointwise, then
+$\deg(c) \le \deg(c')$. -/
+lemma config_degree_mono {q : G.V} {c c' : Config G q} (h_le : c ≤ c') :
+  config_degree c ≤ config_degree c' := by
+  dsimp [config_degree, deg]
+  exact Finset.sum_le_sum fun v _ => h_le v
 
 /-- Two configurations are equal if one is pointwise bounded above by the other and they have
 the same degree. -/
 lemma config_eq_of_le_and_degree {q : G.V} {c1 c2 : Config G q} (h_le : c2 ≤ c1)
     (h_deg : config_degree c1 = config_degree c2) : c1 = c2 := by
-  apply (eq_config_iff_eq_vertex_degree c1 c2).mpr
+  apply (eq_config_iff_eq_chips c1 c2).mpr
   dsimp [config_degree, deg] at h_deg
-  have h_le' : ∀ v : G.V, c2.vertex_degree v ≤ c1.vertex_degree v := by
+  have h_le' : ∀ v : G.V, c2.chips v ≤ c1.chips v := by
     intro v
     exact h_le v
-  suffices ∀ v : G.V, c1.vertex_degree v = c2.vertex_degree v by
+  suffices ∀ v : G.V, c1.chips v = c2.chips v by
     funext v
     exact this v
   contrapose! h_deg with h_ne
   rcases h_ne with ⟨v, h_v_ne⟩
-  have h_gt : c2.vertex_degree v < c1.vertex_degree v := by
+  have h_gt : c2.chips v < c1.chips v := by
     specialize h_le' v
     apply lt_of_le_of_ne h_le'
     contrapose! h_v_ne
@@ -300,7 +301,7 @@ out-degree to $V(G) \setminus S$.
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.12. -/
 def superstable (G : CFGraph) (q : G.V) (c : Config G q) : Prop :=
   ∀ S ⊆  Vtilde q, S.Nonempty →
-    ∃ v ∈ S, c.vertex_degree v < outdeg_S G q S v
+    ∃ v ∈ S, c.chips v < outdeg_S G q S v
 
 /-- A configuration $c$ is superstable if and only if `toDiv d c` is $q$-reduced,
 for any prescribed degree $d$.
@@ -340,8 +341,7 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
     simp at h
   rw [eval_toDiv_ne_q d c h_v_ne_q]
   rw [← comp_eq S]
-  refine lt_of_le_of_lt  ?_ hv_outdeg
-  apply le_refl
+  exact hv_outdeg
   -- Reverse direction
   intro h_q_reduced
   rcases h_q_reduced with ⟨h_nonneg, h_outdeg⟩
@@ -392,47 +392,26 @@ def maximal_superstable (G : CFGraph) {q : G.V} (c : Config G q) : Prop :=
   superstable G q c ∧ ∀ c' : Config G q, superstable G q c' → c ≤ c' → c' = c
 
 
-/-- Subtracting a chip at $q$ from a maximal superstable configuration gives an unwinnable
+/-- Subtracting a chip at $q$ from a superstable configuration gives an unwinnable
 divisor. -/
-lemma helper_superstable_to_unwinnable {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (c : Config G q) :
-  maximal_superstable G c →
-  ¬winnable G (c.vertex_degree - one_chip q) := by
-  intro h_max_superstable
-  let D := c.vertex_degree - one_chip q
+lemma helper_superstable_to_unwinnable {G : CFGraph} (q : G.V) (c : Config G q) :
+  superstable G q c →
+  ¬winnable G (c.chips - one_chip q) := by
+  intro h_superstable
+  let D := c.chips - one_chip q
   have h_red : q_reduced G q D := by
     apply (q_reduced_superstable_correspondence G q D).mpr
-    use c
-    constructor
-    · -- Prove superstable G q c
-      exact h_max_superstable.1
-    · -- Prove D = c - δ_q
-      have h_deg_D : deg D = config_degree c - 1 := by
-        dsimp [D]
-        exact deg_vertex_degree_sub_one_chip (c := c)
-      rw [h_deg_D]
+    refine ⟨c, h_superstable, ?_⟩
+    -- Prove D = c - δ_q
+    have h_deg_D : deg D = config_degree c - 1 := by
       dsimp [D]
-      exact (toDiv_config_degree_sub_one (c := c)).symm
-  by_contra! h_winnable
-  have := (winnable_iff_q_reduced_effective h_conn q D).mp
-  dsimp [D] at this
-  apply this at h_winnable
-  rcases h_winnable with ⟨D', h_equiv, h_qred', h_eff⟩
-  -- Use uniqueness of q-reduced forms to conclude D = D'
-  rcases unique_q_reduced h_conn q D with ⟨D'', h_equiv'', h_unique⟩
-  have h_eq : D = D'' := by
-    apply h_unique D
-    constructor
-    · exact (linear_equiv_is_equivalence G).refl D
-    . exact h_red
-  have h_eq' : D' = D'' := by
-    apply h_unique D'
-    constructor
-    · exact h_equiv
-    · exact h_qred'
-  rw [← h_eq'] at h_eq
-  rw [← h_eq] at h_eff
-  -- D is effective, contradicting its definition
-  have h_nonneg_q := h_eff q
+      exact deg_chips_sub_one_chip (c := c)
+    rw [h_deg_D]
+    dsimp [D]
+    exact (toDiv_config_degree_sub_one (c := c)).symm
+  -- A winnable q-reduced divisor is effective, but D has -1 chips at q.
+  intro h_winnable
+  have h_nonneg_q := effective_of_winnable_and_q_reduced G q D h_winnable h_red q
   dsimp [D] at h_nonneg_q
   simp [c.q_zero] at h_nonneg_q
 
@@ -469,7 +448,7 @@ def is_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) : Prop 
   | [] => False
   | [x] => (x = q)
   | v :: w :: rest =>
-      outdeg_S G q (univ \ (w :: rest).toFinset) v > c.vertex_degree v
+      outdeg_S G q (univ \ (w :: rest).toFinset) v > c.chips v
       -- v isn't in the set made out of w :: rest
       ∧ ¬ (w :: rest).contains v
       ∧ is_burn_list G c (w :: rest)
@@ -671,7 +650,7 @@ lemma burn_flow_directed {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list
 /-- For any vertex $v \ne q$ in a burn list, the in-flow into $v$ exceeds the number of
 chips at $v$. This is the key inequality used to construct the acyclic orientation from a
 maximal superstable configuration. -/
-lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (v : G.V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): ∑ (w : G.V), burn_flow L ⟨w,v⟩ > c.vertex_degree v := by
+lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (v : G.V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): ∑ (w : G.V), burn_flow L ⟨w,v⟩ > c.chips v := by
   let h_bl := L.h_burn_list
   cases h: L.list with
   | nil =>
