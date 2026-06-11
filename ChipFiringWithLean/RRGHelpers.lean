@@ -398,54 +398,51 @@ theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
     exact maximal_unwinnable_deg h_conn D hD
   }
 
-
-
-
-
-
 /-!
-## The main Riemann-Roch inequality
+## Moderator divisors
 
-`rank_degree_inequality` establishes the strict inequality
-$$\deg(D) - g < r(D) - r(K_G - D),$$
-which is the main step toward the Riemann-Roch theorem for graphs. The proof uses
-Dhar's burning algorithm to find a maximal superstable configuration dominating the
-configuration associated to $D - E$, then dualizes via the reverse orientation to
-bound $r(K_G - D)$.
+Following terminology of [Mikhalkin and Zharkov](https://arxiv.org/abs/math/0612267), a "moderator"
+is associated to an acyclic orientation. These are very useful in the proof of Riemann--Roch, as
+encapsulate the key duality.
 -/
 
-/-- The strict Riemann-Roch inequality: $\deg(D) - g < r(D) - r(K_G - D)$. -/
-theorem rank_degree_inequality
-    {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
-    deg D - genus G < rank G D - rank G (canonical_divisor G - D) := by
-  -- Get rank value for D
-  let r := rank G D
+/-- A *moderator* is a divisor $D$ of the form $D_\mathcal{O}$ for some acyclic orientation. -/
+def is_moderator {G : CFGraph} (D : CFDiv G) : Prop :=
+  ∃ (O : CFOrientation G), is_acyclic G O ∧ D = ordiv G O
 
-  -- Get effective divisor E using rank characterization
-  rcases rank_get_effective G D with ⟨E, h_E_eff, h_E_deg, h_D_E_unwin⟩
+/-- Moderators are symmetric about the canonical divisor. This is the key duality in Riemann-Roch. -/
+lemma moderator_symmetry {G : CFGraph} (D : CFDiv G) :
+  is_moderator D → is_moderator (canonical_divisor G - D) := by
+  rintro ⟨O, hO, h_D⟩
+  use O.reverse
+  constructor
+  · exact is_acyclic_reverse_of_is_acyclic G O hO
+  · rw [h_D]
+    rw [← divisor_reverse_orientation O]
+    abel
 
-  -- Fix a vertex q
+/-- Moderators have degree $g-1$. -/
+lemma moderator_degree {G : CFGraph} {D : CFDiv G} (h : is_moderator D) : deg D = genus G - 1 := by
+  rcases h with ⟨O, hO, rfl⟩
+  exact degree_ordiv O
+
+/-- Moderators are unwinnable -/
+lemma unwinnable_of_moderator {G : CFGraph} {D : CFDiv G} (h : is_moderator D) : ¬ winnable G D := by
+  rcases h with ⟨O, hO, rfl⟩
+  exact ordiv_unwinnable G O hO
+
+/-- Any unwinnable divisor is linearly equivalent to a moderator after adding some effective divisor. -/
+lemma moderator_of_unwinnable {G : CFGraph} (h_conn: graph_connected G) (D : CFDiv G) (unwin : ¬ winnable G D) :
+  ∃ (M H : CFDiv G), is_moderator M ∧ effective H ∧ linear_equiv G M (D+H) := by
   let q := Classical.arbitrary G.V
-
-  -- Apply Dhar's algorithm to D - E to get q-reduced form
-  rcases superstable_of_divisor h_conn q (D - E) with ⟨c, k, h_equiv, h_super⟩
-
-  have h_k_neg : k < 0 := superstable_of_divisor_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
-
-  -- Get maximal superstable c' ≥ c
+  rcases superstable_of_divisor h_conn q D with ⟨c, k, h_equiv, h_super⟩
+  have h_k_neg : k < 0 := superstable_of_divisor_negative_k G q D unwin c k h_equiv h_super
   rcases maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
-
-  -- Let O be a corresponding acyclic orientation
   rcases maximal_superstable_orientation G q c' h_max' with ⟨O, hO, h_orient_eq_c'⟩
-
-  -- Define H := (c' - c) - (k + 1)q as a divisor (using original c')
   let H : CFDiv G := -(k+1) • (one_chip q) + c'.chips - c.chips
-
   have h_H_eff : effective H := by
-    have : c.chips ≤ c'.chips := h_ge
     have diff_eff : effective (c'.chips - c.chips) := by
-      rw [sub_eff_iff_geq]
-      exact this
+      rwa [sub_eff_iff_geq]
     have src_eff : effective (-(k+1) • one_chip q)  := by
       intro v
       rw [smul_apply]
@@ -454,24 +451,14 @@ theorem rank_degree_inequality
         linarith [h_k_neg]
       · -- Prove one_chip q v ≥ 0
         exact eff_one_chip q v
-    -- Sum of two effective divisors is effective
     have := (Eff G).add_mem src_eff diff_eff
-    rw [← add_sub_assoc] at this
-    exact this
-
-  -- The following divisor is called a "moderator" in the literature.
-  -- It is a maximal unwinnable divisor ≥ D-E, as we will show.
+    rwa [← add_sub_assoc] at this
   let M := c'.chips - one_chip q
-  have M_eq : linear_equiv G M (D - E + H) := by
-    dsimp[M,H]
-    dsimp [linear_equiv]
-    dsimp [linear_equiv] at h_equiv
-    rw [principal_iff_eq_prin] at h_equiv
+  have M_eq : linear_equiv G M (D + H) := by
+    simp only [M,H,linear_equiv, principal_iff_eq_prin] at ⊢ h_equiv
     rcases h_equiv with ⟨σ, eq_σ⟩
-    rw [principal_iff_eq_prin]
     use (-σ)
-    rw [map_neg]
-    rw [← eq_σ]
+    rw [map_neg, ← eq_σ]
     funext v; simp; ring
 
   have h_M_O : M = ordiv G O := by
@@ -499,58 +486,57 @@ theorem rank_degree_inequality
       ring
     simp [this]
     rw [sub_eq_add_neg]
+  have h_M_moderator : is_moderator M := by
+    exact ⟨O, ⟨hO.1, h_M_O⟩⟩
+  use M, H
 
-  -- Complete h_DO_unwin
-  have h_DO_unwin : maximal_unwinnable G M := by
-    constructor
-    · -- First show it's unwinnable
-      exact superstable_sub_chip_unwinnable q c' h_max'.1
+/-!
+## The main Riemann-Roch inequality
 
-    · -- Then show adding a chip anywhere makes it winnable
-      exact maximal_superstable_chip_winnable h_conn q c' h_max'
+`rank_degree_inequality` establishes the strict inequality
+$$\deg(D) - g < r(D) - r(K_G - D),$$
+which is the main step toward the Riemann-Roch theorem for graphs. The proof uses
+Dhar's burning algorithm to find a maximal superstable configuration dominating the
+configuration associated to $D - E$, then dualizes via the reverse orientation to
+bound $r(K_G - D)$.
+-/
 
-  -- Now dualize, to get a statement about the reverse orientation
-  let O' := O.reverse
-  have O'_acyc : is_acyclic G O' := is_acyclic_reverse_of_is_acyclic G O hO.1
+/-- The strict Riemann-Roch inequality: $\deg(D) - g < r(D) - r(K_G - D)$. -/
+theorem rank_degree_inequality
+    {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
+    deg D - genus G < rank G D - rank G (canonical_divisor G - D) := by
+  rcases rank_get_effective G D with ⟨E, E_eff, E_deg, D_E_unwin⟩
+  rcases moderator_of_unwinnable h_conn (D - E) D_E_unwin with ⟨M, H, M_moderator, H_eff, M_equiv⟩
+  set M' := canonical_divisor G - M with M'_eq
+  have M'_moderator : is_moderator M' := moderator_symmetry M M_moderator
 
-  let M' := ordiv G O'
-  let D' := canonical_divisor G - D
-  have M'_eq : M' = canonical_divisor G - M := by
-    rw [← divisor_reverse_orientation O]
-    rw [h_M_O]
-    abel
-
-  have h_M'_unwin : ¬ (winnable G M') :=
-    ordiv_unwinnable G O' O'_acyc
-  have h_M'_equiv : linear_equiv G (D' - H + E) M' := by
+  set D' := canonical_divisor G - D with D'_eq
+  have M'_equiv : linear_equiv G (D' - H + E) M' := by
     rw [M'_eq]
     dsimp [D', linear_equiv]
-    dsimp [linear_equiv] at M_eq
-    rw [principal_iff_eq_prin] at M_eq
-    rw [principal_iff_eq_prin]
-    rcases M_eq with ⟨σ, eq_σ⟩
+    dsimp [linear_equiv] at M_equiv
+    rw [principal_iff_eq_prin] at M_equiv ⊢
+    rcases M_equiv with ⟨σ, eq_σ⟩
     use σ
     rw [← eq_σ]
     abel
+
   have h_D'_H : ¬ winnable G (D' - H) := by
-    contrapose! h_M'_unwin
-    have := winnable_add_winnable G (D' - H) E h_M'_unwin (winnable_of_effective G E h_E_eff)
-    apply winnable_equiv_winnable G (D'-H+E) M' this h_M'_equiv
+    by_contra!
+    have := winnable_add_winnable G (D' - H) E this (winnable_of_effective G E E_eff)
+    apply unwinnable_of_moderator M'_moderator
+    apply winnable_equiv_winnable G (D' - H + E) M' this M'_equiv
 
   have ineq : deg H > rank G D' := by
     contrapose! h_D'_H
     apply (rank_geq_iff G D' (deg H)).mpr at h_D'_H
     dsimp [rank_geq] at h_D'_H
-    specialize h_D'_H H ⟨h_H_eff, rfl⟩
+    specialize h_D'_H H ⟨H_eff, rfl⟩
     exact h_D'_H
 
   -- Finally, degree calculations to finish the inequality
-  dsimp [D'] at ineq
-  have : deg H = - deg D + deg E + deg M := by
-    rw [linear_equiv_preserves_deg G M (D - E + H) M_eq]
+  have degH : deg H = - deg D + deg E + deg M := by
+    rw [linear_equiv_preserves_deg G M (D - E + H) M_equiv]
     simp
     linarith
-  rw [this] at ineq
-  have := degree_ordiv O
-  rw [← h_M_O] at this
-  linarith
+  linarith [degH, moderator_degree M_moderator]
