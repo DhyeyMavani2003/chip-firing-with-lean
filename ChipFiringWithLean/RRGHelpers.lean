@@ -64,7 +64,7 @@ lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V
     simpa [c] using qReducedConfig_superstable h_conn q D
 
 /-- If $D$ is unwinnable and $D \sim c + k \cdot q$ for a superstable $c$, then $k < 0$. -/
-private lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
+lemma superstable_of_divisor_negative_k (G : CFGraph) (q : G.V) (D : CFDiv G) :
   ¬(winnable G D) →
   ∀ (c : Config G q) (k : ℤ),
     linear_equiv G D (c.chips + k • (one_chip q)) →
