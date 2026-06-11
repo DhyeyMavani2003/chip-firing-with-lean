@@ -24,7 +24,7 @@ open Finset BigOperators List
 def is_effective (D : CFDiv G) : Bool := decide (∀ v, D v ≥ 0)
 
 /--
-The greedy algorithm for the dollar game (Algorithm 1).
+The greedy algorithm for the dollar game (Corry-Perkinson, Algorithm 1).
 
 The algorithm repeatedly chooses an in-debt vertex $v$ that has not borrowed yet
 ($v \notin M$), performs a borrowing move at $v$, and adds $v$ to $M$.
@@ -85,7 +85,7 @@ noncomputable def findBurnableVertex (G : CFGraph) (c : G.V → ℤ) (S : Finset
   | none => none
 
 /--
-The core iterative burning process of Dhar's algorithm (Algorithm 2).
+The core iterative burning process of Dhar's algorithm (Corry-Perkinson, Algorithm 2).
 
 Given a configuration $c$ (represented here as a function $V(G) \to \mathbb{Z}$,
 with nonnegativity away from $q$ handled externally) and a sink $q$, this returns the
@@ -117,9 +117,10 @@ noncomputable def fireSet (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G
   foldl (fun current_D v => firing_move G current_D v) D S.toList
 
 /--
-The preprocessing step for Algorithms 3 and 4.
+The preprocessing step for `findQReducedDivisor`.
 
-This fires $q$ repeatedly until $D(v) \ge 0$ for all $v \ne q$.
+This fires $q$ repeatedly until $D(v) \ge 0$ for all $v \ne q$ (cf. Corry-Perkinson,
+Algorithm 4, which reaches the same state via borrowing moves).
 Requires sufficient total degree in the graph. Uses fuel for termination guarantee.
 Returns `none` if fuel runs out, implying potential unwinnability or insufficient fuel.
 -/
@@ -140,7 +141,8 @@ noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (
   loop D max_fuel
 
 /--
-Finds the unique $q$-reduced divisor linearly equivalent to $D$ (Algorithm 3).
+Finds the unique $q$-reduced divisor linearly equivalent to $D$ (Corry-Perkinson,
+Algorithm 3).
 
 Starting from $D$, the algorithm first preprocesses by firing $q$ until all other
 vertices are nonnegative. It then repeatedly finds the maximal legal firing set
@@ -194,11 +196,11 @@ noncomputable def dhar (G : CFGraph) (D : CFDiv G) (v : G.V) : Option (CFDiv G) 
   findQReducedDivisor G v D
 
 /--
-The efficient winnability determination algorithm (Algorithm 4).
+The efficient winnability determination algorithm.
 
 This checks whether $D$ is winnable by finding the $q$-reduced representative $D_q$
-and checking whether $D_q(q) \ge 0$. It requires a chosen source vertex $q$ and returns
-`false` if the reduction process fails.
+and checking whether $D_q(q) \ge 0$ (see Corry-Perkinson, Corollary 3.7). It requires
+a chosen source vertex $q$ and returns `false` if the reduction process fails.
 -/
 @[simp]
 noncomputable def isWinnable (G : CFGraph) (q : G.V) (D : CFDiv G) : Bool :=
@@ -215,7 +217,7 @@ def burning_indeg (G : CFGraph) (B : Finset G.V) (v : G.V) : ℤ :=
   ∑ u ∈ B, (num_edges G u v : ℤ)
 
 /--
-The orientation-based version of Dhar's algorithm (Algorithm 5).
+The orientation-based version of Dhar's algorithm (Corry-Perkinson, Algorithm 5).
 
 This takes a nonnegative configuration $c$ relative to $q$, and returns the final stable set
 $S \subseteq V(G) \setminus \{q\}$ (empty if and only if $c$ is superstable) together

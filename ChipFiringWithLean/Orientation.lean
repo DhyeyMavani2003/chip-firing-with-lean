@@ -35,11 +35,9 @@ See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 
 /-- An *orientation* of $G$ assigns a direction to each edge.
 
-The field `directed_edges` is a multiset of directed pairs whose underlying undirected
-edge multiplicities agree with those of $G$, so that each undirected edge is directed
-exactly one way.
-The `count_preserving` field ensures total flow on each edge equals its multiplicity, and
-`no_bidirectional` ensures no edge is directed both ways. -/
+The field `directed_edges` is a multiset of directed pairs. The `count_preserving` field
+ensures that the total flow between $v$ and $w$ equals the edge multiplicity, and
+`no_bidirectional` ensures that parallel edges are all directed the same way. -/
 structure CFOrientation (G : CFGraph) where
   /-- The multiset of directed edges in the orientation. -/
   directed_edges : Multiset (G.V × G.V)
@@ -100,7 +98,7 @@ private lemma card_directed_edges_eq_card_edges {G : CFGraph} (O : CFOrientation
     dsimp [num_edges] at h
     rw [← h]
     rw [← Multiset.sum_count_eq_card (hms ((Multiset.filter (fun e ↦ e = (u, v) ∨ e = (v, u)) G.edges)))]
-    -- Now simplif the count of a in the filtered multiset
+    -- Now simplify the count of a in the filtered multiset
     have h_msum (u v : G.V) : Multiset.filter (λ e => e = (u, v) ∨ e = (v, u)) G.edges = Multiset.filter (λ e => e = ⟨u,v⟩) G.edges + Multiset.filter (λ e => e = ⟨v,u⟩) G.edges := by
       apply Multiset.ext.mpr
       intro e
@@ -314,7 +312,7 @@ private lemma subset_source (G : CFGraph) (O : CFOrientation G) (S : Finset G.V)
               rw [← eq_vv'] at h_rec
               exact h_rec
         }
-        -- Should that the path lies in S
+        -- Show that the path lies in S
         constructor
         intro v h_v_in_path
         simp at h_v_in_path
@@ -400,7 +398,7 @@ See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7.
 /-- The divisor associated with an orientation assigns $\mathrm{indeg}(v)-1$ to each vertex.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 4.7,
-part 1; written $D_{\mathcal{O}}$ there. -/
+part 1; written $D(\mathcal{O})$ there. -/
 def ordiv (G : CFGraph) (O : CFOrientation G) : CFDiv G :=
   λ v => indeg G O v - 1
 
@@ -472,7 +470,7 @@ lemma config_and_divisor_from_O {G : CFGraph} (O : CFOrientation G) {q : G.V}
 
 
 
-/-- An acyclic orientation is uniquely determined by its indegree sequence.
+/-- An acyclic orientation is uniquely determined by its in-degree sequence.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Lemma 4.3. -/
 lemma orientation_determined_by_indegrees {G : CFGraph}
@@ -517,7 +515,7 @@ lemma orientation_determined_by_indegrees {G : CFGraph}
     exact h_pos_count
 
   -- We now must show that S is empty.
-  -- Do so buy showing any element in S belongs to an infinite directd path
+  -- Do so by showing any element in S belongs to an infinite directed path
   have going_up : ∀ e ∈ S, ∃ f ∈ S, f.2 = e.1 := by
     intro e h_e_in_S
     obtain ⟨u,v⟩ := e
@@ -780,9 +778,11 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
     linarith
 
 /-- The orientation divisor $D(\mathcal{O})$ of an acyclic orientation with unique source $q$
-is $q$-reduced. Together with `ordiv_unwinnable`, this proves Proposition 4.11.
+is $q$-reduced.
 
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Proposition 4.11. -/
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Proposition 4.11, which
+asserts that $D(\mathcal{O})$ is maximal unwinnable; this lemma and `ordiv_unwinnable`
+supply the unwinnability, while maximality is established in `RRGHelpers.lean`. -/
 private lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
     (hO : acyclic_with_unique_source G O q) : q_reduced G q (ordiv G O) := by
   constructor
@@ -833,7 +833,7 @@ private lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
     rw [← Nat.cast_sum, ← Nat.cast_sum]
     apply Nat.cast_le.mpr
     apply le_trans sum_flow_bound
-    -- Final step: we have num_edges G _ v on LHS and G v _ on the right. Use symemtriy.
+    -- Final step: we have num_edges G _ v on LHS and G v _ on the right. Use symmetry.
     simp [num_edges_symmetric]
 
 /-- The configuration associated to an acyclic orientation with unique source $q$ is
@@ -901,8 +901,8 @@ private lemma flow_reverse {G : CFGraph} (O : CFOrientation G) (v w : G.V) :
   flow (O.reverse G) v w = flow O w v :=
   count_map_swap O.directed_edges v w
 
-/-- The indegree of $v$ in the reverse orientation $\overline{\mathcal{O}}$ equals the outdegree
-of $v$ in $\mathcal{O}$. -/
+/-- The in-degree of $v$ in the reverse orientation $\overline{\mathcal{O}}$ equals the
+out-degree of $v$ in $\mathcal{O}$. -/
 private lemma indeg_reverse_eq_outdeg (G : CFGraph) (O : CFOrientation G) (v : G.V) :
   indeg G (O.reverse G) v = outdeg G O v := by
   classical
@@ -1151,7 +1151,7 @@ theorem orientation_config_maximal (G : CFGraph) (O : CFOrientation G) (q : G.V)
   have h_ssO : superstable G q cO := orientation_config_superstable G O q hO
   refine ⟨h_ssO, ?_⟩
   -- Goal is now just maximality of cO.
-  -- Suppose another divisor is bigger. THere's an orientation divisor yet above that one.
+  -- Suppose another divisor is bigger. There's an orientation divisor yet above that one.
   intro c h_ss h_ge
   rcases superstable_dhar h_ss with ⟨O', hO', h_ge'⟩
   let c' := orientation_to_config G O' q hO'
@@ -1193,8 +1193,8 @@ let c' := orientation_to_config G O q hO
 have h_eq := h_max.2 c' (orientation_config_superstable G O q hO) h_ge
 rw [← h_eq]
 
-/-- The bijection between acyclic orientations with source $q$ and maximal superstable
-configurations.
+/-- The bijection between acyclic orientations with unique source $q$ and maximal
+superstable configurations.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8,
 part 3 (bijection). -/

@@ -93,7 +93,7 @@ private lemma deg_winnable_nonneg (G : CFGraph) (D : CFDiv G) (h_winnable : winn
   rw [same_deg]
   exact deg_of_eff_nonneg D' h_D'_eff
 
-/-- Every effective divisor is winnable (it is already linearly equivalent to itself). -/
+/-- Every effective divisor is winnable (take $D' = D$ in the definition). -/
 lemma winnable_of_effective (G : CFGraph) (D : CFDiv G) (h_eff : effective D) : winnable G D := by
   exact ⟨D, h_eff, by
     unfold linear_equiv

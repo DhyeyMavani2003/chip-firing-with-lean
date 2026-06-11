@@ -109,7 +109,7 @@ abbrev CFDiv (G : CFGraph) := G.V → ℤ
 def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
   fun v => if v = v_chip then 1 else 0
 
--- Canonical simplications for evaluations of one_chip.
+-- Canonical simplifications for evaluations of one_chip.
 @[simp] private lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
   exact if_pos rfl
 @[simp] lemma one_chip_apply_other {G : CFGraph} (v w : G.V) : v ≠ w → one_chip v w = 0 := by
@@ -227,8 +227,9 @@ $$
 \sum_u (\sigma(u)-\sigma(v)) \operatorname{num\_edges}_G(v,u).
 $$
 
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.3
-(denoted $\operatorname{div}(\sigma)$ there). -/
+See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.3;
+`prin G σ` is the *negative* of the divisor $\operatorname{div}(\sigma)$ defined there,
+since they implement a firing script as $D \mapsto D - \operatorname{div}(\sigma)$. -/
 def prin (G : CFGraph) : firing_script G →+ CFDiv G :=
   {
     toFun := fun σ v => ∑ u : G.V, (σ u - σ v) * (num_edges G v u),
@@ -386,7 +387,7 @@ $\mathrm{Deg}(G)$ is the diagonal degree matrix and $A$ is the adjacency matrix.
 Applying the Laplacian to a firing script produces the corresponding principal divisor.
 -/
 
-/-- Degree of a divisor is the sum of its values at all vertices.
+/-- The degree of a divisor is the sum of its values over all vertices.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.4. -/
 def deg {G : CFGraph} : CFDiv G →+ ℤ := {
@@ -610,7 +611,7 @@ lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Fin
   · -- Case: S = G.V
     intro D
     use D
-    -- Verify the first part of the conjuction
+    -- Verify the first part of the conjunction
     constructor
     exact linear_equiv.refl G D
     -- Verify second part
@@ -957,8 +958,8 @@ def q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) : Prop :=
 
 
 
-/-- A firing script can be understood by first firing the set on which the script is maximal.
-At that first step, no debt is created unless it will remain at the end. -/
+/-- Any firing script $\sigma$ attains its maximum on a nonempty set $S$, and applying
+$\sigma$ removes at least $\operatorname{outdeg}_S(v)$ chips from each $v \in S$. -/
 private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V, S.Nonempty ∧ ∀ v ∈ S, (∀ w : G.V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
   let max_exists := Finset.exists_max_image Finset.univ σ (by use Classical.arbitrary G.V; simp)
   rcases max_exists with ⟨w, ⟨_,w_argmax⟩⟩
@@ -1014,8 +1015,9 @@ private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Fi
     specialize w_argmax u (by simp)
     linarith [lt_of_le_of_ne w_argmax h_u_notin_S]
 
-/-- A $q$-reduced divisor is equivalent to a $q$-effective divisor only through a
-$q$-reducer, i.e. a script that does not fire $q$ more than the other vertices. -/
+/-- If applying a script $\sigma$ to a $q$-effective divisor yields a $q$-reduced divisor,
+then $\sigma$ is a $q$-reducer: a $q$-reduced divisor can only be reached from a
+$q$-effective one by firing $q$ the least. -/
 private lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) (σ : firing_script G) :
   q_reduced G q (D + prin G σ) → q_effective q D → q_reducer G q σ := by
   intro h_q_reduced h_q_effective v
@@ -1138,8 +1140,9 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
 
 /-- The $q$-reduced representative of an effective divisor is effective.
 
-This follows from the fact that the reduction process, such as Dhar's algorithm or repeated
-legal firings, preserves effectiveness when starting with an effective divisor. -/
+A $q$-reduced divisor is maximal in its class for the $q$-reduction order, so $E$ reduces
+to $E'$; the number of chips at $q$ only increases along this order, and $E'$ is
+nonnegative away from $q$ by definition. -/
 private lemma q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' : CFDiv G) :
   effective E → linear_equiv G E E' → q_reduced G q E' → effective E' := by
   intro h_eff h_equiv h_qred

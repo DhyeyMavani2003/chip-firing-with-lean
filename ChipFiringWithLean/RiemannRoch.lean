@@ -16,37 +16,19 @@ The Riemann-Roch theorem for graphs and its main corollaries.
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Chapter 5.
 -/
 
-/-- **Riemann-Roch theorem for graphs:** $r(D) - r(K_G - D) = \deg(D) - g + 1$.
+/-- **Riemann-Roch theorem for graphs:** $r(D) - r(K_G - D) = \deg(D) + 1 - g$.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 5.9. -/
 theorem riemann_roch_for_graphs {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
   rank G D - rank G (canonical_divisor G - D) = deg D - genus G + 1 := by
-  let K := canonical_divisor G
-
-  -- Get key inequality
+  set K := canonical_divisor G with K_eq
   have h_ineq := rank_degree_inequality h_conn D
-
-  -- Get reverse inequality by applying to K-D
-  have h_ineq_rev := rank_degree_inequality h_conn (K-D)
-
-  -- Get degree of canonical divisor
-  have h_deg_K : deg (canonical_divisor G) = 2 * genus G - 2 :=
-    degree_of_canonical_divisor G
-
-  -- Since rank is an integer and we have bounds, equality must hold
-  suffices rank G D - rank G (K-D) ≥ deg D - genus G + 1 ∧
-           rank G D - rank G (K-D) ≤ deg D - genus G + 1 from
-    le_antisymm (this.2) (this.1)
-
-  constructor
-  · -- Lower bound
-    linarith
-  · -- Upper bound
-    rw [deg.map_sub, h_deg_K] at h_ineq_rev
-    have : canonical_divisor G - (K-D) = D := by
-      rw [sub_sub_self]
-    rw [this] at h_ineq_rev
-    linarith
+  have h_ineq_rev : deg (K-D) - genus G < rank G (K-D) - rank G D := by
+    convert rank_degree_inequality h_conn (K-D)
+    abel
+  have deg_sub : deg (K-D) = deg K - deg D := by rw [deg.map_sub]
+  have h_deg_K : deg (canonical_divisor G) = 2 * genus G - 2 := degree_of_canonical_divisor G
+  linarith
 
 /-- $D$ is maximal unwinnable if and only if $K_G - D$ is maximal unwinnable.
 
@@ -186,7 +168,7 @@ theorem clifford_theorem
   have h_two' : (2 : ℚ) * (rank G D : ℚ) ≤ (deg D : ℚ) := by exact_mod_cast h_two
   linarith
 
-/-- Ranks of divisors with degrees in nonspecial ranges:
+/-- The rank of a divisor in terms of its degree:
   - $\deg(D) < 0 \Rightarrow r(D) = -1$
   - $0 \leq \deg(D) \leq 2g-2 \Rightarrow r(D) \leq \deg(D)/2$
   - $\deg(D) > 2g-2 \Rightarrow r(D) = \deg(D) - g$.
@@ -308,6 +290,7 @@ private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤
   intro k hk
   exact one_le_of_gonality_leq hk
 
+/-- The relation `gonality_geq G k` is equivalent to the inequality `gonality h_conn ≥ k`. -/
 @[simp] theorem gonality_geq_iff {G : CFGraph} (h_conn : graph_connected G) (k : ℤ) :
     gonality_geq G k ↔ gonality h_conn ≥ k := by
   let S : Set ℤ := {l : ℤ | gonality_leq G l}
@@ -353,8 +336,8 @@ def max_gonality_existence (g : ℕ) : Prop :=
   ∃ (G : CFGraph.{u}) (h_conn : graph_connected G) (g_eq : genus G = g),
     gonality h_conn = (g + 3) / 2
 
-/-- The statement that in a given genus $g$, there exists a Brill-Noether general graph.
-Equivalently, there is a graph with no degree $d$ divisors of rank $r$ for which
+/-- The statement that in a given genus $g$, there exists a Brill-Noether general graph:
+a graph with no divisor of degree $d$ and rank at least $r$ whenever
 $$
 \rho = g - (r+1)(g-d+r) < 0.
 $$

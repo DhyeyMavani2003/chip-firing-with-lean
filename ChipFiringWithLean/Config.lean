@@ -21,7 +21,7 @@ out-degree to $V(G) \setminus S$. Equivalently, the associated divisor is $q$-re
 A *maximal superstable* configuration is one that is not dominated by any other
 superstable configuration.
 
-The set `outdeg_S G q S v` counts edges from $v$ to vertices outside $S$, and is the
+The quantity `outdeg_S G q S v` counts edges from $v$ to vertices outside $S$, and is the
 relevant threshold for the superstability condition.
 -/
 
@@ -649,8 +649,8 @@ lemma burn_flow_directed {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list
       simp [h_uv',h_uv, h_full v]
 
 /-- For any vertex $v \ne q$ in a burn list, the in-flow into $v$ exceeds the number of
-chips at $v$. This is the key inequality used to construct the acyclic orientation from a
-maximal superstable configuration. -/
+chips at $v$. This is the key inequality used to construct an acyclic orientation from a
+superstable configuration. -/
 lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (v : G.V) (h_pres : v ∈ L.list) (h_ne : v ≠ q): ∑ (w : G.V), burn_flow L ⟨w,v⟩ > c.chips v := by
   let h_bl := L.h_burn_list
   cases h: L.list with
