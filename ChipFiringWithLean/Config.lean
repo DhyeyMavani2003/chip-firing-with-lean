@@ -338,6 +338,7 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
     intro hv_eq_q
     rw [hv_eq_q] at hv_in_S
     have h := hS_subset hv_in_S
+
     simp at h
   rw [eval_toDiv_ne_q d c h_v_ne_q]
   rw [← comp_eq S]
@@ -368,8 +369,8 @@ lemma q_reduced_toConfig_superstable (G : CFGraph) (q : G.V) (D : CFDiv G)
   rw [superstable_iff_q_reduced G q (deg D) (toConfig ⟨D, h_qred.1⟩)]
   simpa [q_reduced_toDiv_toConfig G q D h_qred] using h_qred
 
-/-- A divisor is $q$-reduced if and only if it is obtained from a superstable configuration
-by prescribing its own degree. -/
+/-- A divisor is $q$-reduced if and only if it corresponds to a superstable configuration with
+  respect to $q$. -/
 lemma q_reduced_superstable_correspondence (G : CFGraph) (q : G.V) (D : CFDiv G) :
   q_reduced G q D ↔ ∃ c : Config G q, superstable G q c ∧
   D = toDiv (deg D) c := by

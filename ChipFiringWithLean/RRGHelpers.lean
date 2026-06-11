@@ -46,7 +46,7 @@ private lemma qReducedConfig_superstable {G : CFGraph}
 
 /-- Every divisor $D$ is linearly equivalent to $c+kq$ for some superstable configuration
 $c$ and integer $k$. -/
-private lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
+lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
   ∃ (c : Config G q) (k : ℤ),
     linear_equiv G D (c.chips + k • (one_chip q)) ∧
     superstable G q c := by
@@ -430,7 +430,7 @@ theorem rank_degree_inequality
   -- Apply Dhar's algorithm to D - E to get q-reduced form
   rcases superstable_of_divisor h_conn q (D - E) with ⟨c, k, h_equiv, h_super⟩
 
-  have h_k_neg := superstable_of_divisor_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
+  have h_k_neg : k < 0 := superstable_of_divisor_negative_k G q (D - E) h_D_E_unwin c k h_equiv h_super
 
   -- Get maximal superstable c' ≥ c
   rcases maximal_superstable_exists G q c h_super with ⟨c', h_max', h_ge⟩
