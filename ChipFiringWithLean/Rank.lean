@@ -221,7 +221,7 @@ private lemma rank_exists_helper (G : CFGraph) (D : CFDiv G) (m : ℕ):  ¬ (ran
       exact ⟨r, r_le, h_rank_eq⟩
 
 /-- Every divisor has a well-defined rank: there exists an integer $r$ with $r(D)=r$. -/
-private lemma rank_exists (G : CFGraph) (D : CFDiv G) :
+lemma rank_exists (G : CFGraph) (D : CFDiv G) :
   ∃ r : ℤ, rank_eq G D r := by
   let m := (deg D).toNat + 1
   have h_not_geq : ¬(rank_geq G D m) := by
