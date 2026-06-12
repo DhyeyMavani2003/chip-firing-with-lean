@@ -5,7 +5,7 @@ This repository contains a complete formalization of the Riemann-Roch theorem fo
 Project documentation (including this project's docs and its Mathlib dependencies) is available at:
 [Chip-Firing with Lean Documentation](https://dhyeymavani.com/chip-firing-with-lean/docs/ChipFiringWithLean/RiemannRoch.html)
 
-- _Co-developed by **Dhyey Mavani** and **Nathan Pflueger**_
+_Co-developed by **Dhyey Mavani** and **Nathan Pflueger**_
 
 ## Project Structure
 
