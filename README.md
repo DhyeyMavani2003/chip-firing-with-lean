@@ -1,6 +1,6 @@
 # Chip-Firing with Lean4
 
-This repository contains a complete formalization of the Riemann-Roch theorem for graphs. It includes the necessary background on chip-firing games on multigraphs, using the Lean 4 theorem prover and the Mathlib library. It loosely follows the terminology and organization of Chapters 1 through 6 of *Divisors and Sandpiles* by [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114). We hope that this library will serve as the starting point for the formalization of other topics, such as combinatorial Brill--Noether theory, that are build on the divisor theory of finite graphs.
+This repository contains a complete formalization of the Riemann-Roch theorem for graphs. It includes the necessary background on chip-firing games on multigraphs, using the Lean 4 theorem prover and the Mathlib library. It loosely follows the terminology and organization of Chapters 1 through 5 of *Divisors and Sandpiles* by [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114). We hope that this library will serve as the starting point for the formalization of other topics, such as combinatorial Brill--Noether theory, that are build on the divisor theory of finite graphs.
 
 Project documentation (including this project's docs and its Mathlib dependencies) is available at:
 [Chip-Firing with Lean Documentation](https://dhyeymavani.com/chip-firing-with-lean/docs/ChipFiringWithLean/RiemannRoch.html)
