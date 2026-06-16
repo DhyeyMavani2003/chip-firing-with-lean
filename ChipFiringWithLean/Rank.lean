@@ -66,7 +66,7 @@ private lemma eff_of_degree_nonempty (G : CFGraph) {k : ℤ} (h_nonneg : 0 ≤ k
   refine ⟨k.toNat • one_chip v, ?_, ?_⟩
   · exact (Eff G).nsmul_mem (eff_one_chip v) k.toNat
   · simpa [deg_one_chip, Int.toNat_of_nonneg h_nonneg] using
-      (AddMonoidHom.map_nsmul deg (one_chip v) k.toNat)
+      (AddMonoidHom.map_nsmul deg k.toNat (one_chip v))
 
 /-- The relation $r(D) \ge k$: the game remains winnable after removing any effective
 divisor of degree $k$. -/

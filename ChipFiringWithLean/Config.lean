@@ -103,7 +103,7 @@ def to_qed {q : G.V} (d : ℤ) (c : Config G q) : q_eff_div G q :=
 def toConfig {q : G.V} (D : q_eff_div G q) : Config G q := {
   chips := D.D - (D.D q) • (one_chip q)
   q_zero := by
-    rw [sub_apply,smul_apply]
+    rw [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
     dsimp [one_chip]
     simp
   non_negative := by

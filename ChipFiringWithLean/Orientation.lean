@@ -752,7 +752,7 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
         linarith
     specialize E_eff v
     rw [h_σ] at E_eff
-    rw [add_apply] at E_eff
+    rw [Pi.add_apply] at E_eff
     dsimp [ordiv] at E_eff
     linarith
   -- Now we must find a source of O relative to S
@@ -944,7 +944,7 @@ $D(\mathcal{O}) + D(\overline{\mathcal{O}}) = K_G$. -/
 lemma divisor_reverse_orientation {G : CFGraph} (O : CFOrientation G)  : ordiv G O + ordiv G (O.reverse) = canonical_divisor G := by
   let O' := O.reverse
   funext v
-  rw [add_apply]
+  rw [Pi.add_apply]
   dsimp [ordiv, canonical_divisor]
   suffices indeg G O v + indeg G O' v = vertex_degree G v by
     dsimp [vertex_degree] at this ⊢
@@ -1187,11 +1187,11 @@ theorem maximal_superstable_orientation (G : CFGraph) (q : G.V) (c : Config G q)
     (h_max : maximal_superstable G c) :
     ∃ (O : CFOrientation G) (hO : acyclic_with_unique_source G O q),
       orientation_to_config G O q hO = c := by
-rcases superstable_dhar h_max.1 with ⟨O, hO, h_ge⟩
-use O, hO
-let c' := orientation_to_config G O q hO
-have h_eq := h_max.2 c' (orientation_config_superstable G O q hO) h_ge
-rw [← h_eq]
+  rcases superstable_dhar h_max.1 with ⟨O, hO, h_ge⟩
+  use O, hO
+  let c' := orientation_to_config G O q hO
+  have h_eq := h_max.2 c' (orientation_config_superstable G O q hO) h_ge
+  exact h_eq
 
 /-- The bijection between acyclic orientations with unique source $q$ and maximal
 superstable configurations.

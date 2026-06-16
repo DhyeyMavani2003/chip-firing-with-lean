@@ -121,21 +121,8 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
   simp [one_chip]
 
 
--- Properties of divisor arithmetic
-@[simp] lemma add_apply {G : CFGraph} (D₁ D₂ : CFDiv G) (v : G.V) :
-  (D₁ + D₂) v = D₁ v + D₂ v := rfl
-
-@[simp] lemma sub_apply {G : CFGraph} (D₁ D₂ : CFDiv G) (v : G.V) :
-  (D₁ - D₂) v = D₁ v - D₂ v := rfl
-
-@[simp] private lemma zero_apply {G : CFGraph} (v : G.V) :
-  (0 : CFDiv G) v = 0 := rfl
-
-@[simp] private lemma neg_apply {G : CFGraph} (D : CFDiv G) (v : G.V) :
-  (-D) v = -(D v) := rfl
-
-@[simp] lemma smul_apply {G : CFGraph} (n : ℤ) (D : CFDiv G) (v : G.V) :
-  (n • D) v = n * (D v) := rfl
+-- Properties of divisor arithmetic (add_apply, sub_apply, zero_apply, neg_apply, smul_apply
+-- are provided by Mathlib for Pi types)
 
 /-- The result of firing a vertex $v$, starting from the divisor $D$.
 
@@ -548,9 +535,7 @@ lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ :
       exact h_E2_eff
       -- deg (E₁ + one_chip v) = a + 1
       constructor
-      simp
-      simp at h_deg_E1 h_deg_E2
-      rw [h_deg_E1]
+      simp [h_deg_E1]
       -- deg E₂ = b
       constructor
       exact h_deg_E2
@@ -816,7 +801,7 @@ private lemma reduces_to_q_mono (G : CFGraph) (q : G.V) {D₁ D₂ : CFDiv G} :
     apply mul_nonneg
     linarith [h_reducer e]
     exact Int.natCast_nonneg _
-  rw [h_eq, _root_.add_apply]
+  rw [h_eq, Pi.add_apply]
   linarith
 
 /-- In a connected graph, a firing script with zero principal divisor must be constant.
@@ -1274,7 +1259,6 @@ private lemma reduction_excess_nonneg (G : CFGraph) {q : G.V} {D : CFDiv G} (h_e
   dsimp [reduction_excess]
   apply Finset.sum_nonneg
   intro v _
-  dsimp
   by_cases h_active : active G q D v
   · -- Case: v is active
     simp [h_active]
@@ -1374,7 +1358,6 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
 
     have chips_to_inactive_per_edge (u x : G.V) : ¬ active G q D x → (σ u - σ x) * ↑(num_edges G x u) ≥ 0 := by
       intro h_inactive_D
-      dsimp [D']
       simp
       apply mul_nonneg
       · -- Show σ u - σ x ≥ 0

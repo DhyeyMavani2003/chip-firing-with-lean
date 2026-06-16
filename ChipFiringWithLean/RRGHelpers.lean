@@ -59,7 +59,7 @@ lemma superstable_of_divisor {G : CFGraph} (h_conn : graph_connected G) (q : G.V
   ·
     have h := (qReducedRep_spec h_conn q D).1
     rw [q_reduced_eq_chips_add_q G q (qReducedRep h_conn q D) (qReducedRep_spec h_conn q D).2] at h
-    simpa [D', c] using h
+    exact h
   ·
     simpa [c] using qReducedConfig_superstable h_conn q D
 
@@ -107,7 +107,7 @@ private lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D
     · intro v hv
       have h_v_ne_q : v ≠ q := by
         exact Set.mem_setOf.mp hv
-      rw [add_apply]
+      rw [Pi.add_apply]
       simp [h_v_ne_q]
       apply h_qred.1 v hv
     · intro S hS_subset hS_nonempty
@@ -129,7 +129,7 @@ private lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D
       simp at hv_in_S
   have h_nonneg : D q + 1 ≥ 0 := by
     have h := h_eff q
-    rw [add_apply] at h
+    rw [Pi.add_apply] at h
     simp at h
     exact h
   linarith
@@ -453,7 +453,7 @@ lemma moderator_of_unwinnable {G : CFGraph} (h_conn: graph_connected G) (D : CFD
       rwa [sub_eff_iff_geq]
     have src_eff : effective (-(k+1) • one_chip q)  := by
       intro v
-      rw [smul_apply]
+      rw [Pi.smul_apply, smul_eq_mul]
       apply mul_nonneg
       · -- Prove -(k + 1) ≥ 0
         linarith [h_k_neg]
