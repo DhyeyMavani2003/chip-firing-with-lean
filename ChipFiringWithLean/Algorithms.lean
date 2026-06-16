@@ -23,11 +23,24 @@ open Finset BigOperators List
 @[simp]
 def is_effective (D : CFDiv G) : Bool := decide (∀ v, D v ≥ 0)
 
+/-- A small size measure used only to set conservative default loop fuel. -/
+private def divisorMagnitude (G : CFGraph) (D : CFDiv G) : Nat :=
+  ∑ v : G.V, Int.natAbs (D v)
+
+/-- Default fuel for greedy routines, scaled by the actual chip counts in the input. -/
+private def greedyFuel (G : CFGraph) (D : CFDiv G) : Nat :=
+  (Fintype.card G.V + 1) * (divisorMagnitude G D + 1) ^ 2 + 1
+
+/-- Number of chips away from the source, used for the q-reduction loop budget. -/
+private def nonSourceChipCount (G : CFGraph) (q : G.V) (D : CFDiv G) : Nat :=
+  ∑ v ∈ Finset.univ.erase q, Int.toNat (D v)
+
 /--
 The greedy algorithm for the dollar game (Corry-Perkinson, Algorithm 1).
 
-The algorithm repeatedly chooses an in-debt vertex $v$ that has not borrowed yet
-($v \notin M$), performs a borrowing move at $v$, and adds $v$ to $M$.
+The algorithm repeatedly chooses an in-debt vertex $v$, performs a borrowing move
+at $v$, and records in $M$ that $v$ has borrowed at least once. Vertices already
+in $M$ may still need to borrow again.
 Returns `(winnable, script)` where `winnable` is true if an effective divisor is reached,
 and `script` is the net borrowing count for each vertex if winnable.
 -/
@@ -38,22 +51,22 @@ noncomputable def greedyWinnable (G : CFGraph) (D : CFDiv G) : Bool × Option (C
     else if is_effective current_D then (true, some script)
     else if M = Finset.univ then (false, none) -- All vertices borrowed, still not effective
     else
-      -- Find a vertex v such that D(v) < 0 and v ∉ M
-      -- Use Finset set difference.
-      match (Finset.univ \ M).toList.find? (fun v => current_D v < 0) with
+      -- Find any in-debt vertex. The marked set only records which vertices have
+      -- borrowed at least once; it does not prevent a vertex from borrowing again.
+      match Finset.univ.toList.find? (fun v => current_D v < 0) with
       | some v =>
           let next_D := borrowing_move G current_D v
-          let next_M := insert v M -- Correct insert syntax
+          let next_M := insert v M
           -- Update script: decrement count for borrowing vertex v
           let next_script : CFDiv G := script - one_chip v
           loop next_D next_M next_script (fuel - 1)
-      | none => -- No vertex in `G.V \ M` is in debt, but `D` is not effective.
+      | none => -- No vertex is in debt, but `D` is not effective.
           -- This state implies unwinnability because we can't make progress.
           (false, none)
   termination_by fuel
   decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
   -- Initial call with generous fuel
-  let max_fuel := Fintype.card G.V * Fintype.card G.V
+  let max_fuel := greedyFuel G D
   loop D ∅ (0 : CFDiv G) max_fuel -- Initialize script as (0 : CFDiv G)
 
 /--
@@ -119,9 +132,9 @@ noncomputable def fireSet (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G
 /--
 The preprocessing step for `findQReducedDivisor`.
 
-This fires $q$ repeatedly until $D(v) \ge 0$ for all $v \ne q$ (cf. Corry-Perkinson,
-Algorithm 4, which reaches the same state via borrowing moves).
-Requires sufficient total degree in the graph. Uses fuel for termination guarantee.
+This borrows greedily at in-debt non-source vertices until $D(v) \ge 0$ for all
+$v \ne q$ (Corry-Perkinson, Algorithm 4).
+Requires sufficient fuel for the termination guard.
 Returns `none` if fuel runs out, implying potential unwinnability or insufficient fuel.
 -/
 noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (max_fuel : Nat) : Option (CFDiv G) :=
@@ -133,9 +146,9 @@ noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (
       -- Use `find?` to efficiently check for a negative vertex
       match non_q_vertices.toList.find? (fun v => current_D v < 0) with
       | none => some current_D -- Goal reached: all v != q are non-negative
-      | some _ => -- Found a vertex v != q with current_D v < 0
-          -- Fire q and continue
-          loop (firing_move G current_D q) (fuel - 1)
+      | some v => -- Found a vertex v != q with current_D v < 0
+          -- Borrow at the in-debt non-source vertex and continue.
+          loop (borrowing_move G current_D v) (fuel - 1)
   termination_by fuel
   decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
   loop D max_fuel
@@ -144,8 +157,9 @@ noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (
 Finds the unique $q$-reduced divisor linearly equivalent to $D$ (Corry-Perkinson,
 Algorithm 3).
 
-Starting from $D$, the algorithm first preprocesses by firing $q$ until all other
-vertices are nonnegative. It then repeatedly finds the maximal legal firing set
+Starting from $D$, the algorithm first preprocesses by borrowing greedily at
+in-debt non-source vertices until all vertices other than $q$ are nonnegative.
+It then repeatedly finds the maximal legal firing set
 $S \subseteq V(G) \setminus \{q\}$ using `dharBurningSet`, and fires $S$ until
 `dharBurningSet` returns the empty set.
 
@@ -153,10 +167,9 @@ Returns `none` if preprocessing fails (fuel exhaustion or insufficient degree).
 -/
 @[simp]
 noncomputable def findQReducedDivisor (G : CFGraph) (q : G.V) (D : CFDiv G) : Option (CFDiv G) :=
-  -- Preprocessing: Fire q until D(v) >= 0 for v != q
-  -- Use a large fixed Nat fuel amount.
-  -- Use a fixed natural-number fuel bound.
-  let preprocess_fuel : Nat := Fintype.card G.V * Fintype.card G.V * Fintype.card G.V
+  -- Preprocessing: borrow at in-debt non-source vertices until D(v) >= 0 for v != q.
+  -- Use chip-size-aware fuel rather than a graph-size-only bound.
+  let preprocess_fuel : Nat := greedyFuel G D
   match makeNonNegativeExceptQ G q D preprocess_fuel with
   | none => none -- Preprocessing failed
   | some D_preprocessed =>
@@ -175,8 +188,8 @@ noncomputable def findQReducedDivisor (G : CFGraph) (q : G.V) (D : CFDiv G) : Op
             current_D
       termination_by fuel
       decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
-      -- Estimate fuel for main loop: Number of possible firing sets? Use a large number.
-      let main_loop_fuel := Fintype.card G.V * Fintype.card G.V * Fintype.card G.V + 1
+      -- Estimate fuel for main loop from possible q-effective non-source chip vectors.
+      let main_loop_fuel := (nonSourceChipCount G q D_preprocessed + 1) ^ Fintype.card G.V + 1
       some (loop D_preprocessed main_loop_fuel)
 
 /-- Simulates the fire spread from $q$ in Dhar's algorithm on a configuration $c$.
