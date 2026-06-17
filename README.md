@@ -2,8 +2,10 @@
 
 This repository contains a complete formalization of the Riemann-Roch theorem for graphs. It includes the necessary background on chip-firing games on multigraphs, using the Lean 4 theorem prover and the Mathlib library. It loosely follows the terminology and organization of Chapters 1 through 5 of *Divisors and Sandpiles* by [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114). We hope that this library will serve as the starting point for the formalization of other topics, such as combinatorial Brill--Noether theory, that are build on the divisor theory of finite graphs.
 
-Project documentation (including this project's docs and its Mathlib dependencies) is available at:
+> Project documentation (including this project's docs and its Mathlib dependencies) is available at:
 [Chip-Firing with Lean Documentation](https://dhyeymavani.com/chip-firing-with-lean/docs/ChipFiringWithLean/RiemannRoch.html)
+>
+> Preprint (published in arXiv, under-review at Annals of Formalized Mathematics) is available at: [arXiv Preprint ](https://arxiv.org/abs/2606.16679)
 
 _Co-developed by **Dhyey Mavani** and **Nathan Pflueger**_
 
@@ -63,3 +65,16 @@ For futher information about working with Lean4/Mathlib projects, consult the [M
 
 ### Contact
 For questions, contributions, or collaboration, please reach out to [Dhyey Mavani](mailto:ddmavani2003@gmail.com) and [Nathan Pflueger](mailto:npflueger@amherst.edu).
+
+### Citation Format
+```
+@misc{mavani2026formalizingchipfiringriemannrochgraphs,
+      title={Formalizing chip-firing and Riemann--Roch for graphs in Lean 4}, 
+      author={Dhyey Dharmendrakumar Mavani and Nathan Pflueger},
+      year={2026},
+      eprint={2606.16679},
+      archivePrefix={arXiv},
+      primaryClass={math.CO},
+      url={https://arxiv.org/abs/2606.16679}, 
+}
+```
