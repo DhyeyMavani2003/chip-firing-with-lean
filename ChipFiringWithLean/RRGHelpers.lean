@@ -106,7 +106,7 @@ private lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D
     constructor
     · intro v hv
       have h_v_ne_q : v ≠ q := by
-        exact Set.mem_setOf.mp hv
+        exact Set.mem_ofPred.mp hv
       rw [Pi.add_apply]
       simp [h_v_ne_q]
       apply h_qred.1 v hv

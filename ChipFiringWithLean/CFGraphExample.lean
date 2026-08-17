@@ -161,5 +161,6 @@ def non_q_reduced_example : CFDiv example_graph := fun v => match v with
 
 private theorem non_q_reduced_example_is_invalid : ¬q_reduced example_graph Person.A non_q_reduced_example := by {
   rintro ⟨h1, _⟩
-  simpa [non_q_reduced_example] using h1 Person.B (by simp)
+  have h1' : ∀ v : Person, v ≠ Person.A → non_q_reduced_example v ≥ 0 := h1
+  simpa [non_q_reduced_example] using h1' Person.B (by decide)
 }

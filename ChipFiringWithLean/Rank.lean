@@ -278,8 +278,8 @@ private lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
 /-- A divisor is winnable if and only if it is linearly equivalent to an effective divisor. -/
 lemma winnable_iff_exists_effective (G : CFGraph) (D : CFDiv G) :
   winnable G D ↔ ∃ D' : CFDiv G, effective D' ∧ linear_equiv G D D' := by
-  unfold winnable Eff
-  simp
+  simp [winnable]
+
 
 /-- There is an effective divisor $E$ of degree $r(D)+1$ such that $D-E$ is not winnable. -/
 lemma rank_get_effective (G : CFGraph) (D : CFDiv G) :

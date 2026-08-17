@@ -1,5 +1,5 @@
 name = "chip-firing-with-lean"
-version = "0.1.0"
+version = "1.1.1"
 keywords = ["math"]
 defaultTargets = ["ChipFiringWithLean"]
 
@@ -9,7 +9,7 @@ name = "ChipFiringWithLean"
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.31.0-rc2"
+rev = "v4.33.0"
 
 [[require]]
 name = "Paperproof"
