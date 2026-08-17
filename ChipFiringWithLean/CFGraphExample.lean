@@ -1,6 +1,5 @@
 import ChipFiringWithLean.Basic
 import Mathlib.LinearAlgebra.Matrix.Symmetric
--- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -15,7 +14,8 @@ instance : Fintype Person where
   elems := {Person.A, Person.B, Person.C, Person.E}
   complete := by
     intro x
-    cases x <;> simp
+    cases x <;> simp only [mem_insert, reduceCtorEq, Finset.mem_singleton, or_false, or_true,
+        or_self]
 instance : Nonempty Person := ⟨Person.A⟩
 
 -- Example usage for `Person` in a loopless graph.
@@ -162,5 +162,6 @@ def non_q_reduced_example : CFDiv example_graph := fun v => match v with
 private theorem non_q_reduced_example_is_invalid : ¬q_reduced example_graph Person.A non_q_reduced_example := by {
   rintro ⟨h1, _⟩
   have h1' : ∀ v : Person, v ≠ Person.A → non_q_reduced_example v ≥ 0 := h1
-  simpa [non_q_reduced_example] using h1' Person.B (by decide)
+  simpa only [non_q_reduced_example, Int.reduceNeg, Int.neg_nonneg, Int.reduceLE]
+      using h1' Person.B (by decide)
 }

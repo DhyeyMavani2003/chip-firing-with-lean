@@ -1,5 +1,4 @@
 import ChipFiringWithLean.RRGHelpers
--- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -139,7 +138,7 @@ theorem clifford_theorem
     have h_K_minus_K : rank G (canonical_divisor G - canonical_divisor G) = 0 := by
       -- Show that this divisor is the zero divisor
       have h1 : (canonical_divisor G - canonical_divisor G) = 0 := by
-        simp
+        simp only [sub_self]
       -- Show that the zero divisor has rank 0
       have h2 : rank G 0 = 0 := zero_divisor_rank G
       -- Substitute back
@@ -156,7 +155,7 @@ theorem clifford_theorem
   -- The sum D + (K-D) = K
   have h_sum : (D + (canonical_divisor G - D)) = canonical_divisor G := by
     funext v
-    simp
+    simp only [Pi.add_apply, Pi.sub_apply, add_sub_cancel]
   rw [h_sum] at h_subadd
   rw [h_K_rank] at h_subadd
 
@@ -243,12 +242,12 @@ theorem gonality_leq_genus_add_one
   let q : G.V := Classical.arbitrary G.V
   let D : CFDiv G := (genus G + 1) • one_chip q
   have h_deg_D : deg D = genus G + 1 := by
-    dsimp [D]
+    dsimp only [D]
     rw [map_zsmul, deg_one_chip, zsmul_one]
-    simp
+    simp only [Int.cast_add, Int.cast_eq, Int.cast_one]
   have h_rank_geq : rank_geq G D 1 := by
     intro E hE
-    dsimp [eff_of_degree] at hE
+    dsimp only [eff_of_degree, Set.mem_ofPred_eq] at hE
     rcases hE with ⟨hE_eff, hE_deg⟩
     have h_deg_sub : deg (D - E) = genus G := by
       rw [deg.map_sub, h_deg_D, hE_deg]
@@ -261,7 +260,7 @@ private theorem one_le_of_gonality_leq {G : CFGraph} {k : ℤ} (h_gon : gonality
   rcases h_gon with ⟨D, h_rank, h_deg⟩
   have h_rank_geq : rank_geq G D 1 := (rank_geq_iff G D 1).mpr h_rank
   have h_deg_lower : (1 : ℤ) ≤ deg D := rank_le_degree G D 1 (by norm_num) h_rank_geq
-  simpa [h_deg] using h_deg_lower
+  simpa only [ge_iff_le, h_deg] using h_deg_lower
 
 /-- The *(divisorial) gonality* of a connected graph is the smallest degree of a divisor
 of rank at least one. -/
@@ -276,7 +275,7 @@ private lemma gonality_le_genus_add_one {G : CFGraph} (h_conn : graph_connected 
     refine ⟨1, ?_⟩
     intro k hk
     exact one_le_of_gonality_leq hk
-  dsimp [gonality, S]
+  dsimp only [gonality]
   exact csInf_le h_bdd (gonality_leq_genus_add_one h_conn)
 
 /-- The gonality of a connected graph is at least $1$. -/
@@ -285,7 +284,7 @@ private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤
   have h_nonempty : S.Nonempty := by
     refine ⟨genus G + 1, ?_⟩
     exact gonality_leq_genus_add_one h_conn
-  dsimp [gonality, S]
+  dsimp only [gonality]
   refine le_csInf h_nonempty ?_
   intro k hk
   exact one_le_of_gonality_leq hk
@@ -303,7 +302,7 @@ private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤
     exact one_le_of_gonality_leq hl
   constructor
   · intro h_geq
-    dsimp [gonality, gonality_geq, S]
+    dsimp only [gonality]
     refine le_csInf h_nonempty ?_
     intro l hl
     by_contra hlt
@@ -311,7 +310,7 @@ private lemma gonality_ge_one {G : CFGraph} (h_conn : graph_connected G) : 1 ≤
     exact h_geq l hlt' hl
   · intro h_gon l hl h_leq
     have h_inf_le : gonality h_conn ≤ l := by
-      dsimp [gonality, S]
+      dsimp only [gonality]
       exact csInf_le h_bdd h_leq
     linarith
 

@@ -1,5 +1,4 @@
 import ChipFiringWithLean.Basic
--- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -50,7 +49,7 @@ lemma maximal_unwinnable_preserved (G : CFGraph) (D1 D2 : CFDiv G) :
   · intro v
     exact winnable_equiv_winnable G (D1 + one_chip v) (D2 + one_chip v) (h_winnable_add v) <| by
       unfold linear_equiv at *
-      simpa using h_lequiv
+      simpa only [add_sub_add_right_eq_sub] using h_lequiv
 
 /-- The set of effective divisors of degree $k$.
 
@@ -65,7 +64,7 @@ private lemma eff_of_degree_nonempty (G : CFGraph) {k : ℤ} (h_nonneg : 0 ≤ k
   let v : G.V := Classical.arbitrary G.V
   refine ⟨k.toNat • one_chip v, ?_, ?_⟩
   · exact (Eff G).nsmul_mem (eff_one_chip v) k.toNat
-  · simpa [deg_one_chip, Int.toNat_of_nonneg h_nonneg] using
+  · simpa only [nsmul_eq_mul, deg_one_chip, Int.toNat_of_nonneg h_nonneg, mul_one] using
       (AddMonoidHom.map_nsmul deg k.toNat (one_chip v))
 
 /-- The relation $r(D) \ge k$: the game remains winnable after removing any effective
@@ -129,7 +128,7 @@ lemma rank_le_degree (G : CFGraph) (D : CFDiv G) : ∀ (r : ℤ), r ≥ 0 → ra
   -- Second conjunct: show that D-E is not winnable
   contrapose! h_rank
   have deg_nonneg := deg_winnable_nonneg G (D-E) h_rank
-  simp at deg_nonneg
+  simp only [map_sub, Int.sub_nonneg] at deg_nonneg
   rw [h_E_deg] at deg_nonneg
   exact deg_nonneg
 
@@ -151,13 +150,14 @@ private lemma rank_geq_trans (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
     exact h_Ediff_eff
     -- Show degree
     have E_deg := h_E_eff.right
-    simp at E_deg h_Ediff_deg ⊢
+    simp only [_root_.map_add] at E_deg h_Ediff_deg ⊢
     linarith
   . -- Show that D - (E + E_diff) is not winnable
     contrapose! h_E_nonwin
     have E_diff_winnable := winnable_of_effective G E_diff h_Ediff_eff
     have sum_winnable := winnable_add_winnable G _ _ h_E_nonwin E_diff_winnable
-    simpa [sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using sum_winnable
+    simpa only [sub_eq_add_neg, neg_add_rev, add_comm, add_left_comm, add_neg_cancel_comm_assoc]
+        using sum_winnable
 
 /-- If $r(D) \ge r_1$ holds but $r(D) \ge r_2$ does not, then $r_1 < r_2$. -/
 lemma lt_of_rank_geq_not (G : CFGraph) (D : CFDiv G) (r1 r2 : ℤ) :
@@ -172,11 +172,11 @@ private lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph) (D : CFDiv G) :
   · intro h
     rcases h with ⟨_, h_rank⟩
     contrapose! h_rank
-    simp
+    simp only [Int.reduceNeg, neg_add_cancel]
     intro E h_E
     rcases h_E with ⟨h_eff_E, h_deg_E⟩
     have E_zero := eff_degree_zero _ h_eff_E h_deg_E
-    simpa [E_zero] using h_rank
+    simpa only [E_zero, sub_zero] using h_rank
   · intro h_unwinnable
     refine ⟨rank_geq_neg G D (-1) (by norm_num), ?_⟩
     intro h_rank_geq
@@ -185,9 +185,9 @@ private lemma rank_eq_neg_one_iff_unwinnable  (G : CFGraph) (D : CFDiv G) :
     rw [sub_zero] at h_rank_geq
     apply h_rank_geq
     constructor
-    · dsimp [effective]
+    · dsimp only [effective, Pi.zero_apply]
       norm_num
-    · simp
+    · simp only [_root_.map_zero, Int.reduceNeg, neg_add_cancel]
 
 /-- The inequality $r(D)\ge 0$ holds if and only if $D$ is winnable. -/
 lemma rank_nonneg_iff_winnable (G : CFGraph) (D : CFDiv G) :
@@ -197,10 +197,11 @@ lemma rank_nonneg_iff_winnable (G : CFGraph) (D : CFDiv G) :
     specialize h_rank 0
     rw [sub_zero] at h_rank
     exact h_rank <| by
-      simp [eff_of_degree, effective]
+      simp only [eff_of_degree, effective, ge_iff_le, Set.mem_ofPred_eq, Pi.zero_apply, Std.le_refl,
+          implies_true, _root_.map_zero, and_self]
   · intro h_winnable E ⟨h_eff_E, h_deg_E⟩
     have E_zero := eff_degree_zero _ h_eff_E h_deg_E
-    simpa [E_zero] using h_winnable
+    simpa only [E_zero, sub_zero] using h_winnable
 
 /-- If $r(D) \ge m$ fails for some natural number $m$, then there exists an exact rank
 $r < m$. -/
@@ -228,8 +229,8 @@ lemma rank_exists (G : CFGraph) (D : CFDiv G) :
     intro h_rank_geq
     have h_le := rank_le_degree G D m (by linarith) h_rank_geq
     have m_ge : m ≥ deg D + 1:= by
-      dsimp [m]
-      simp
+      dsimp only [Int.natCast_add, Int.cast_ofNat_Int, m]
+      simp only [Int.ofNat_toNat, ge_iff_le, add_le_add_iff_right, le_sup_left]
     linarith
   rcases rank_exists_helper G D m h_not_geq with ⟨r, _, h_rank_eq⟩
   exact ⟨r, h_rank_eq⟩
@@ -266,7 +267,7 @@ lemma rank_geq_iff (G : CFGraph) (D : CFDiv G) (k : ℤ) :
 /-- The relation `rank_eq G D r` is equivalent to the equality `rank G D = r`. -/
 private lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
   rank_eq G D r ↔ rank G D = r := by
-  dsimp [rank_eq]
+  dsimp only [rank_eq]
   have split_eq x: x = r ↔ (x ≥ r ∧ ¬(x ≥ r + 1)) := by
     rw [not_le]
     rw [Int.lt_add_one_iff]
@@ -278,14 +279,14 @@ private lemma rank_eq_iff (G : CFGraph) (D : CFDiv G) (r : ℤ) :
 /-- A divisor is winnable if and only if it is linearly equivalent to an effective divisor. -/
 lemma winnable_iff_exists_effective (G : CFGraph) (D : CFDiv G) :
   winnable G D ↔ ∃ D' : CFDiv G, effective D' ∧ linear_equiv G D D' := by
-  simp [winnable]
+  simp only [winnable, mem_Eff]
 
 
 /-- There is an effective divisor $E$ of degree $r(D)+1$ such that $D-E$ is not winnable. -/
 lemma rank_get_effective (G : CFGraph) (D : CFDiv G) :
   ∃ E : CFDiv G, effective E ∧ deg E = rank G D + 1 ∧ ¬(winnable G (D-E)) := by
   obtain ⟨_, h_r_not_geq⟩ := rank_spec G D
-  dsimp [rank_geq] at h_r_not_geq
+  dsimp only [rank_geq] at h_r_not_geq
   push Not at h_r_not_geq
   rcases h_r_not_geq with ⟨E, ⟨h_E_eff, h_E_deg⟩, h_E_not_winnable⟩
   exact ⟨E, h_E_eff, h_E_deg, h_E_not_winnable⟩
@@ -318,9 +319,10 @@ lemma zero_divisor_rank (G : CFGraph) : rank G (0:CFDiv G) = 0 := by
   rw [← rank_eq_iff]
   constructor
   have h_eff : effective (0:CFDiv G) := by
-    simp [effective]
+    simp only [effective, Pi.zero_apply, ge_iff_le, Std.le_refl, implies_true]
   rw [rank_nonneg_iff_winnable G (0:CFDiv G)]
   exact winnable_of_effective G (0:CFDiv G) h_eff
   have ineq := rank_le_degree G (0:CFDiv G) 1 (by norm_num)
-  simp [deg] at ineq
+  simp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.zero_apply, sum_const_zero, Int.reduceLE,
+      imp_false] at ineq
   exact ineq

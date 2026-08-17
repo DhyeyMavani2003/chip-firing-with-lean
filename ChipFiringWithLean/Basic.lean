@@ -3,10 +3,8 @@ import Mathlib.Algebra.Group.Subgroup.Finite
 import Mathlib.Analysis.Normed.Ring.Lemmas
 import Mathlib.Data.Matrix.Mul
 
--- import Paperproof
 
 set_option linter.unusedVariables false
-set_option trace.split.failure true
 set_option linter.unusedSectionVars false
 
 universe u
@@ -65,7 +63,7 @@ def genus (G : CFGraph) : ℤ :=
 /-- The number of edges between two vertices is symmetric (the graph is undirected). -/
 lemma num_edges_symmetric (G : CFGraph) (v w : G.V) :
   num_edges G v w = num_edges G w v := by
-  simp [num_edges, Or.comm]
+  simp only [num_edges, Or.comm]
 
 /-- Numerical version of *loopless*: the number of edges from a vertex to itself is zero. -/
 @[simp] lemma num_edges_self_zero (G : CFGraph) (v : G.V) :
@@ -110,15 +108,15 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
   fun v => if v = v_chip then 1 else 0
 
 -- Canonical simplifications for evaluations of one_chip.
-@[simp] private lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
+@[simp] lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
   exact if_pos rfl
 @[simp] lemma one_chip_apply_other {G : CFGraph} (v w : G.V) : v ≠ w → one_chip v w = 0 := by
-  simp [one_chip]
+  simp only [ne_eq, one_chip, ite_eq_right_iff, one_ne_zero, imp_false]
   intro h
   contrapose! h
   rw [h]
-@[simp] private lemma one_chip_apply_other' {G : CFGraph} (v w : G.V) : w ≠ v → one_chip v w = 0 := by
-  simp [one_chip]
+@[simp] lemma one_chip_apply_other' {G : CFGraph} (v w : G.V) : w ≠ v → one_chip v w = 0 := by
+  simp only [ne_eq, one_chip, ite_eq_right_iff, one_ne_zero, imp_false, imp_self]
 
 
 -- Properties of divisor arithmetic (add_apply, sub_apply, zero_apply, neg_apply, smul_apply
@@ -181,21 +179,22 @@ private lemma mem_principal_divisors_firing_vector (G : CFGraph) (v : G.V) :
 /-- Linear equivalence is reflexive. -/
 @[refl] lemma linear_equiv.refl (G : CFGraph) (D : CFDiv G) : linear_equiv G D D := by
   unfold linear_equiv
-  simp
+  simp only [sub_self, zero_mem]
 
 /-- Linear equivalence is symmetric. -/
 @[symm] lemma linear_equiv.symm {G : CFGraph} {D D' : CFDiv G} :
   linear_equiv G D D' → linear_equiv G D' D := by
   intro h
   unfold linear_equiv at *
-  simpa [sub_eq_add_neg] using AddSubgroup.neg_mem (principal_divisors G) h
+  simpa only [sub_eq_add_neg, neg_add_rev, neg_neg]
+      using AddSubgroup.neg_mem (principal_divisors G) h
 
 /-- Linear equivalence is transitive. -/
 @[trans] lemma linear_equiv.trans {G : CFGraph} {D₁ D₂ D₃ : CFDiv G} :
   linear_equiv G D₁ D₂ → linear_equiv G D₂ D₃ → linear_equiv G D₁ D₃ := by
   intro h1 h2
   unfold linear_equiv at *
-  simpa [sub_eq_add_neg, add_assoc, add_left_comm, add_comm] using
+  simpa only [sub_eq_add_neg, add_comm, add_left_comm, add_assoc, add_neg_cancel_comm_assoc] using
     AddSubgroup.add_mem (principal_divisors G) h2 h1
 
 /-- Linear equivalence is an equivalence relation on $\operatorname{Div}(G)$. -/
@@ -222,11 +221,11 @@ def prin (G : CFGraph) : firing_script G →+ CFDiv G :=
     toFun := fun σ v => ∑ u : G.V, (σ u - σ v) * (num_edges G v u),
     map_zero' := by
       funext v
-      simp,
+      simp only [Pi.zero_apply, sub_self, zero_mul, sum_const_zero],
     map_add' := by
       intro σ₁ σ₂
       funext v
-      dsimp
+      dsimp only [Pi.add_apply]
       rw [← Finset.sum_add_distrib]
       apply sum_congr rfl
       intro u _
@@ -250,33 +249,35 @@ lemma principal_iff_eq_prin (G : CFGraph) (D : CFDiv G) :
       use σ
       unfold firing_vector prin
       funext w
-      dsimp [σ]
+      dsimp only [AddMonoidHom.coe_mk, ZeroHom.coe_mk, σ]
       by_cases h_eq : w = v
       . -- Case w = v
-        simp [h_eq]
+        simp only [h_eq, ↓reduceIte]
         unfold vertex_degree
         rw [← Finset.sum_neg_distrib]
         apply Finset.sum_congr rfl
         intro u _
-        by_cases h_eq2 : u = v <;> simp [h_eq2]
+        by_cases h_eq2 : u = v <;> simp only [h_eq2, num_edges_self_zero, CharP.cast_eq_zero,
+            neg_zero, ↓reduceIte, sub_self, mul_zero, zero_sub, Int.reduceNeg, neg_mul, one_mul]
       . -- Case w ≠ v
-        simp [h_eq, num_edges_symmetric G v w]
+        simp only [h_eq, ↓reduceIte, num_edges_symmetric G v w, sub_zero, ite_mul, one_mul,
+            zero_mul, sum_ite_eq', mem_univ]
     . -- Case 2: h_inp is zero divisor
       use 0
-      simp
+      simp only [_root_.map_zero]
     . -- Case 3: h_inp is a sum of two principal divisors
       intros x y _ _ h_x_prin h_y_prin
       rcases h_x_prin with ⟨σ₁, h_x_eq⟩
       rcases h_y_prin with ⟨σ₂, h_y_eq⟩
       rw [h_x_eq, h_y_eq]
       use σ₁ + σ₂
-      simp
+      simp only [_root_.map_add]
     . -- Case 4: h_inp is negation of a principal divisor
       intro x _ h_x_prin
       rcases h_x_prin with ⟨σ, h_x_eq⟩
       use -σ
       rw [h_x_eq]
-      simp
+      simp only [map_neg]
   . -- Backward direction
     intro h_prin
     rcases h_prin with ⟨σ, h_eq⟩
@@ -291,26 +292,27 @@ lemma principal_iff_eq_prin (G : CFGraph) (D : CFDiv G) :
       rw [h_eq]
       funext v
       -- expand the definition of D₁
-      dsimp [D₁]
+      dsimp only [AddMonoidHom.coe_mk, ZeroHom.coe_mk, D₁]
       unfold firing_vector
       -- Move that v into the sum on the left side
       simp only [Finset.sum_apply]
-      simp
+      simp only [Pi.smul_apply, Int.zsmul_eq_mul, mul_ite, mul_neg]
       have: ∀ (u : G.V), (σ u - σ v) * ↑(num_edges G v u) = σ u * ↑(num_edges G v u) - σ v * ↑(num_edges G v u) := by intro u; ring
       simp only [this]
 
       have h (x : G.V) : (if v = x then -(σ x * vertex_degree G x) else σ x * ↑(num_edges G x v) ) = σ x * (↑(num_edges G x v) ) - σ x * ( (if v = x then vertex_degree G x else 0))  := by
-        by_cases h : v = x <;> simp [h]
+        by_cases h : v = x <;> simp only [h, ↓reduceIte, mul_zero, sub_zero, num_edges_self_zero,
+            CharP.cast_eq_zero, zero_sub]
 
       simp only [h]
       rw [Finset.sum_sub_distrib, Finset.sum_sub_distrib]
       suffices ∑ x : G.V, σ x * (if v = x then vertex_degree G x else 0) = ∑ x : G.V, (σ v * ↑(num_edges G v x)) by
         rw [this]
-        simp [num_edges_symmetric]
+        simp only [num_edges_symmetric]
 
-      dsimp [vertex_degree]
+      dsimp only [vertex_degree]
       rw [← Finset.mul_sum]
-      simp
+      simp only [mul_ite, mul_zero, sum_ite_eq, mem_univ, ↓reduceIte]
     rw [← D_eq]
     exact D1_principal
 
@@ -338,18 +340,18 @@ def effective {G : CFGraph} (D : CFDiv G) : Prop :=
 def Eff (G : CFGraph) : AddSubmonoid (CFDiv G) :=
   { carrier := {D : CFDiv G | effective D},
     zero_mem' := by
-      simp [effective]
+      simp only [effective, ge_iff_le, Set.mem_ofPred_eq, Pi.zero_apply, Std.le_refl, implies_true]
     add_mem' := by
       intro D₁ D₂ h_eff1 h_eff2 v
       exact add_nonneg (h_eff1 v) (h_eff2 v) }
 
-@[simp] private lemma mem_Eff {G : CFGraph} {D : CFDiv G} : D ∈ Eff G ↔ effective D := Iff.rfl
+@[simp] lemma mem_Eff {G : CFGraph} {D : CFDiv G} : D ∈ Eff G ↔ effective D := Iff.rfl
 
 /-- A one-chip divisor is effective. -/
 lemma eff_one_chip {G : CFGraph} (v : G.V) : effective (one_chip v) := by
   intro w
-  dsimp [one_chip]
-  by_cases h_eq : w = v <;> simp [h_eq]
+  dsimp only [one_chip]
+  by_cases h_eq : w = v <;> simp only [h_eq, ↓reduceIte, ge_iff_le, Std.le_refl, zero_le_one]
 
 /-- The divisor $D_1-D_2$ is effective if and only if $D_1 \ge D_2$. -/
 lemma sub_eff_iff_geq {G : CFGraph} (D₁ D₂ : CFDiv G) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ :=
@@ -380,14 +382,14 @@ See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.4. -/
 def deg {G : CFGraph} : CFDiv G →+ ℤ := {
   toFun := λ D => ∑ v, D v,
   map_zero' := by
-    simp [Finset.sum_const_zero],
+    simp only [Pi.zero_apply, sum_const_zero],
   map_add' := by
     intro D₁ D₂
-    simp [Finset.sum_add_distrib],
+    simp only [Pi.add_apply, sum_add_distrib],
 }
 
 @[simp] lemma deg_one_chip {G : CFGraph} (v : G.V) : deg (one_chip v) = 1 := by
-  simp [deg, one_chip]
+  simp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk, one_chip, sum_ite_eq', mem_univ, ↓reduceIte]
 
 /-- Effective divisors have nonnegative degree. -/
 lemma deg_of_eff_nonneg (D : CFDiv G) :
@@ -400,21 +402,22 @@ lemma eff_degree_zero (D : CFDiv G) : effective D → deg D = 0 → D = 0 := by
   intro h_eff h_deg
   funext v
   exact (Finset.sum_eq_zero_iff_of_nonneg (fun w _ => h_eff w)).1
-    (by simpa [deg] using h_deg) v (Finset.mem_univ v)
+    (by simpa only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk] using h_deg) v (Finset.mem_univ v)
 
 /-- The degree of a firing vector is zero. -/
 private lemma deg_firing_vector_eq_zero (G : CFGraph) (v_fire : G.V) :
   deg (firing_vector G v_fire) = 0 := by
-  dsimp [deg, firing_vector]
+  dsimp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk, firing_vector]
   rw [Finset.sum_ite]
   have h_filter_eq_single : Finset.filter (fun x => x = v_fire) univ = {v_fire} := by
-    ext x; simp [eq_comm]
+    ext x; simp only [eq_comm, Finset.mem_filter, mem_univ, true_and, Finset.mem_singleton]
   rw [h_filter_eq_single, Finset.sum_singleton]
   have h_filter_eq_erase : Finset.filter (fun x => ¬x = v_fire) univ = Finset.univ.erase v_fire := by
     ext x
-    simp only [Finset.mem_filter, Finset.mem_univ, Finset.mem_erase, and_true, true_and]
+    simp only [Finset.mem_filter, mem_univ, true_and, mem_erase, and_true]
   rw [h_filter_eq_erase]
-  simp [vertex_degree]
+  simp only [vertex_degree, mem_univ, sum_erase_eq_sub, num_edges_self_zero, CharP.cast_eq_zero,
+      sub_zero, neg_add_cancel]
 
 /-- Every principal divisor has degree zero. -/
 private lemma degree_of_principal_divisor_is_zero (G : CFGraph) (h : CFDiv G) :
@@ -423,7 +426,7 @@ private lemma degree_of_principal_divisor_is_zero (G : CFGraph) (h : CFDiv G) :
   refine AddSubgroup.closure_induction ?_ ?_ ?_ ?_ h_mem_princ
   · rintro x ⟨v, rfl⟩
     exact deg_firing_vector_eq_zero G v
-  · simp [deg]
+  · simp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.zero_apply, sum_const_zero]
   · intro x y _ _ hx hy
     rw [deg.map_add, hx, hy, add_zero]
   · intro x _ hx
@@ -465,7 +468,7 @@ lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ :
       use (0 : CFDiv G), E
       constructor
       -- E₁ is effective
-      dsimp [effective]
+      dsimp only [effective, Pi.zero_apply]
       intro v
       linarith
       -- E₂ is effective
@@ -473,22 +476,22 @@ lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ :
       exact h_eff
       -- deg E₁ = 0
       constructor
-      simp
+      simp only [_root_.map_zero, CharP.cast_eq_zero]
       -- deg E₂ = b
       constructor
       rw[h_deg]
-      simp
+      simp only [CharP.cast_eq_zero, zero_add]
       -- E = 0 + E
-      simp
+      simp only [zero_add]
     | succ a ha =>
     . -- Inductive step: assume P a b holds, prove P (a+1) b
-      dsimp [P] at *
+      dsimp only [Int.natCast_add, Int.cast_ofNat_Int, P] at *
       intro E E_effective E_deg
       have ex_v : ∃ (v : G.V), E v ≥ 1 := by
         by_contra h_contra
         push Not at h_contra
         have h_sum : deg E = 0 := by
-          dsimp [deg]
+          dsimp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
           rw [Finset.sum_eq_zero_iff_of_nonneg (fun v _ => E_effective v)]
           intro v hv
           have h_nonneg : 0 ≤ E v := E_effective v
@@ -500,20 +503,20 @@ lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ :
       let E' := E - one_chip v
       have h_E'_effective : effective E' := by
         intro w
-        dsimp [E']
+        dsimp only [Pi.sub_apply, E']
         by_cases hw : w = v
         · rw [hw]
           specialize hv_ge_one
-          dsimp [one_chip]
-          simp
+          dsimp only [one_chip]
+          simp only [↓reduceIte, Int.sub_nonneg]
           linarith
         · specialize E_effective w
-          dsimp [one_chip]
-          simp [hw]
+          dsimp only [one_chip]
+          simp only [hw, ↓reduceIte, sub_zero, ge_iff_le]
           linarith
       specialize ha E' h_E'_effective
       have h_deg_E' : deg E' = a + b := by
-        dsimp [E']; simp; omega
+        dsimp only [E']; simp only [map_sub, deg_one_chip]; omega
       apply ha at h_deg_E'
       rcases h_deg_E' with ⟨E₁, E₂, h_E1_eff, h_E2_eff, h_deg_E1, h_deg_E2, h_eq_split⟩
       use E₁ + one_chip v, E₂
@@ -524,23 +527,23 @@ lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ :
       exact h_E1_eff
       -- one_chip v is effective
       intro w
-      dsimp [one_chip]
-      simp
+      dsimp only [one_chip]
+      simp only [ge_iff_le]
       by_cases hw : w = v
       rw [hw]
-      simp
-      simp [hw]
+      simp only [↓reduceIte, zero_le_one]
+      simp only [hw, ↓reduceIte, Std.le_refl]
       -- E₂ is effective
       constructor
       exact h_E2_eff
       -- deg (E₁ + one_chip v) = a + 1
       constructor
-      simp [h_deg_E1]
+      simp only [_root_.map_add, h_deg_E1, deg_one_chip, Nat.cast_add, Nat.cast_one]
       -- deg E₂ = b
       constructor
       exact h_deg_E2
       -- E = (E₁ + one_chip v) + E₂
-      dsimp [E'] at h_eq_split
+      dsimp only [E'] at h_eq_split
       rw [add_assoc, add_comm (one_chip v), ← add_assoc, ← h_eq_split]
       abel
 
@@ -602,22 +605,22 @@ lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Fin
     -- Verify second part
     intro v h_neg
     rw [h]
-    simp
+    simp only [mem_univ]
   · -- Case: S ≠ G.V
     let h_conn' := h_conn -- Unsimplified copy for later
-    dsimp [graph_connected] at h_conn
+    dsimp only [graph_connected] at h_conn
     specialize h_conn S
     have : ∃ (v w : G.V), v ∈ S ∧ w ∉ S := by
       let v := Classical.choose h_nonempty
       have v_in_S : v ∈ S := Classical.choose_spec h_nonempty
       have : (univ \ S).Nonempty := by
         contrapose! h
-        simp at h
+        simp only [sdiff_eq_empty_iff_subset, univ_subset_iff] at h
         exact h
       let w := Classical.choose this
       have h_vw : w ∉ S := by
         have := Classical.choose_spec this
-        simp at this
+        simp only [mem_sdiff, mem_univ, true_and] at this
         exact this
       use v, w
     have h_vw := h_conn this
@@ -625,7 +628,7 @@ lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Fin
     let T := insert w S
     have h_T_nonempty : T.Nonempty := by
       use w
-      simp [T]
+      simp only [mem_insert, true_or, T]
     have ih := benevolent_of_nonempty h_conn' T h_T_nonempty
     intro D
     specialize ih D
@@ -641,7 +644,7 @@ lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Fin
       · -- Verify linear equivalence
         unfold linear_equiv
         have h_diff : E - E1 = k • fire := by
-          simp [E]
+          simp only [zsmul_eq_mul, add_sub_cancel_left, E]
         rw [h_diff]
         exact AddSubgroup.zsmul_mem _ p_f k
       · -- Verify effectiveness outside S
@@ -650,28 +653,28 @@ lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Fin
         · -- Case x = w
           exfalso
           rw [h_x_eq_w] at h_E_neg
-          dsimp [E] at h_E_neg
+          dsimp only [Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul, E] at h_E_neg
           contrapose! h_E_neg
-          simp [k]
+          simp only [k]
           by_cases h : -(E1 w) ≥ 0
           . -- Case : E1 w nonpositive
             have : max 0 (-(E1 w)) = -(E1 w) := by
-              simp; linarith
+              simp only [sup_eq_right, Int.neg_nonneg]; linarith
             rw [this]
             have : E1 w + -E1 w * fire w = (-E1 w) * (fire w -1) := by ring
             rw [this]
             apply mul_nonneg h
             -- Goal: fire w -1 ≥ 0
-            dsimp [fire, firing_vector]
+            dsimp only [firing_vector, fire]
             have : ¬ (w = v) := by
               contrapose! h_w
               rw [← h_w] at h_v
               exact h_v
-            simp [this]
+            simp only [this, ↓reduceIte, Int.sub_nonneg, Nat.one_le_cast, ge_iff_le]
             linarith [h_edge]
           . -- Case : E1 w positive
             push Not at h
-            dsimp [max]
+            dsimp only [max, Int.neg_nonneg]
             split_ifs at * with hle
             · linarith
             · simp only [zero_mul, add_zero] at *; linarith
@@ -680,28 +683,28 @@ lemma benevolent_of_nonempty {G : CFGraph} (h_conn : graph_connected G) (S : Fin
           by_contra! x_nin_S
           have h_xT : x ∉ T := by
             contrapose! x_nin_S with x_in_T
-            dsimp [T] at x_in_T
-            simp [h_x_eq_w] at x_in_T
+            dsimp only [T] at x_in_T
+            simp only [mem_insert, h_x_eq_w, false_or] at x_in_T
             exact x_in_T
           specialize h_eff_S x
           contrapose! h_eff_S
-          simp [h_xT]
+          simp only [h_xT, not_false_eq_true, and_true]
           contrapose! h_E_neg with h_E1
           -- Goal: 0 ≤ E x
-          dsimp [E]
+          dsimp only [Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul, E]
           apply add_nonneg h_E1
           -- Goal : 0 ≤ k * fire x
           apply mul_nonneg
           -- Show 0 ≤ k
-          dsimp [k]
-          simp
+          dsimp only [k]
+          simp only [le_sup_left]
           -- Show 0 ≤ fire x
-          dsimp [fire, firing_vector]
+          dsimp only [firing_vector, fire]
           have : ¬ (x = v) := by
             contrapose! x_nin_S with x_eq_v
             rw [x_eq_v]
             exact h_v
-          simp [this]
+          simp only [this, ↓reduceIte, Nat.cast_nonneg]
     rcases this with ⟨E, h_lequiv_2, h_eff_S_final⟩
     use E
     constructor
@@ -717,7 +720,7 @@ decreasing_by
   rw [h_succ]
   refine Nat.sub_succ_lt_self univ.card S.card ?_
   have : (insert w S).card ≤ (univ : Finset G.V).card := by
-    simpa using Finset.card_le_univ (insert w S)
+    simpa only [card_univ] using Finset.card_le_univ (insert w S)
   linarith
 
 /-- In a connected graph, every divisor is linearly equivalent to a $q$-effective divisor.
@@ -725,13 +728,13 @@ decreasing_by
 Equivalently, every divisor can have all of its debt concentrated at $q$. -/
 theorem q_effective_exists {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
   ∃ (E : CFDiv G), q_effective q E ∧ linear_equiv G D E := by
-  have h_bene := benevolent_of_nonempty h_conn {q} (by use q; simp) D
+  have h_bene := benevolent_of_nonempty h_conn {q} (by use q; simp only [Finset.mem_singleton]) D
   rcases h_bene with ⟨E,h_equiv, h_eff⟩
   have : q_effective q E := by
     intro v v_ne_q
     specialize h_eff v
     contrapose! h_eff
-    simp [h_eff]
+    simp only [h_eff, Finset.mem_singleton, true_and]
     exact v_ne_q
   exact ⟨E,this, h_equiv⟩
 
@@ -772,7 +775,8 @@ def reduces_to (G : CFGraph) (q : G.V) (D₁ D₂: CFDiv G) : Prop :=
 /-- The `reduces_to` relation is reflexive: any divisor reduces to itself via the zero script. -/
 private lemma reduces_to_reflexive (G : CFGraph) (q : G.V) (D : CFDiv G) :
   reduces_to G q D D := by
-  refine ⟨0, by simp [q_reducer], by simp⟩
+  refine ⟨0, by simp only [q_reducer, Pi.zero_apply, Std.le_refl, implies_true],
+      by simp only [_root_.map_zero, add_zero]⟩
 
 /-- The `reduces_to` relation is transitive: composing two $q$-reducer scripts yields a
 $q$-reducer script. -/
@@ -795,7 +799,7 @@ private lemma reduces_to_q_mono (G : CFGraph) (q : G.V) {D₁ D₂ : CFDiv G} :
   reduces_to G q D₁ D₂ → D₁ q ≤ D₂ q := by
   rintro ⟨σ, h_reducer, h_eq⟩
   have h_prin_q : (prin G σ) q ≥ 0 := by
-    dsimp [prin]
+    dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
     apply Finset.sum_nonneg
     intro e _
     apply mul_nonneg
@@ -808,15 +812,16 @@ private lemma reduces_to_q_mono (G : CFGraph) (q : G.V) {D₁ D₂ : CFDiv G} :
 This is the key step in proving antisymmetry of `reduces_to`. -/
 private lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connected G) (σ : firing_script G) : prin G σ = 0 → ∀ (v w : G.V), σ v = σ w := by
   intro zero_eq
-  let min_exists := Finset.exists_min_image Finset.univ σ (by use Classical.arbitrary G.V; simp)
+  let min_exists := Finset.exists_min_image Finset.univ σ
+    (by use Classical.arbitrary G.V; simp only [mem_univ])
   rcases min_exists with ⟨q, ⟨_,h_reducer⟩⟩
   have h_reducer : ∀ v : G.V, σ q ≤ σ v := by
     intro v; specialize h_reducer v
-    simp at h_reducer; exact h_reducer
+    simp only [mem_univ, forall_const] at h_reducer; exact h_reducer
   let S := Finset.univ.filter (λ v => σ v = σ q)
   have q_in_S : q ∈ S := by
-    dsimp [S]
-    simp
+    dsimp only [S]
+    simp only [Finset.mem_filter, mem_univ, and_self]
   have S_full : ∀ v : G.V, v ∈ S := by
     by_contra! v_nin_S
     rcases v_nin_S with ⟨v, h_v⟩
@@ -827,8 +832,8 @@ private lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connect
     have nonneg_terms: ∀ w : G.V, (σ w - σ u) * (num_edges G u w : ℤ) ≥ 0 := by
       intro w
       have h_σw_ge_σu : σ w - σ u ≥ 0 := by
-        dsimp [S] at h_u_in_S h_w_nin_S
-        simp at h_u_in_S
+        dsimp only [S] at h_u_in_S h_w_nin_S
+        simp only [Finset.mem_filter, mem_univ, true_and] at h_u_in_S
         specialize h_reducer w
         linarith
       apply Int.mul_nonneg h_σw_ge_σu (Nat.cast_nonneg _)
@@ -836,8 +841,8 @@ private lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connect
       use w
       apply Int.mul_pos
       · -- Show σ w - σ u > 0
-        dsimp [S] at h_u_in_S h_w_nin_S
-        simp at h_u_in_S h_w_nin_S
+        dsimp only [S] at h_u_in_S h_w_nin_S
+        simp only [Finset.mem_filter, mem_univ, true_and] at h_u_in_S h_w_nin_S
         specialize h_reducer w
         rw [h_u_in_S]
         apply lt_of_le_of_ne at h_reducer
@@ -847,24 +852,24 @@ private lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connect
         apply h_reducer at this
         linarith
       · -- Show num_edges G u w > 0
-        simp [h_edge]
+        simp only [Int.natCast_pos, h_edge]
     have : ∑ u_1 : G.V, (σ u_1 - σ u) * ↑(num_edges G u u_1) >0 := by
       apply Finset.sum_pos'
       intro i _
       exact nonneg_terms i
       rcases pos_term with ⟨w, h_pos⟩
       use w
-      simp
+      simp only [mem_univ, true_and]
       exact h_pos
     -- apply zero_eq at u
     have zero_eq_at_u: (prin G) σ u = 0 := by
-      simp [zero_eq]
-    dsimp [prin] at zero_eq_at_u
+      simp only [zero_eq, Pi.zero_apply]
+    dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk] at zero_eq_at_u
     linarith [zero_eq_at_u]
   intro v w
   have eq_q : ∀ v : G.V, σ v = σ q := by
     intro v; specialize S_full v
-    dsimp [S] at S_full; simp at S_full
+    dsimp only [S] at S_full; simp only [Finset.mem_filter, mem_univ, true_and] at S_full
     exact S_full
   rw [eq_q v, eq_q w]
 
@@ -880,8 +885,8 @@ private lemma prin_eq_zero_of_two_sided_reducer (G : CFGraph) (q : G.V) (σ : fi
     linarith [h₁ v]
   funext v
   unfold prin
-  dsimp
-  simp [h_const]
+  dsimp only [AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.zero_apply]
+  simp only [h_const, sub_self, zero_mul, sum_const_zero]
 
 /-- In a connected graph, the `reduces_to` relation is antisymmetric, completing the proof
 that it is a partial order on $q$-effective divisors. -/
@@ -893,7 +898,7 @@ private lemma reduces_to_antisymmetric {G : CFGraph} (h_conn : graph_connected G
   rw [h_D2_eq, add_assoc, ← (prin G).map_add] at h_D1_eq
   let σ := σ₁ + σ₂
   have prin_sum_zero : prin G (σ) = 0 := by
-    simp at h_D1_eq
+    simp only [_root_.map_add, left_eq_add] at h_D1_eq
     rw [← (prin G).map_add] at h_D1_eq
     exact h_D1_eq
 
@@ -904,14 +909,14 @@ private lemma reduces_to_antisymmetric {G : CFGraph} (h_conn : graph_connected G
     intro v
     repeat rw [Pi.neg_apply]
     specialize h_reducer_2 v
-    dsimp [σ] at prin_sum_zero
+    dsimp only [Pi.add_apply, σ] at prin_sum_zero
     specialize prin_sum_zero q v
     linarith
   have h_prin_zero : prin G σ₁ = 0 :=
     prin_eq_zero_of_two_sided_reducer G q σ₁ h_reducer_1 h_reducer_1'
   rw [h_prin_zero] at h_D2_eq
   rw [h_D2_eq]
-  simp
+  simp only [add_zero]
 
 /-!
 ## q-reduced divisors
@@ -946,58 +951,61 @@ def q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) : Prop :=
 /-- Any firing script $\sigma$ attains its maximum on a nonempty set $S$, and applying
 $\sigma$ removes at least $\operatorname{outdeg}_S(v)$ chips from each $v \in S$. -/
 private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V, S.Nonempty ∧ ∀ v ∈ S, (∀ w : G.V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
-  let max_exists := Finset.exists_max_image Finset.univ σ (by use Classical.arbitrary G.V; simp)
+  let max_exists := Finset.exists_max_image Finset.univ σ
+    (by use Classical.arbitrary G.V; simp only [mem_univ])
   rcases max_exists with ⟨w, ⟨_,w_argmax⟩⟩
   let S := Finset.univ.filter (σ · = σ w)
   use S
   constructor
   -- Show S is nonempty
-  use w; dsimp [S]; simp
+  use w; dsimp only [S]; simp only [Finset.mem_filter, mem_univ, and_self]
   intro x x_in_S
   have h_x : σ x = σ w := by
-    dsimp [S] at x_in_S; simp at x_in_S; exact x_in_S
+    dsimp only [S] at x_in_S; simp only [Finset.mem_filter, mem_univ,
+        true_and] at x_in_S; exact x_in_S
 
   constructor
   -- Maximality condition
   intro y
   constructor
   · -- Show σ y ≤ σ x
-    specialize w_argmax y (by simp)
+    specialize w_argmax y (by simp only [mem_univ])
     rw [h_x]; exact w_argmax
   · -- Show that if y ∈ S, then σ y = σ x
     intro y_in_S
-    dsimp [S] at y_in_S; simp at y_in_S
+    dsimp only [S] at y_in_S; simp only [Finset.mem_filter, mem_univ, true_and] at y_in_S
     rw [h_x]; exact y_in_S
   -- Show the outdegree inequality
-  unfold prin; simp
+  unfold prin; simp only [AddMonoidHom.coe_mk, ZeroHom.coe_mk, ge_iff_le]
   rw [← Finset.sum_neg_distrib]
   rw [← Finset.sum_filter_add_sum_filter_not univ (fun x ↦ x ∉ S)]
 
   have : ∑ x_1 ∈ Finset.filter (fun x ↦ ¬x ∉ S) univ, -((σ x_1 - σ x) * ↑(num_edges G x x_1)) = 0 := by
     apply Finset.sum_eq_zero
     intro y h_y
-    have h_y : y ∈ S := by simp at h_y; exact h_y
+    have h_y : y ∈ S := by simp only [Decidable.not_not, subset_univ,
+        filter_mem_eq_of_subset] at h_y; exact h_y
     have h_σy : σ y = σ x := by
-      dsimp [S] at h_y; simp at h_y
+      dsimp only [S] at h_y; simp only [Finset.mem_filter, mem_univ, true_and] at h_y
       rw [h_x, h_y]
-    simp [h_σy]
+    simp only [h_σy, sub_self, zero_mul, neg_zero]
   rw [this, Int.add_zero]
   apply Finset.sum_le_sum
   intro u h_u_notin_S
   by_cases h : num_edges G x u = 0
   · -- Case: num_edges G x u = 0
-    simp [h]
+    simp only [h, CharP.cast_eq_zero, mul_zero, neg_zero, Std.le_refl]
   . -- Case: num_edges G x u ≠ 0
     have h : num_edges G x u > 0 := by
       exact Nat.pos_iff_ne_zero.mpr h
     suffices 1 ≤ σ x - σ u by
       rw [neg_mul_eq_neg_mul]
-      simp [h, this]
+      simp only [neg_sub, Int.natCast_pos, h, le_mul_iff_one_le_left, this]
     suffices 0 < σ x - σ u by
       exact Int.le_of_sub_one_lt this
-    dsimp [S] at h_u_notin_S; simp at h_u_notin_S
+    dsimp only [S] at h_u_notin_S; simp only [Finset.mem_filter, mem_univ, true_and] at h_u_notin_S
     rw [h_x]
-    specialize w_argmax u (by simp)
+    specialize w_argmax u (by simp only [mem_univ])
     linarith [lt_of_le_of_ne w_argmax h_u_notin_S]
 
 /-- If applying a script $\sigma$ to a $q$-effective divisor yields a $q$-reduced divisor,
@@ -1017,7 +1025,7 @@ private lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv 
     contrapose! h_q_effective with q_nin_S
     have : S ⊆ Finset.filter (fun x ↦ x ≠ q) univ := by
       intro x x_in_S
-      simp
+      simp only [ne_eq, Finset.mem_filter, mem_univ, true_and]
       contrapose! q_nin_S with x_eq_q
       rw [← x_eq_q]
       exact x_in_S
@@ -1026,9 +1034,9 @@ private lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv 
     specialize h_red this
     rcases h_red with ⟨v, v_in_S, h_debt⟩
     have dv_neg := lt_of_lt_of_le h_debt (h_S v v_in_S).2
-    simp at dv_neg
+    simp only [Pi.add_apply, map_neg, Pi.neg_apply, neg_neg, add_lt_iff_neg_right] at dv_neg
     unfold q_effective; push Not; use v
-    suffices v ≠ q by simp [this, dv_neg]
+    suffices v ≠ q by simp only [ne_eq, this, not_false_eq_true, dv_neg, and_self]
     contrapose! q_nin_S
     rw [← q_nin_S]; exact v_in_S
   have ineq : (-σ) v ≤ (-σ) q := ((h_S q q_S).1 v).1
@@ -1060,51 +1068,54 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
     have q_nin_S : q ∉ S := by
       intro h_contra
       have := h_S_subset h_contra
-      simp at this
+      simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at this
     contrapose! h_maximal with h_reduces
     let σ : firing_script G := λ v => if v ∈ S then 1 else 0
     have h_reducer : q_reducer G q σ := by
       intro v
-      dsimp [σ]
+      dsimp only [σ]
       have : q ∉ S := by
         by_contra! h_S
         apply h_S_subset at h_S
-        simp at h_S
-      simp [this]
-      by_cases h : v ∈ S <;> simp [h]
+        simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at h_S
+      simp only [this, ↓reduceIte, ge_iff_le]
+      by_cases h : v ∈ S <;> simp only [h, ↓reduceIte, Std.le_refl, zero_le_one]
     use D + prin G σ
     constructor
     · -- Show linear equivalence
-      unfold linear_equiv; simp
+      unfold linear_equiv; simp only [add_sub_cancel_left]
       apply (principal_iff_eq_prin G (prin G σ)).mpr
       use σ
     constructor
     · -- Show q_effective
       intro v v_ne_q
-      dsimp [σ, prin]
+      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply, σ]
       by_cases h_v : v ∈ S
       · -- Case: v ∈ S
-        simp [h_v]
+        simp only [h_v, ↓reduceIte, ge_iff_le]
         rw [← Finset.sum_filter_add_sum_filter_not univ (λ x => x ∈ S)]
         have : ∑ x ∈ Finset.filter (fun x ↦ x ∈ S) univ, ((if x ∈ S then (1:ℤ) else 0) - 1) * ↑(num_edges G v x) = (0 : ℤ) := by
           apply Finset.sum_eq_zero
           intro y h_y
-          have h_y_in_S : y ∈ S := by simp at h_y; exact h_y
-          simp [h_y_in_S]
+          have h_y_in_S : y ∈ S := by simp only [subset_univ,
+              filter_mem_eq_of_subset] at h_y; exact h_y
+          simp only [h_y_in_S, ↓reduceIte, sub_self, zero_mul]
         rw [this, zero_add]
         have : ∑  x ∈ Finset.filter (fun x ↦ x ∉ S) univ, ((if x ∈ S then (1:ℤ) else 0) - 1) * ↑(num_edges G v x) = - ∑ x ∈ Finset.filter (fun x ↦ x ∉ S) univ, ↑(num_edges G v x) := by
           rw [← Finset.sum_neg_distrib]
           apply Finset.sum_congr rfl
-          intro x h_x; simp at h_x; simp [h_x]
+          intro x h_x; simp only [Finset.mem_filter, mem_univ, true_and] at h_x; simp only [h_x,
+              ↓reduceIte, zero_sub, Int.reduceNeg, neg_mul, one_mul]
         rw [this]
         specialize h_reduces v h_v
         linarith
       . -- Case: v ∉ S
-        simp [h_v]
+        simp only [h_v, ↓reduceIte, sub_zero, ite_mul, one_mul, zero_mul, sum_ite_mem, univ_inter,
+            ge_iff_le]
         apply add_nonneg
         exact q_eff v v_ne_q
         apply Finset.sum_nonneg; intro w w_in_S
-        simp
+        simp only [Nat.cast_nonneg]
     . -- Show ¬ reduces_to
       by_contra! h_reduces
       have h' : reduces_to G q D (D + prin G σ) := by use σ
@@ -1120,8 +1131,8 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
       let h_v := Classical.choose_spec h_S_nonempty
       have v_S : v ∈ S := by exact h_v
       specialize prin_zero v q
-      dsimp [σ] at prin_zero
-      simp [q_nin_S, v_S] at prin_zero
+      dsimp only [σ] at prin_zero
+      simp only [v_S, ↓reduceIte, q_nin_S, one_ne_zero] at prin_zero
 
 /-- The $q$-reduced representative of an effective divisor is effective.
 
@@ -1157,18 +1168,18 @@ theorem q_reduced_unique (G : CFGraph) (q : G.V) (D₁ D₂ : CFDiv G) :
   q_reduced G q D₁ ∧ q_reduced G q D₂ ∧ linear_equiv G D₁ D₂ → D₁ = D₂ := by
   intro ⟨h_qred_1,h_qred_2,h_lequiv⟩
   unfold linear_equiv at h_lequiv
-  simp [principal_iff_eq_prin] at h_lequiv
+  simp only [principal_iff_eq_prin] at h_lequiv
   rcases h_lequiv with ⟨σ, h_D2_eq⟩
   have h_reducer_1 : q_reducer G q σ := by
     apply q_reducer_of_add_princ_reduced G q D₁ σ
     rw [← h_D2_eq]
-    simp
+    simp only [add_sub_cancel]
     exact h_qred_2
     exact h_qred_1.left
   have h_reducer_2 : q_reducer G q (-σ) := by
     apply q_reducer_of_add_princ_reduced G q D₂ (-σ)
     rw [(prin G).map_neg, ← sub_eq_add_neg]
-    simp [← h_D2_eq]
+    simp only [← h_D2_eq, sub_sub_cancel]
     exact h_qred_1
     exact h_qred_2.left
   have h_zero : prin G σ = 0 :=
@@ -1188,59 +1199,61 @@ def active (G : CFGraph) (q : G.V) (D : CFDiv G) (v : G.V) : Prop :=
 private lemma q_reduced_of_no_active (G :CFGraph) {q : G.V} {D : CFDiv G} (h_eff : q_effective q D) (h_no_active : ∀ v : G.V, ¬ active G q D v) :
   q_reduced G q D := by
   contrapose! h_no_active with h_not_q_reduced
-  dsimp [q_reduced] at h_not_q_reduced
+  dsimp only [q_reduced, ne_eq] at h_not_q_reduced
   push Not at h_not_q_reduced
   rcases h_not_q_reduced h_eff with ⟨S, h_S_subset, h_S_nonempty, h_outdeg⟩
   have q_nin_S : q ∉ S := by
     intro h_contra
     have := h_S_subset h_contra
-    simp at this
+    simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at this
   -- Construct a firing script that fires all vertices in S
   let σ : firing_script G := λ v => if v ∈ S then 1 else 0
   have h_reducer : q_reducer G q σ := by
     intro v
-    dsimp [σ]
-    simp [q_nin_S]
+    dsimp only [σ]
+    simp only [q_nin_S, ↓reduceIte]
     by_cases h : v ∈ S
-    simp [h]; simp [h]
+    simp only [h, ↓reduceIte, zero_le_one]; simp only [h, ↓reduceIte, Std.le_refl]
   use Classical.choose h_S_nonempty
   let h := Classical.choose_spec h_S_nonempty
-  dsimp [active]
+  dsimp only [active]
   use σ
   constructor
   exact h_reducer
-  dsimp [σ]
-  simp [h, q_nin_S]
+  dsimp only [σ]
+  simp only [q_nin_S, ↓reduceIte, h, zero_lt_one, and_true]
   -- Show q_effective holds
   intro x x_ne_q
-  dsimp [prin]
+  dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply]
   by_cases h_x : x ∈ S
   · -- Case: x ∈ S
-    simp [h_x]
+    simp only [h_x, ↓reduceIte, ge_iff_le]
     have simp_ite : ∀ x_1 : G.V, ((if x_1 ∈ S then 1 else 0) - 1) = -(if x_1 ∈ S then 0 else 1) := by
       intro x_1
       by_cases h_x1 : x_1 ∈ S
-      simp [h_x1]
-      simp [h_x1]
+      simp only [h_x1, ↓reduceIte, sub_self, neg_zero]
+      simp only [h_x1, ↓reduceIte, zero_sub, Int.reduceNeg]
     suffices (∑ x_1 : G.V, if x_1 ∈ S then 0 else ↑(num_edges G x x_1)) ≤ D x by
-      simp [simp_ite,this]
+      simp only [simp_ite, neg_mul, ite_mul, zero_mul, one_mul, sum_neg_distrib,
+          le_add_neg_iff_add_le, zero_add, this]
     specialize h_outdeg x h_x
     have : (∑ w ∈ Finset.filter (fun x ↦ x ∉ S) univ, ↑(num_edges G x w) : ℤ) = (∑ x_1 : G.V, if x_1 ∈ S then 0 else ↑(num_edges G x x_1)) := by
       rw [Finset.sum_filter]
       apply Finset.sum_congr rfl
       intro y _
-      simp
+      simp only [ite_not]
     rw [this] at h_outdeg
     exact h_outdeg
   · -- Case: x ∉ S
-    simp [h_x]
+    simp only [h_x, ↓reduceIte, sub_zero, ite_mul, one_mul, zero_mul, sum_ite_mem, univ_inter,
+        ge_iff_le]
     have : 0 ≤ D x := by
       apply h_eff
       exact x_ne_q
     apply add_nonneg (this)
     apply Finset.sum_nonneg
     intro w _
-    simp
+    simp only [Nat.cast_nonneg]
 
 /-- The total number of chips held at active vertices of $D$.
 
@@ -1256,20 +1269,20 @@ noncomputable def reduction_excess (G : CFGraph) (q : G.V) (D : CFDiv G) : ℤ :
 satisfy $v \ne q$ and hence $D(v) \ge 0$. -/
 private lemma reduction_excess_nonneg (G : CFGraph) {q : G.V} {D : CFDiv G} (h_eff : q_effective q D) :
   0 ≤ reduction_excess G q D := by
-  dsimp [reduction_excess]
+  dsimp only [reduction_excess]
   apply Finset.sum_nonneg
   intro v _
   by_cases h_active : active G q D v
   · -- Case: v is active
-    simp [h_active]
+    simp only [h_active, ↓reduceIte]
     apply h_eff
     intro h_contra
     rw [h_contra] at h_active
-    dsimp [active] at h_active
+    dsimp only [active] at h_active
     rcases h_active with ⟨σ, h_reducer, h_eff', h_ineq⟩
-    simp at h_ineq
+    simp only [lt_self_iff_false] at h_ineq
   · -- Case: v is not active
-    simp [h_active]
+    simp only [h_active, ↓reduceIte, Std.le_refl]
 
 /-- In a connected graph, every $q$-effective divisor is linearly equivalent to a $q$-reduced
 divisor.
@@ -1282,11 +1295,11 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
   let S := Finset.univ.filter (λ v : G.V => active G q D v)
   have q_nin_S : q ∉ S := by
     intro h_contra
-    dsimp [S] at h_contra
-    simp at h_contra
-    dsimp [active] at h_contra
+    dsimp only [S] at h_contra
+    simp only [Finset.mem_filter, mem_univ, true_and] at h_contra
+    dsimp only [active] at h_contra
     rcases h_contra with ⟨σ, h_reducer, h_ineq⟩
-    simp at h_ineq
+    simp only [lt_self_iff_false, and_false] at h_ineq
   by_cases h_S_empty : S = ∅
   · -- Case: No active vertices, so D is already q-reduced
     use D
@@ -1295,47 +1308,47 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
       apply q_reduced_of_no_active G h_eff
       intro v h_contra
       have : v ∈ S := by
-        dsimp [S]
-        simp [h_contra]
+        dsimp only [S]
+        simp only [Finset.mem_filter, mem_univ, h_contra, and_self]
       rw [h_S_empty] at this
       -- "this" is not v ∈ ∅, a contradiction
-      simp at this
+      simp only [notMem_empty] at this
     . -- Linear equivalence
       exact linear_equiv.refl G D
   · -- Case: There are active vertices. Choose one on the boundary.
     have : ∃ v : G.V, active G q D v := by
       contrapose! h_S_empty with h_no_active
-      dsimp [S]
-      simp [h_no_active]
+      dsimp only [S]
+      simp only [h_no_active, Finset.filter_false]
     rcases this with ⟨v_active, h_v_active⟩
     have : ∃ (v q : G.V), v ∈ S ∧ q ∉ S := by
       use v_active, q
-      simp [q_nin_S]
-      simp [S]
+      simp only [q_nin_S, not_false_eq_true, and_true]
+      simp only [Finset.mem_filter, mem_univ, true_and, S]
       exact h_v_active
     have := h_conn S this
     rcases this with ⟨v, v_in_S, w, w_nin_S, h_edge⟩
     -- Fire involving v to get a new divisor D'
-    simp [S] at v_in_S
-    dsimp [active] at v_in_S
+    simp only [Finset.mem_filter, mem_univ, true_and, S] at v_in_S
+    dsimp only [active] at v_in_S
     rcases v_in_S with ⟨σ, h_reducer, h_eff_S, h_ineq⟩
     let D' := D + prin G (σ)
     have D_equiv_D' : linear_equiv G D D' := by
       unfold linear_equiv
       have : D' - D = prin G σ := by
-        simp [D']
+        simp only [add_sub_cancel_left, D']
       rw [this]
       apply (principal_iff_eq_prin G (prin G σ)).mpr ⟨σ,rfl⟩
 
     -- Facts about D', needed for induction
     have h_eff' : q_effective q D' := by
       intro x x_ne_q
-      dsimp [D']
+      dsimp only [Pi.add_apply, D']
       exact h_eff_S x x_ne_q
 
     have h_active_shrinks (x : G.V): active G q D' x → active G q D x := by
       intro h_active_D'
-      dsimp [active]
+      dsimp only [active]
       rcases h_active_D' with ⟨σ', h_reducer', h_eff'', h_ineq'⟩
       use σ + σ'
       constructor
@@ -1346,7 +1359,7 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
       constructor
       · -- Show q_effective
         intro z z_ne_q
-        dsimp [D'] at h_eff''
+        dsimp only [D'] at h_eff''
         specialize h_eff'' z z_ne_q
         rw [(prin G).map_add, ← add_assoc]
         exact h_eff''
@@ -1358,11 +1371,11 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
 
     have chips_to_inactive_per_edge (u x : G.V) : ¬ active G q D x → (σ u - σ x) * ↑(num_edges G x u) ≥ 0 := by
       intro h_inactive_D
-      simp
+      simp only [ge_iff_le]
       apply mul_nonneg
       · -- Show σ u - σ x ≥ 0
         have : σ x ≤ σ q := by
-          dsimp [active] at h_inactive_D
+          dsimp only [active] at h_inactive_D
           push Not at h_inactive_D
           specialize h_inactive_D σ
           exact h_inactive_D h_reducer h_eff'
@@ -1371,30 +1384,30 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
           linarith
         linarith
       · -- Show num_edges G x u ≥ 0
-        simp
+        simp only [Nat.cast_nonneg]
 
     have chips_to_inactive (x : G.V) : ¬ active G q D x → D x ≤ D' x := by
       -- Goal: 0 ≤ ∑ (σ u - σ x) * num_edges G x u
       intro h_inactive_D
-      dsimp [D', prin]
-      simp
+      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply, D']
+      simp only [le_add_iff_nonneg_right]
       apply Finset.sum_nonneg
       intro u _
       exact chips_to_inactive_per_edge u x h_inactive_D
 
     have h_smaller : reduction_excess G q D' < reduction_excess G q D := by
-      dsimp [reduction_excess]
+      dsimp only [reduction_excess]
       repeat rw [Finset.sum_ite, Finset.sum_const_zero, add_zero]
       -- First, pass to a sum over non-active vertices
       have h (D : CFDiv G) : ∑ x ∈ Finset.filter (active G q D) univ, D x = deg D - ∑ x ∈ Finset.filter (fun v => ¬ active G q D v) univ, D x := by
-        dsimp [deg]
+        dsimp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
         rw [← Finset.sum_filter_add_sum_filter_not univ (fun v => active G q D v)]
-        simp
+        simp only [add_sub_cancel_right]
       rw [h D', h D]
       have : deg D = deg D' :=
         linear_equiv_preserves_deg G D D' D_equiv_D'
       rw [← this]
-      simp
+      simp only [sub_lt_sub_iff_left, gt_iff_lt]
       -- Write as a sum over all vertices in order to compare terms
       have h (D : CFDiv G) : ∑ x ∈ Finset.filter (fun v => ¬ active G q D v) univ, D x = ∑ x : G.V, if ¬ active G q D x then D x else 0 := by
         rw [Finset.sum_filter]
@@ -1406,36 +1419,37 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
       by_cases h_active_D' : active G q D' x
       · -- Case: x is active in D'. Then already active in D.
         have h_active_D := h_active_shrinks x h_active_D'
-        simp [h_active_D, h_active_D']
+        simp only [h_active_D, not_true_eq_false, ↓reduceIte, h_active_D', Std.le_refl]
       · -- Case: x is not active in D'.
-        simp [h_active_D']
+        simp only [ite_not, h_active_D', not_false_eq_true, ↓reduceIte]
         by_cases h_active_D : active G q D x
         · -- Subcase: x is active in D
-          simp [h_active_D]
+          simp only [h_active_D, ↓reduceIte]
           -- Show 0 ≤ D' x
           apply h_eff' x
           intro h_contra
           rw [h_contra] at h_active_D
-          dsimp [S] at q_nin_S
-          simp at q_nin_S
+          dsimp only [S] at q_nin_S
+          simp only [Finset.mem_filter, mem_univ, true_and] at q_nin_S
           contradiction
         · -- Subcase: x is not active in D either
-          simp [h_active_D]
+          simp only [h_active_D, ↓reduceIte]
           -- Show D x ≤ D' x
           exact chips_to_inactive x h_active_D
       -- Now, show that strict inequality holds for at least one term
       use w
       have h_inactive_D : ¬ active G q D w := by
-        dsimp [S] at w_nin_S
-        simp at w_nin_S
+        dsimp only [S] at w_nin_S
+        simp only [Finset.mem_filter, mem_univ, true_and] at w_nin_S
         exact w_nin_S
       have h_active_D' : ¬ active G q D' w := by
         contrapose! h_inactive_D with h_active_D'
         exact (h_active_shrinks w) h_active_D'
-      simp [h_inactive_D, h_active_D']
+      simp only [mem_univ, h_inactive_D, not_false_eq_true, ↓reduceIte, h_active_D', true_and,
+          gt_iff_lt]
       -- Show D w < D' w
-      dsimp [D', prin]
-      simp
+      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply, D']
+      simp only [lt_add_iff_pos_right]
       -- Goal: 0 < ∑ (σ u - σ w) * num_edges
       apply Finset.sum_pos'
       -- Show each term is nonnegative
@@ -1443,19 +1457,19 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
       exact chips_to_inactive_per_edge u w h_inactive_D
       -- Show at least one term is positive
       use v
-      simp
+      simp only [mem_univ, true_and]
       -- Goal: (σ v - σ w) * num_edges G w v > 0
       apply Int.mul_pos
       · -- Show σ v - σ w > 0
         have : σ w ≤ σ q := by
-          dsimp [active] at h_inactive_D
+          dsimp only [active] at h_inactive_D
           push Not at h_inactive_D
           specialize h_inactive_D σ
           exact h_inactive_D h_reducer h_eff'
         linarith [this, h_ineq]
       . -- Show num_edges G w v > 0
         rw [← num_edges_symmetric G v w]
-        simp [h_edge]
+        simp only [Int.natCast_pos, h_edge]
     have ih := q_effective_to_q_reduced h_conn h_eff'
     rcases ih with ⟨E, h_q_reduced, h_lequiv⟩
     use E
@@ -1468,8 +1482,8 @@ termination_by (reduction_excess G q D).toNat
 decreasing_by
   -- Some effort needed to deal with ℤ versus ℕ
   rw [Int.toNat_lt]
-  simp
-  dsimp [D'] at h_smaller
+  simp only [Int.ofNat_toNat, lt_sup_iff]
+  dsimp only [D'] at h_smaller
   left
   exact h_smaller
   exact reduction_excess_nonneg G h_eff'
@@ -1560,15 +1574,15 @@ private lemma sum_filter_eq_map (G : CFGraph) (M : Multiset (G.V × G.V)) (crit 
   -- Prove the rewritten goal by induction on the multiset G.edges
   induction M using Multiset.induction_on with
   | empty =>
-    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero,
-               Multiset.map_zero, Multiset.sum_zero] -- Use _zero lemmas
+    simp only [filter_zero, Multiset.card_zero, sum_const_zero, Multiset.map_zero,
+        sum_zero] -- Use _zero lemmas
   | cons e_head s_tail ih_s_tail =>
     -- Rewrite RHS: sum(map(g, e_head::s_tail)) = g e_head + sum(map(g, s_tail))
     rw [Multiset.map_cons, Multiset.sum_cons]
 
     -- Rewrite LHS: ∑ v, card(filter(P v, e_head::s_tail))
     simp_rw [← Multiset.countP_eq_card_filter]
-    simp only [Multiset.countP_cons]
+    simp only [countP_cons]
     rw [Finset.sum_add_distrib]
 
     -- Simplify the second sum (∑ v, ite (P v e_head) 1 0) to g e_head
@@ -1603,7 +1617,7 @@ private lemma edge_incident_vertices_count (G : CFGraph) (e : G.V × G.V) (he : 
   rw [Finset.card_eq_two]
   refine ⟨e.1, e.2, edge_endpoints_distinct G e he, ?_⟩
   ext v
-  simp [eq_comm]
+  simp only [eq_comm, Finset.mem_filter, mem_univ, true_and, mem_insert, Finset.mem_singleton]
 
 /-- Rewrites degree in terms of edge counts from each direction. -/
 private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
@@ -1614,10 +1628,10 @@ private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
   intro S v h_loopless
   induction S using Multiset.induction_on with
   | empty =>
-    simp only [Multiset.filter_zero, Multiset.card_zero, Finset.sum_const_zero]
+    simp only [filter_zero, Multiset.card_zero, sum_const_zero]
   | cons e_head s_tail ih_s_tail =>
     -- Rewrite both sides using the head and tail
-    simp only [Multiset.filter_cons, Multiset.card_add, sum_add_distrib]
+    simp only [Multiset.filter_cons, card_add, sum_add_distrib]
     rw [ih_s_tail]
     -- Cancel the like terms in a + b = a + c
     suffices h :
@@ -1628,33 +1642,37 @@ private lemma degree_eq_total_flow {T : Type*} [DecidableEq T] [Fintype T] :
     rcases e_head with ⟨e, f⟩
     by_cases h_ev : e = v
     · subst h_ev
-      have h_ef : e ≠ f := h_loopless (e, f) (by simp)
-      have h_fv : f ≠ e := by simpa [eq_comm] using h_ef
+      have h_ef : e ≠ f := h_loopless (e, f) (by simp only [Multiset.mem_cons, true_or])
+      have h_fv : f ≠ e := by simpa only [ne_eq, eq_comm] using h_ef
       rw [Finset.sum_eq_single f]
-      · simp
+      · simp only [Prod.mk.injEq, true_or, ↓reduceIte, Multiset.card_singleton]
       · intro x _ h_x
         have h_fx : f ≠ x := fun h => h_x h.symm
-        simp [h_fx, h_fv]
-      · simp
+        simp only [Prod.mk.injEq, h_fx, and_false, h_fv, or_self, ↓reduceIte, Multiset.card_zero]
+      · simp only [mem_univ, not_true_eq_false, Prod.mk.injEq, true_or, ↓reduceIte,
+          Multiset.card_singleton, one_ne_zero, imp_self]
     · by_cases h_fv : f = v
       · subst h_fv
         rw [Finset.sum_eq_single e]
-        · simp
+        · simp only [Prod.mk.injEq, or_true, ↓reduceIte, Multiset.card_singleton]
         · intro x _ h_x
           have h_ex : e ≠ x := fun h => h_x h.symm
-          simp [h_ev, h_ex]
-        · simp
-      · simp [h_ev, h_fv]
+          simp only [Prod.mk.injEq, h_ev, false_and, h_ex, and_true, or_self, ↓reduceIte,
+              Multiset.card_zero]
+        · simp only [mem_univ, not_true_eq_false, Prod.mk.injEq, or_true, ↓reduceIte,
+            Multiset.card_singleton, one_ne_zero, imp_self]
+      · simp only [Prod.mk.injEq, h_ev, false_and, h_fv, and_false, or_self, ↓reduceIte,
+          Multiset.card_zero, sum_const_zero]
     intro e
     specialize h_loopless e
     intro h_tail
     apply h_loopless
-    simp [h_tail]
+    simp only [Multiset.mem_cons, h_tail, or_true]
 
 -- Key lemma for handshaking theorem: Sum of edge counts equals incident edge count
 private lemma sum_num_edges_eq_filter_count (G : CFGraph) (v : G.V) :
   ∑ u, num_edges G v u = Multiset.card (G.edges.filter (λ e => e.fst = v ∨ e.snd = v)) := by
-  dsimp [num_edges]
+  dsimp only [num_edges]
   have h_loopless: ∀ e ∈ G.edges, e.1 ≠ e.2 := by
     intro e he
     exact edge_endpoints_distinct G e he

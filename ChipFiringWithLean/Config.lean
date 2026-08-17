@@ -1,5 +1,4 @@
 import ChipFiringWithLean.Basic
--- import Paperproof
 
 set_option linter.unusedVariables false
 set_option trace.split.failure true
@@ -60,7 +59,7 @@ def toDiv {G : CFGraph} {q : G.V} (d : ℤ) (c : Config G q) : CFDiv G :=
     (h : ∀ v : G.V, c₁.chips v = c₂.chips v) : c₁ = c₂ := by
   obtain ⟨vd₁, _, _⟩ := c₁
   obtain ⟨vd₂, _, _⟩ := c₂
-  simp only [Config.mk.injEq]
+  simp only [mk.injEq]
   exact funext h
 
 /-- Two configurations are equal if and only if their underlying divisors agree. -/
@@ -79,13 +78,13 @@ lemma eq_config_iff_eq_div {q : G.V} (d : ℤ) (c₁ c₂ : Config G q) : c₁ =
   apply congrFun at h_eq
   ext v
   specialize h_eq v
-  dsimp [toDiv] at h_eq
+  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul] at h_eq
   by_cases h_v : q = v
   . -- Case v = q
     rw [← h_v]
     rw [c₁.q_zero, c₂.q_zero]
   . -- Case v ≠ q
-    simp [h_v] at h_eq
+    simp only [ne_eq, h_v, not_false_eq_true, one_chip_apply_other, mul_zero, add_zero] at h_eq
     exact h_eq
 
 /-- Converts a configuration $c$ to the $q$-effective divisor `toDiv d c`,
@@ -95,8 +94,9 @@ def to_qed {q : G.V} (d : ℤ) (c : Config G q) : q_eff_div G q :=
     D := toDiv d c,
     h_eff := by
       intro v h_v
-      dsimp [toDiv]
-      simp [h_v]
+      dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul]
+      simp only [ne_eq, h_v, not_false_eq_true, one_chip_apply_other', mul_zero, add_zero,
+          ge_iff_le]
       exact c.non_negative v
   }
 /-- Converts a $q$-effective divisor to a configuration by zeroing out the chip count at $q$. -/
@@ -104,15 +104,17 @@ def toConfig {q : G.V} (D : q_eff_div G q) : Config G q := {
   chips := D.D - (D.D q) • (one_chip q)
   q_zero := by
     rw [Pi.sub_apply, Pi.smul_apply, smul_eq_mul]
-    dsimp [one_chip]
-    simp
+    dsimp only [one_chip]
+    simp only [↓reduceIte, mul_one, sub_self]
   non_negative := by
     intro v
     by_cases h_v : v = q
     · -- Case v = q
-      simp [h_v]
+      simp only [zsmul_eq_mul, h_v, Pi.sub_apply, Pi.mul_apply, Pi.intCast_apply, Int.cast_eq,
+          one_chip_apply_v, mul_one, sub_self, ge_iff_le, Std.le_refl]
     . -- Case v ≠ q
-      simp [h_v]
+      simp only [zsmul_eq_mul, Pi.sub_apply, Pi.mul_apply, Pi.intCast_apply, Int.cast_eq, ne_eq,
+          h_v, not_false_eq_true, one_chip_apply_other', mul_zero, sub_zero, ge_iff_le]
       exact D.h_eff v h_v
 }
 
@@ -124,7 +126,7 @@ lemma config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q +
 /-- Shifting the prescribed degree by $k$ adds $k$ chips at $q$. -/
 @[simp] lemma toDiv_config_degree_add {q : G.V} (c : Config G q) (k : ℤ) :
   toDiv (config_degree c + k) c = c.chips + k • one_chip q := by
-  dsimp [toDiv]
+  dsimp only [toDiv]
   rw [show config_degree c + k - config_degree c = k by ring]
 
 /-- Prescribing degree $\deg(c)-1$ gives the divisor $c-q$. -/
@@ -132,7 +134,7 @@ lemma config_degree_div_degree {q : G.V} (D : q_eff_div G q) : deg D.D = D.D q +
   toDiv (config_degree c - 1) c = c.chips - one_chip q := by
   rw [show config_degree c - 1 = config_degree c + (-1) by ring]
   rw [toDiv_config_degree_add]
-  simp [sub_eq_add_neg]
+  simp only [Int.reduceNeg, neg_smul, one_smul, sub_eq_add_neg]
 
 /-- The divisor $c-q$ has degree $\deg(c)-1$. -/
 @[simp] lemma deg_chips_sub_one_chip {q : G.V} (c : Config G q) :
@@ -144,38 +146,41 @@ divisor and back recovers the original configuration. -/
 private lemma config_of_div_of_config (c : Config G q) (d : ℤ)  :
   toConfig (to_qed d c) = c := by
   rcases c with ⟨chips, q_zero, non_negative⟩
-  dsimp [to_qed, toConfig]
-  simp
+  dsimp only [to_qed, toConfig]
+  simp only [zsmul_eq_mul, Config.mk.injEq]
   apply funext
   intro v
   by_cases h_v : v = q
   . -- Case v = q
-    simp [h_v]
+    simp only [h_v, Pi.sub_apply, Pi.mul_apply, Pi.intCast_apply, Int.cast_eq, one_chip_apply_v,
+        mul_one, sub_self]
     rw [q_zero]
   . -- Case v ≠ q
-    dsimp [toDiv, one_chip]
-    simp [h_v]
+    dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, one_chip, Int.zsmul_eq_mul, Pi.sub_apply,
+        Pi.mul_apply, Pi.intCast_apply, Int.cast_eq]
+    simp only [h_v, ↓reduceIte, mul_zero, add_zero, mul_one, sub_zero]
 
 /-- `to_qed` is a left inverse of `toConfig` at the correct degree: converting a $q$-effective
 divisor to a configuration and back via `toDiv (deg D.D)` recovers the original divisor. -/
 lemma div_of_config_of_div (D : q_eff_div G q) :
   toDiv (deg D.D) (toConfig D) = D.D := by
   funext v
-  dsimp [toDiv]
+  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul]
   by_cases h: v ∈ Vtilde q
   . -- Case v ∈ Vtilde q
-    dsimp [toConfig]
+    dsimp only [toConfig, Pi.sub_apply, Pi.smul_apply, Int.zsmul_eq_mul]
     have : v ≠ q := by
       intro h_eq_q
       rw [h_eq_q] at h
-      simp at h
-    simp [this]
+      simp only [Finset.mem_filter, mem_univ, ne_eq, not_true_eq_false, and_false] at h
+    simp only [ne_eq, this, not_false_eq_true, one_chip_apply_other', mul_zero, sub_zero,
+        zsmul_eq_mul, add_zero]
   . -- Case v ∉ Vtilde q
     have : v = q := by
       contrapose! h
-      simp [h]
+      simp only [Finset.mem_filter, mem_univ, ne_eq, h, not_false_eq_true, and_self]
     rw [this]
-    simp only [(toConfig D).q_zero, zero_add, one_chip, ite_true, mul_one]
+    simp only [(toConfig D).q_zero, one_chip, ite_true, mul_one, zero_add]
     linarith [config_degree_div_degree D]
 
 /-- A $q$-reduced divisor is recovered by converting to its canonical configuration and back. -/
@@ -190,7 +195,7 @@ lemma q_reduced_eq_chips_add_q (G : CFGraph) (q : G.V) (D : CFDiv G)
     D = (toConfig ⟨D, h_qred.1⟩).chips + D q • one_chip q := by
   let c : Config G q := toConfig ⟨D, h_qred.1⟩
   have h_deg : deg D = config_degree c + D q := by
-    simpa [c, add_comm] using (config_degree_div_degree ⟨D, h_qred.1⟩)
+    simpa only [add_comm] using (config_degree_div_degree ⟨D, h_qred.1⟩)
   calc
     D = toDiv (deg D) c := by
       exact (q_reduced_toDiv_toConfig G q D h_qred).symm
@@ -207,17 +212,17 @@ lemma q_reduced_eq_chips_sub_one_chip (G : CFGraph) (q : G.V) (D : CFDiv G)
       q_reduced_eq_chips_add_q G q D h_qred
     _ = (toConfig ⟨D, h_qred.1⟩).chips + (-1 : ℤ) • one_chip q := by rw [h_q]
     _ = (toConfig ⟨D, h_qred.1⟩).chips - one_chip q := by
-      simp [sub_eq_add_neg]
+      simp only [Int.reduceNeg, neg_smul, one_smul, sub_eq_add_neg]
 
 @[simp] private lemma eval_toDiv_q {q : G.V} (d : ℤ) (c : Config G q) :
   toDiv d c q = d - config_degree c := by
-  dsimp [toDiv]
-  simp [c.q_zero]
+  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul]
+  simp only [c.q_zero, one_chip_apply_v, mul_one, zero_add]
 
 @[simp] private lemma eval_toDiv_ne_q {q v : G.V} (d : ℤ) (c : Config G q) (h_v : v ≠ q) :
   toDiv d c v = c.chips v := by
-  dsimp [toDiv]
-  simp [h_v]
+  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul]
+  simp only [ne_eq, h_v, not_false_eq_true, one_chip_apply_other', mul_zero, add_zero]
 
 
 /-- The divisor `toDiv d c` is effective if and only if $d \ge \deg(c)$, i.e. there are
@@ -233,16 +238,16 @@ lemma config_eff {q : G.V} (d : ℤ) (c : Config G q) : effective (toDiv d c) �
   intro h_deg v
   by_cases h_v : v = q
   · -- Case v = q
-    simp [h_v, h_deg]
+    simp only [h_v, eval_toDiv_q, Int.sub_nonneg, h_deg]
   · -- Case v ≠ q
-    simp [h_v]
+    simp only [ne_eq, h_v, not_false_eq_true, eval_toDiv_ne_q, ge_iff_le]
     exact c.non_negative v
 
 instance : PartialOrder (Config G q) := {
   le := λ c₁ c₂ => c₁.chips ≤ c₂.chips,
   le_refl := by
     intro _
-    simp,
+    simp only [Std.le_refl],
   le_trans := by
     intro _ _ _ c1_le_c2 c2_le_c3
     exact le_trans c1_le_c2 c2_le_c3,
@@ -256,7 +261,7 @@ instance : PartialOrder (Config G q) := {
 $\deg(c) \le \deg(c')$. -/
 lemma config_degree_mono {q : G.V} {c c' : Config G q} (h_le : c ≤ c') :
   config_degree c ≤ config_degree c' := by
-  dsimp [config_degree, deg]
+  dsimp only [config_degree, deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
   exact Finset.sum_le_sum fun v _ => h_le v
 
 /-- Two configurations are equal if one is pointwise bounded above by the other and they have
@@ -264,7 +269,7 @@ the same degree. -/
 lemma config_eq_of_le_and_degree {q : G.V} {c1 c2 : Config G q} (h_le : c2 ≤ c1)
     (h_deg : config_degree c1 = config_degree c2) : c1 = c2 := by
   apply (eq_config_iff_eq_chips c1 c2).mpr
-  dsimp [config_degree, deg] at h_deg
+  dsimp only [config_degree, deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk] at h_deg
   have h_le' : ∀ v : G.V, c2.chips v ≤ c1.chips v := by
     intro v
     exact h_le v
@@ -277,15 +282,15 @@ lemma config_eq_of_le_and_degree {q : G.V} {c1 c2 : Config G q} (h_le : c2 ≤ c
     specialize h_le' v
     apply lt_of_le_of_ne h_le'
     contrapose! h_v_ne
-    simp [h_v_ne]
+    simp only [h_v_ne]
   suffices config_degree c2 < config_degree c1 by
     exact ne_of_gt this
-  dsimp [config_degree, deg]
+  dsimp only [config_degree, deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
   refine Finset.sum_lt_sum ?_ ?_
   · intro i _
     exact h_le' i
   · use v
-    simp [h_gt]
+    simp only [mem_univ, h_gt, and_self]
 
 /-- The out-degree of a vertex $v$ with respect to a set $S$.
 
@@ -313,17 +318,18 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
   -- Little rewriting needed later
   have comp_eq (S : Finset G.V): univ \ S = Finset.filter (λ w => w ∉ S) univ := by
     ext w
-    simp
+    simp only [mem_sdiff, mem_univ, true_and, Finset.mem_filter]
 
-  dsimp [superstable, q_reduced]
+  dsimp only [superstable, q_reduced, ne_eq]
   constructor
   -- Forward direction
   intro h_superstable
   constructor
   -- Show c is nonnegative away from v
   intro v hv_ne_q
-  dsimp [toDiv]
-  simp [hv_ne_q]
+  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul]
+  simp only [ne_eq, hv_ne_q, not_false_eq_true, one_chip_apply_other', mul_zero, add_zero,
+      ge_iff_le]
   exact c.non_negative v
   -- Show the outdegree condition
   intro S hS_subset hS_nonempty
@@ -333,13 +339,13 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
   use v
   constructor
   exact hv_in_S
-  dsimp [outdeg_S] at hv_outdeg
+  dsimp only [outdeg_S] at hv_outdeg
   have h_v_ne_q : v ≠ q := by
     intro hv_eq_q
     rw [hv_eq_q] at hv_in_S
     have h := hS_subset hv_in_S
 
-    simp at h
+    simp only [Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at h
   rw [eval_toDiv_ne_q d c h_v_ne_q]
   rw [← comp_eq S]
   exact hv_outdeg
@@ -351,14 +357,15 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
   rcases h_outdeg with ⟨v, hv_in_S, hv_outdeg⟩
   use v
   refine ⟨hv_in_S, ?_⟩
-  dsimp [toDiv] at hv_outdeg
+  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul] at hv_outdeg
   have h_v_neq_q : v ≠ q := by
     intro hv_eq_q
     rw [hv_eq_q] at hv_in_S
     have h := hS_subset hv_in_S
-    simp at h
-  simp [h_v_neq_q] at hv_outdeg
-  dsimp [outdeg_S]
+    simp only [Finset.mem_filter, mem_univ, ne_eq, not_true_eq_false, and_false] at h
+  simp only [ne_eq, h_v_neq_q, not_false_eq_true, one_chip_apply_other', mul_zero,
+      add_zero] at hv_outdeg
+  dsimp only [outdeg_S]
   rw [comp_eq S]
   exact hv_outdeg
 
@@ -367,7 +374,7 @@ lemma q_reduced_toConfig_superstable (G : CFGraph) (q : G.V) (D : CFDiv G)
     (h_qred : q_reduced G q D) :
     superstable G q (toConfig ⟨D, h_qred.1⟩) := by
   rw [superstable_iff_q_reduced G q (deg D) (toConfig ⟨D, h_qred.1⟩)]
-  simpa [q_reduced_toDiv_toConfig G q D h_qred] using h_qred
+  simpa only [q_reduced_toDiv_toConfig G q D h_qred] using h_qred
 
 /-- A divisor is $q$-reduced if and only if it corresponds to a superstable configuration with
   respect to $q$. -/
@@ -405,16 +412,17 @@ lemma superstable_sub_chip_unwinnable {G : CFGraph} (q : G.V) (c : Config G q) :
     refine ⟨c, h_superstable, ?_⟩
     -- Prove D = c - δ_q
     have h_deg_D : deg D = config_degree c - 1 := by
-      dsimp [D]
+      dsimp only [D]
       exact deg_chips_sub_one_chip (c := c)
     rw [h_deg_D]
-    dsimp [D]
+    dsimp only [D]
     exact (toDiv_config_degree_sub_one (c := c)).symm
   -- A winnable q-reduced divisor is effective, but D has -1 chips at q.
   intro h_winnable
   have h_nonneg_q := effective_of_winnable_and_q_reduced G q D h_winnable h_red q
-  dsimp [D] at h_nonneg_q
-  simp [c.q_zero] at h_nonneg_q
+  dsimp only [Pi.sub_apply, D] at h_nonneg_q
+  simp only [c.q_zero, one_chip_apply_v, zero_sub, Int.reduceNeg, Int.neg_nonneg,
+      Int.reduceLE] at h_nonneg_q
 
 
 /-!
@@ -459,20 +467,22 @@ private lemma burn_list_contains_q (G : CFGraph) {q : G.V} (c : Config G q) (L :
   L.contains q := by
   induction L with
   | nil =>
-    dsimp [is_burn_list] at h_bl
+    dsimp only [is_burn_list] at h_bl
   | cons v rest ih =>
     cases rest with
     | nil =>
-      dsimp [is_burn_list] at h_bl
+      dsimp only [is_burn_list] at h_bl
       rw [h_bl]
-      simp
+      simp only [List.contains_eq_mem, List.mem_cons, List.not_mem_nil, or_false, decide_true]
     | cons w rest' =>
-      dsimp [is_burn_list] at h_bl
+      dsimp only [is_burn_list] at h_bl
       rcases h_bl with ⟨h_outdeg, h_not_in_rest, h_rest_burn_list⟩
       specialize ih h_rest_burn_list
-      simp
-      simp at ih
-      simp [ih]
+      simp only [List.contains_eq_mem, List.mem_cons, Bool.decide_or, Bool.or_eq_true,
+          decide_eq_true_eq]
+      simp only [List.contains_eq_mem, List.mem_cons, Bool.decide_or, Bool.or_eq_true,
+          decide_eq_true_eq] at ih
+      simp only [ih, or_true]
 
 /-- If $c$ is superstable and a burn list $L$ does not yet contain all vertices, it can be
 extended by prepending a new vertex. This corresponds to the next edge burning in Dhar's
@@ -483,46 +493,50 @@ private lemma extend_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : 
   have h_S_ne : S.Nonempty := by
     rcases h_exists_v with ⟨v, h_v_not_in_L⟩
     use v
-    dsimp [S]
-    simp
+    dsimp only [S]
+    simp only [mem_sdiff, mem_univ, List.mem_toFinset, true_and]
     contrapose! h_v_not_in_L with h_raa
-    simp [h_raa]
+    simp only [List.contains_eq_mem, h_raa, decide_true]
   have h_S_Vtilde : S ⊆ Vtilde q := by
     intro v h_v_in_S
-    dsimp [Vtilde]
-    simp
+    dsimp only [Vtilde, ne_eq]
+    simp only [Finset.mem_filter, mem_univ, true_and]
     contrapose! h_v_in_S with h_eq
     rw [h_eq]
-    dsimp [S]
-    simp
+    dsimp only [S]
+    simp only [mem_sdiff, mem_univ, List.mem_toFinset, true_and, Decidable.not_not]
     -- Goal is not: q ∈ L
     have := burn_list_contains_q G c L h_bl
-    simp at this
+    simp only [List.contains_eq_mem, decide_eq_true_eq] at this
     exact this
   specialize h_ss S h_S_Vtilde h_S_ne
   rcases h_ss with ⟨v, hv_in_S, hv_outdeg⟩
   use v
-  dsimp [S] at hv_outdeg hv_in_S -- To get L to simplify after matching
+  dsimp only [S] at hv_outdeg hv_in_S -- To get L to simplify after matching
   match L with
   | [] =>
     exfalso
-    dsimp [is_burn_list] at h_bl
+    dsimp only [is_burn_list] at h_bl
   | h :: t =>
-    dsimp [is_burn_list]
+    dsimp only [is_burn_list]
     -- Unpack all the conjunctions and use hypotheses one by one
     constructor
-    . simp at hv_in_S
-      simp
+    . simp only [List.toFinset_cons, mem_sdiff, mem_univ, mem_insert, List.mem_toFinset, not_or,
+        true_and] at hv_in_S
+      simp only [List.toFinset_cons, mem_insert, List.mem_toFinset, not_or]
       exact hv_in_S
     constructor
     . exact hv_outdeg
     constructor
-    simp
+    simp only [List.contains_eq_mem, List.mem_cons, Bool.decide_or, Bool.or_eq_true,
+        decide_eq_true_eq, not_or]
     constructor
     intro h
     rw [h] at hv_in_S
-    simp at hv_in_S
-    simp at hv_in_S
+    simp only [List.toFinset_cons, mem_sdiff, mem_univ, mem_insert, List.mem_toFinset, true_or,
+        not_true_eq_false, and_false] at hv_in_S
+    simp only [List.toFinset_cons, mem_sdiff, mem_univ, mem_insert, List.mem_toFinset, not_or,
+        true_and] at hv_in_S
     exact hv_in_S.2
     exact h_bl
 
@@ -540,8 +554,9 @@ private lemma burn_list_helper (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : 
   | zero =>
     use [q]
     constructor
-    simp
-    dsimp [is_burn_list]
+    simp only [List.toFinset_cons, List.toFinset_nil, insert_empty_eq, Finset.card_singleton,
+        zero_add]
+    dsimp only [is_burn_list]
   | succ n ih =>
     have ih_L : n < (univ : Finset G.V).card := by
       linarith
@@ -552,7 +567,8 @@ private lemma burn_list_helper (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : 
         rw [← h_L_length] at h_n_lt_card_V
         linarith
       obtain ⟨v, -, h_v_not_in_L⟩ := Finset.exists_mem_notMem_of_card_lt_card h_card_L_le
-      exact ⟨v, by simpa using h_v_not_in_L⟩
+      exact ⟨v, by simpa only [List.contains_eq_mem, decide_eq_true_eq, List.mem_toFinset]
+          using h_v_not_in_L⟩
     have := extend_burn_list G c h_ss L h_L_burn_list h_exists_v
     rcases this with ⟨w, h_w_burn_list⟩
     use w :: L
@@ -561,7 +577,7 @@ private lemma burn_list_helper (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : 
       rw [List.toFinset_cons]
       rw [card_insert_eq_ite]
       -- Need: w ∉ L.toFinset
-      simp [h_w_burn_list.1]
+      simp only [h_w_burn_list.1, ↓reduceIte, Nat.add_right_cancel_iff]
       rw [h_L_length]
     . -- Show the tail is a burn list
       exact h_w_burn_list.2
@@ -575,23 +591,23 @@ lemma superstable_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (h_ss : sup
     have h_card_pos : (univ : Finset G.V).card > 0 := Fintype.card_pos_iff.mpr h_nonempty
     linarith
   have : (univ : Finset G.V).card - 1 < (univ : Finset G.V).card := by
-    simp
+    simp only [card_univ, tsub_lt_self_iff, Order.lt_one_iff, and_true]
     -- Now show `Fintype.card G.V > 0`, so that the subtraction makes sense.
     apply Fintype.card_pos_iff.mpr
     infer_instance
   have h_burn_list := burn_list_helper G c h_ss ((univ : Finset G.V).card - 1) this
   rcases h_burn_list with ⟨L, h_L_length, h_L_burn_list⟩
   have h_L_card : L.toFinset.card = (univ : Finset G.V).card := by
-    simp [h_L_length]
+    simp only [h_L_length, card_univ]
     apply Nat.sub_add_cancel
     exact h_card_V
   use burn_list.mk L h_L_burn_list
   have h_toFinset_eq : L.toFinset = (univ : Finset G.V) := by
     refine Finset.eq_of_subset_of_card_le (Finset.subset_univ _) ?_
-    simp [h_L_card]
+    simp only [card_univ, h_L_card, Std.le_refl]
   intro v
-  have : v ∈ L.toFinset := by simp [h_toFinset_eq]
-  simpa using this
+  have : v ∈ L.toFinset := by simp only [h_toFinset_eq, mem_univ]
+  simpa only [List.mem_toFinset] using this
 
 -- The following lemmas establish the necessary properties of the orientation to be defined
 -- from the burn order.
@@ -608,45 +624,46 @@ $\{u,v\}$, exactly `num_edges G u v` units of flow are directed in one of the tw
 directions. -/
 lemma burn_flow_reverse {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ v : G.V, v ∈ L.list) : ∀ (u v : G.V), (burn_flow L ⟨u, v⟩) + (burn_flow L ⟨v, u⟩) = num_edges G u v := by
   intro u v
-  dsimp [burn_flow]
+  dsimp only [burn_flow]
   by_cases h_uv : L.list.idxOf v < L.list.idxOf u
   . -- Case: indexOf v < indexOf u
-    simp [h_uv, h_full u, h_full v]
+    simp only [h_full u, h_uv, and_self, ↓reduceIte, h_full v, true_and, Nat.add_eq_left,
+        ite_eq_right_iff]
     intro h
     linarith
   . -- Case: indexOf v ≥ indexOf u
     by_cases h_eq : L.list.idxOf u = L.list.idxOf v
     . -- Subcase: indexOf u < indexOf v
-      simp [h_eq]
+      simp only [h_eq, lt_self_iff_false, and_false, ↓reduceIte, add_zero]
       have : u = v := (List.idxOf_inj (h_full u)).mp h_eq
       rw [this, num_edges_self_zero G v]
     . -- Subcase: indexOf u > indexOf v
       have h_uv' : L.list.idxOf u < L.list.idxOf v := by
-        simp at h_uv h_eq
+        simp only [not_lt] at h_uv h_eq
         exact lt_of_le_of_ne h_uv h_eq
-      simp [h_uv',h_uv, h_full v]
+      simp only [h_uv, and_false, ↓reduceIte, h_full v, h_uv', and_self, zero_add]
       exact num_edges_symmetric G v u
 
 /-- The `burn_flow` of a complete burn list is directed: for every pair $(u,v)$, flow goes
 in at most one direction. -/
 lemma burn_flow_directed {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ v : G.V, v ∈ L.list) : ∀ (u v : G.V), burn_flow L ⟨u,v⟩ = 0 ∨ burn_flow L ⟨v,u⟩ = 0 := by
   intro u v
-  dsimp [burn_flow]
+  dsimp only [burn_flow]
   by_cases h_uv : L.list.idxOf v < L.list.idxOf u
   . -- Case: indexOf v < indexOf u
-    simp [h_uv, h_full u, h_full v]
+    simp only [h_full u, h_uv, and_self, ↓reduceIte, h_full v, true_and, ite_eq_right_iff]
     right
     intro h
     linarith
   . -- Case: indexOf v ≥ indexOf u
     by_cases h_eq : L.list.idxOf u = L.list.idxOf v
     . -- Subcase: indexOf u = indexOf v
-      simp [h_eq]
+      simp only [h_eq, lt_self_iff_false, and_false, ↓reduceIte, or_self]
     . -- Subcase: indexOf u > indexOf v
       have h_uv' : L.list.idxOf u < L.list.idxOf v := by
-        simp at h_uv h_eq
+        simp only [not_lt] at h_uv h_eq
         exact lt_of_le_of_ne h_uv h_eq
-      simp [h_uv',h_uv, h_full v]
+      simp only [h_uv, and_false, ↓reduceIte, h_full v, h_uv', and_self, true_or]
 
 /-- For any vertex $v \ne q$ in a burn list, the in-flow into $v$ exceeds the number of
 chips at $v$. This is the key inequality used to construct an acyclic orientation from a
@@ -656,45 +673,45 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
   cases h: L.list with
   | nil =>
     rw [h] at h_bl
-    dsimp [is_burn_list] at h_bl
+    dsimp only [is_burn_list] at h_bl
   | cons x rest =>
     cases h' : rest with
     | nil =>
       rw [h'] at h
       rw [h] at h_bl
-      dsimp [is_burn_list] at h_bl
+      dsimp only [is_burn_list] at h_bl
       -- So x = q
-      simp [h] at h_pres
+      simp only [h, List.mem_cons, List.not_mem_nil, or_false] at h_pres
       rw [h_pres, ← h_bl] at h_ne
       contradiction
     | cons y rest' =>
       rw [h'] at h
       rw [h] at h_bl
-      dsimp [is_burn_list] at h_bl
+      dsimp only [is_burn_list] at h_bl
       -- Need to analyze the position of v in the list
       by_cases h_vx : v = x
       . -- Case: v = x
         rw [← h_vx] at h_bl
         suffices ∑ (w : G.V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G q (univ \ (y :: rest').toFinset) v by
           linarith [this, h_bl.1]
-        dsimp [burn_flow]
+        dsimp only [burn_flow]
         have ind_v : L.list.idxOf v = 0 := by
           rw [h_vx,h]
-          simp
+          simp only [List.idxOf_cons_self]
         simp only [ind_v]
         have h_ineq := h_bl.1
         have h_above : ∀ (x : G.V), x ∈ L.list ∧ 0 < List.idxOf x L.list ↔ x ∈ rest := by
           intro w
           rw [← h'] at h
           rw [h]
-          simp
+          simp only [List.mem_cons]
           have : 0 < List.idxOf w (x :: rest) ↔ 0 ≠ List.idxOf w (x :: rest) := by
             constructor
             . intro h_pos h_eq
               rw [h_eq] at h_pos
               linarith
             . intro h_neq
-              simp at h_neq
+              simp only [ne_eq] at h_neq
               apply Nat.zero_lt_of_ne_zero
               contrapose! h_neq with h_eq_zero
               rw [h_eq_zero]
@@ -704,34 +721,35 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
             . intro h_neq
               contrapose! h_neq with h_eq
               rw [h_eq]
-              simp
+              simp only [List.idxOf_cons_self]
             . intro h_neq
               rw [List.idxOf_cons_ne _ (Ne.symm h_neq)]
-              simp
+              simp only [Nat.succ_eq_add_one, ne_eq, Nat.right_eq_add, Nat.add_eq_zero_iff,
+                  one_ne_zero, and_false, not_false_eq_true]
           rw [this]
           constructor
           . -- Forward direction
             intro h_w
             by_contra!
-            simp [this] at h_w
+            simp only [this, or_false, ne_eq, and_not_self] at h_w
           . -- Reverse direction
             intro h_w_in_rest
-            simp [h_w_in_rest]
+            simp only [h_w_in_rest, or_true, ne_eq, true_and]
             by_contra!
             rw [this] at h_w_in_rest
             have := h_bl.2.1
             rw [h_vx] at this
             rw [← h'] at this
             absurd this
-            simp [h_w_in_rest]
+            simp only [List.contains_eq_mem, h_w_in_rest, decide_true]
         simp only [h_above]
-        dsimp [outdeg_S]
+        dsimp only [outdeg_S]
         rw [← h']
         rw [Finset.sum_ite, Finset.sum_const_zero, add_zero]
-        simp
+        simp only [Nat.cast_sum, sdiff_sdiff_right_self, subset_univ, inf_of_le_right, ge_iff_le]
         have : Finset.filter (Membership.mem rest) univ = rest.toFinset := by
           ext w
-          simp
+          simp only [Finset.mem_filter, mem_univ, true_and, List.mem_toFinset]
         rw [this]
         apply sum_le_sum
         intro i _
@@ -739,11 +757,11 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
       . -- Case: v ≠ x
         let L' := burn_list.mk (y :: rest') (h_bl.2.2)
         have h_v_in_L' : v ∈ L'.list := by
-          dsimp [L']
+          dsimp only [L']
           rw [← h']
           rw [← h'] at h
           rw [h] at h_pres
-          simp [h_vx] at h_pres
+          simp only [List.mem_cons, h_vx, false_or] at h_pres
           exact h_pres
         have h_step : ∀ (w : G.V), burn_flow L ⟨w,v⟩ = burn_flow L' ⟨w,v⟩ := by
           have h_x_nin_rest: x ∉ rest := by
@@ -751,10 +769,11 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
             rw [h] at this
             have := this.2.1
             rw [h']
-            simp at this
-            simp [this]
+            simp only [List.contains_eq_mem, List.mem_cons, Bool.decide_or, Bool.or_eq_true,
+                decide_eq_true_eq, not_or] at this
+            simp only [List.mem_cons, this, or_self, not_false_eq_true]
           intro w
-          dsimp [burn_flow, L']
+          dsimp only [burn_flow, L']
           rw [h]
           rw [List.idxOf_cons_ne _ (Ne.symm h_vx)]
           by_cases h_wx : w = x
@@ -773,4 +792,4 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
 termination_by L.list.length
 decreasing_by
   rw [h,h']
-  simp
+  simp only [List.length_cons, lt_add_iff_pos_right, Order.lt_one_iff]
