@@ -36,7 +36,7 @@ See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Theorem 4.8.
 
 The field `directed_edges` is a multiset of directed pairs. The `count_preserving` field
 ensures that the total flow between $v$ and $w$ equals the edge multiplicity, and
-`no_bidirectional` ensures that parallel edges are all directed the same way. -/
+-/
 structure CFOrientation (G : CFGraph) where
   /-- The multiset of directed edges in the orientation. -/
   directed_edges : Multiset (G.V × G.V)
@@ -44,10 +44,6 @@ structure CFOrientation (G : CFGraph) where
   count_preserving : ∀ v w,
     num_edges G v w =
     Multiset.count (v, w) directed_edges + Multiset.count (w, v) directed_edges
-  /-- No edge is directed both ways. -/
-  no_bidirectional : ∀ v w,
-    Multiset.count (v, w) directed_edges = 0 ∨
-    Multiset.count (w, v) directed_edges = 0
 
 /-- The flow from $u$ to $v$ under an orientation $\mathcal{O}$ is the multiplicity of
 the directed edge $(u,v)$. -/
@@ -896,9 +892,6 @@ def CFOrientation.reverse (G : CFGraph) (O : CFOrientation G) : CFOrientation G 
   count_preserving v w := by
     rw [count_map_swap, count_map_swap, add_comm]
     exact O.count_preserving v w
-  no_bidirectional v w := by
-    rw [count_map_swap, count_map_swap]
-    exact (O.no_bidirectional v w).symm
 
 /-- The flow of the reverse orientation $\overline{\mathcal{O}}$ from $v$ to $w$ equals the
 flow of $\mathcal{O}$ from $w$ to $v$. -/
@@ -1022,22 +1015,18 @@ def multiset_of_count {T : Type*} [DecidableEq T] [Fintype T] (f : T → ℕ) : 
 
 /-- Constructs a `CFOrientation` from an explicit flow function, given proofs that it respects
 edge multiplicities and has no bidirectional edges. -/
-def orientation_from_flow {G : CFGraph} (f : G.V × G.V → ℕ) (h_count_preserving : ∀ v w : G.V, f (v,w) + f (w,v) = num_edges G v w)
-    (h_no_bidirectional : ∀ v w : G.V, f (v,w) = 0 ∨ f (w,v) = 0) : CFOrientation G :=
+def orientation_from_flow {G : CFGraph} (f : G.V × G.V → ℕ) (h_count_preserving : ∀ v w : G.V, f (v,w) + f (w,v) = num_edges G v w) : CFOrientation G :=
   {
     directed_edges := multiset_of_count f,
     count_preserving := by
       intro v w
       simpa only [count_of_multiset_of_count] using (h_count_preserving v w).symm
-    no_bidirectional := by
-      intro v w
-      simpa only [count_of_multiset_of_count] using h_no_bidirectional v w
   }
 
 /-- The orientation constructed from a complete burn list $L$ for a superstable configuration,
 via `burn_flow`. This is shown to be acyclic with unique source $q$ by `burn_acyclic` and
 `burn_unique_source`. -/
-def burn_orientation {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list): CFOrientation G := orientation_from_flow (burn_flow L) (burn_flow_reverse L h_full) (burn_flow_directed L h_full)
+def burn_orientation {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c) (h_full : ∀ (v :G.V), v ∈ L.list): CFOrientation G := orientation_from_flow (burn_flow L) (burn_flow_reverse L h_full)
 
 /-- Along any directed path in `burn_orientation L`, the positions of vertices in the burn list
 are strictly decreasing. This is the key lemma for proving acyclicity. -/
