@@ -227,8 +227,6 @@ lemma winnable_of_deg_ge_genus {G : CFGraph} (h_conn : graph_connected G) (D : C
   have h_deg_c : config_degree c ≤ genus G := superstable_degree_le_genus G q c h_super
   have D_deg : deg D = deg D_qred := linear_equiv_preserves_deg G D D_qred h_equiv
   refine ⟨D_qred, ?_, h_equiv⟩
-  -- D_qred = toDiv (deg D_qred) c is effective: there are enough chips at q, since
-  -- deg D_qred ≥ g ≥ config_degree c
   rw [h_D_eq]
   exact (config_eff _ c).mpr (by linarith)
 
@@ -319,88 +317,6 @@ private lemma maximal_unwinnable_q_reduced_toConfig_iff {G : CFGraph}
     rw [h_form]
     exact maximal_unwinnable_of_maximal_superstable_form h_conn q _ h_max_c
 
-
-/-- A divisor $D$ is maximal unwinnable if and only if its canonical $q$-reduced
-representative has the form $c-q$, with $c$ the associated maximal superstable
-configuration.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(2),
-in canonical form. -/
-theorem maximal_unwinnable_char {G : CFGraph} (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
-  maximal_unwinnable G D ↔
-    maximal_superstable G (qReducedConfig h_conn q D) ∧
-    qReducedRep h_conn q D =
-      (qReducedConfig h_conn q D).chips - one_chip q := by
-  let D' := qReducedRep h_conn q D
-  have h_qred_D' : q_reduced G q D' := (qReducedRep_spec h_conn q D).2
-  have h_core := maximal_unwinnable_q_reduced_toConfig_iff h_conn q D' h_qred_D'
-  constructor
-  · intro h_max_unwinnable_D
-    have h_max_D' : maximal_unwinnable G D' :=
-      maximal_unwinnable_preserved G D D' h_max_unwinnable_D (qReducedRep_spec h_conn q D).1
-    simpa only [qReducedConfig] using h_core.mp h_max_D'
-  · intro h_can
-    have h_max_D' : maximal_unwinnable G D' := by
-      simpa only using h_core.mpr h_can
-    exact maximal_unwinnable_preserved G D' D h_max_D' (qReducedRep_spec h_conn q D).1.symm
-
-/-- A maximal unwinnable divisor has degree $g - 1$, computed from its canonical
-$q$-reduced representative and canonical configuration.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(4). -/
-theorem maximal_unwinnable_deg
-  {G : CFGraph} (h_conn : graph_connected G) (D : CFDiv G) :
-  maximal_unwinnable G D → deg D = genus G - 1 := by
-  intro h_max_unwin
-
-  let q := Classical.arbitrary G.V
-
-  have h_char := maximal_unwinnable_char h_conn q D
-  have h_max_cfg : maximal_superstable G (qReducedConfig h_conn q D) := (h_char.mp h_max_unwin).1
-  have h_rep_form :
-      qReducedRep h_conn q D =
-        (qReducedConfig h_conn q D).chips - one_chip q := (h_char.mp h_max_unwin).2
-  have h_deg_D' : deg (qReducedRep h_conn q D) = genus G - 1 := calc
-    deg (qReducedRep h_conn q D) =
-        deg ((qReducedConfig h_conn q D).chips - one_chip q) := by rw [h_rep_form]
-    _ = config_degree (qReducedConfig h_conn q D) - 1 :=
-        deg_chips_sub_one_chip (c := qReducedConfig h_conn q D)
-    _ = genus G - 1 := by rw [degree_max_superstable (qReducedConfig h_conn q D) h_max_cfg]
-  have h_deg_eq : deg D = deg (qReducedRep h_conn q D) :=
-    linear_equiv_preserves_deg G D (qReducedRep h_conn q D) (qReducedRep_spec h_conn q D).1
-  rw [h_deg_eq, h_deg_D']
-
-/-- The map sending an acyclic orientation with source $q$ to the divisor
-$v \mapsto \operatorname{indeg}(v) - \delta_{v,q}$ is injective, and every maximal
-unwinnable divisor has degree $g - 1$. The divisor used here differs from
-$D(\mathcal{O})$ by a fixed divisor, so injectivity is equivalent.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Corollary 4.9(3)
-for the injectivity claim. -/
-theorem acyclic_orientation_maximal_unwinnable_correspondence_and_degree
-    {G : CFGraph} (h_conn : graph_connected G) (q : G.V) :
-    (Function.Injective (λ (O : {O : CFOrientation G // is_acyclic G O ∧ is_source G O q}) =>
-      λ v => (indeg G O.val v) - if v = q then 1 else 0)) ∧
-    (∀ D : CFDiv G, maximal_unwinnable G D → deg D = genus G - 1) := by
-  constructor
-  { -- Part 1: Injection proof
-    intros O₁ O₂ h_eq
-    have h_indeg : ∀ v : G.V, indeg G O₁.val v = indeg G O₂.val v := by
-      intro v
-      have := congr_fun h_eq v
-      by_cases hv : v = q
-      · have h₁ := O₁.prop.2; have h₂ := O₂.prop.2
-        dsimp only [is_source] at h₁ h₂
-        rw [hv, h₁, h₂]
-      · simp only [hv, ↓reduceIte, tsub_zero] at this
-        exact this
-    exact Subtype.ext (orientation_determined_by_indegrees O₁.val O₂.val O₁.prop.1 O₂.prop.1 h_indeg)
-  }
-  { -- Part 2: Degree characterization
-    -- This now correctly refers to the theorem defined above
-    intro D hD
-    exact maximal_unwinnable_deg h_conn D hD
-  }
 
 /-!
 ## Moderator divisors

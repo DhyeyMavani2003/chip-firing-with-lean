@@ -1,7 +1,6 @@
 import Mathlib.Algebra.CharP.Defs
 import Mathlib.Algebra.Group.Subgroup.Finite
 import Mathlib.Analysis.Normed.Ring.Lemmas
-import Mathlib.Data.Matrix.Mul
 
 
 set_option linter.unusedVariables false
@@ -122,24 +121,6 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
 -- Properties of divisor arithmetic (add_apply, sub_apply, zero_apply, neg_apply, smul_apply
 -- are provided by Mathlib for Pi types)
 
-/-- The result of firing a vertex $v$, starting from the divisor $D$.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.5. -/
-def firing_move (G : CFGraph) (D : CFDiv G) (v : G.V) : CFDiv G :=
-  λ w => if w = v then D v - vertex_degree G v else D w + num_edges G v w
-
-/-- The result of borrowing at a vertex $v$, starting from a divisor $D$.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.5. -/
-def borrowing_move (G : CFGraph) (D : CFDiv G) (v : G.V) : CFDiv G :=
-  λ w => if w = v then D v + vertex_degree G v else D w - num_edges G v w
-
-/-- The result of firing a set $S$ of vertices, starting from a divisor $D$.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.6. -/
-def set_firing (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G :=
-  λ w => D w + ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
-
 /-- The principal divisor associated to firing a single vertex. -/
 def firing_vector (G : CFGraph) (v : G.V) : CFDiv G :=
   λ w => if w = v then -vertex_degree G v else num_edges G v w
@@ -196,10 +177,6 @@ private lemma mem_principal_divisors_firing_vector (G : CFGraph) (v : G.V) :
   unfold linear_equiv at *
   simpa only [sub_eq_add_neg, add_comm, add_left_comm, add_assoc, add_neg_cancel_comm_assoc] using
     AddSubgroup.add_mem (principal_divisors G) h2 h1
-
-/-- Linear equivalence is an equivalence relation on $\operatorname{Div}(G)$. -/
-theorem linear_equiv_is_equivalence (G : CFGraph) : Equivalence (linear_equiv G) :=
-  ⟨linear_equiv.refl G, linear_equiv.symm, linear_equiv.trans⟩
 
 /-- A *firing script* is an integer-valued function on vertices, recording how many times
 each vertex is fired. Negative values represent borrowing.
@@ -548,23 +525,6 @@ lemma effective_divisor_decomposition (G : CFGraph) (E'' : CFDiv G) (k₁ k₂ :
       abel
 
   exact h_ind k₁ k₂ E'' h_effective h_deg
-
-open Matrix
-
-/-- The Laplacian matrix of a CFGraph.
-
-See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.6. -/
-def laplacian_matrix (G : CFGraph) : Matrix G.V G.V ℤ :=
-  λ i j => if i = j then vertex_degree G i else - (num_edges G i j)
-
--- Note: The Laplacian matrix L is given by Deg(G) - A, where Deg(G) is the diagonal
--- matrix of degrees and A is the adjacency matrix.
--- This matrix can be used to represent the effect of a firing script on a divisor.
-
-/-- Applies the Laplacian matrix to a firing script and a current divisor to obtain a
-new divisor. -/
-def apply_laplacian (G : CFGraph) (σ : firing_script G) (D: CFDiv G) : CFDiv G :=
-  fun v => (D v) - (laplacian_matrix G).mulVec σ v
 
 /-!
 ## q-effective divisors

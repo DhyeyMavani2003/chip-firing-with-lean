@@ -183,10 +183,6 @@ private lemma indeg_eq_sum_flow {G : CFGraph} (O : CFOrientation G) (v : G.V) :
       rw [this]
 
 
-/-- The number of edges directed out of a vertex under an orientation. -/
-def outdeg (G : CFGraph) (O : CFOrientation G) (v : G.V) : ℕ :=
-  Multiset.card (O.directed_edges.filter (λ e => e.fst = v))
-
 /-- A vertex is a source if it has no incoming edges. -/
 def is_source (G : CFGraph) (O : CFOrientation G) (v : G.V) : Prop :=
   indeg G O v = 0
@@ -898,19 +894,6 @@ flow of $\mathcal{O}$ from $w$ to $v$. -/
 private lemma flow_reverse {G : CFGraph} (O : CFOrientation G) (v w : G.V) :
   flow (O.reverse G) v w = flow O w v :=
   count_map_swap O.directed_edges v w
-
-/-- The in-degree of $v$ in the reverse orientation $\overline{\mathcal{O}}$ equals the
-out-degree of $v$ in $\mathcal{O}$. -/
-private lemma indeg_reverse_eq_outdeg (G : CFGraph) (O : CFOrientation G) (v : G.V) :
-  indeg G (O.reverse G) v = outdeg G O v := by
-  classical
-  simp only [indeg, outdeg]
-  rw [← Multiset.countP_eq_card_filter, ← Multiset.countP_eq_card_filter]
-  let O_rev_edges_def : (CFOrientation.reverse G O).directed_edges = O.directed_edges.map Prod.swap := by rfl
-  conv_lhs => rw [O_rev_edges_def]
-  rw [Multiset.countP_map]
-  simp only [Prod.snd_swap]
-  simp only [countP_eq_card_filter]
 
 /-- The reverse of an acyclic orientation is also acyclic. -/
 lemma is_acyclic_reverse_of_is_acyclic (G : CFGraph) (O : CFOrientation G)

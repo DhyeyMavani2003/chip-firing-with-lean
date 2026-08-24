@@ -1,7 +1,6 @@
 import Mathlib.Algebra.CharP.Defs
 import Mathlib.Algebra.Group.Subgroup.Finite
 import Mathlib.Analysis.Normed.Ring.Lemmas
-import Mathlib.Data.Matrix.Mul
 
 /-! This self-contained module is the auditable statement layer. -/
 
