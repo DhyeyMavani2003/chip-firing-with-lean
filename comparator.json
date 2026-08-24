@@ -1,0 +1,15 @@
+{
+  "challenge_module": "ChipFiringWithLean.CHALLENGE",
+  "solution_module": "ChipFiringWithLean.Solution",
+  "theorem_names": [
+    "Propositions.rank_well_defined",
+    "Propositions.riemann_roch",
+    "Propositions.clifford"
+  ],
+  "permitted_axioms": [
+    "propext",
+    "Quot.sound",
+    "Classical.choice"
+  ],
+  "enable_nanoda": true
+}
