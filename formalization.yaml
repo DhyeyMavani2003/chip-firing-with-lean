@@ -6,8 +6,7 @@ version: "v0.4"
 project:
   name: "Chip-Firing with Lean 4"
   description: >-
-    TEMPLATE: concise public account of the mathematical content and principal
-    results of the formalization
+    A Lean 4 / Mathlib formalization of Baker and Norine's Riemann-Roch theorem for finite graphs. Chip configurations on a finite graph, modulo chip-firing moves, form an abelian group analogous to the group of line bundles up to isomorphism on a compact Riemann surface. Each class an be assigned a rank, analagous to the dimension of a linear series. These ranks then satisfy a formula of the form r(D) - r(K-D) = deg D + 1 - g, in exact analogy to Riemann surfaces. This formula is formalzied, along with the analog of Clifford's theorem for finite graphs.
   # Required nonempty list of name strings or mappings with a nonempty name.
   authors:
     - "Dhyey Dharmendrakumar Mavani"
@@ -32,7 +31,7 @@ classification:
   # Use 1–2 official arXiv identifiers such as math.LO and 1–8 five-character
   # MSC 2020 identifiers such as 03B35.
   arxiv: ["math.CO"]
-  msc2020: ["TEMPLATE: five-character MSC 2020 identifier such as 03B35"]
+  msc2020: ["05C57","14T20"]
 sources:
   # Sources must be nonempty. Every source needs a title and relationship; the
   # relationship must be exactly formalizes, adapts, independently-proves,
@@ -47,8 +46,7 @@ sources:
     relationship: "formalizes"
 status:
   scope: >-
-    TEMPLATE: state exactly what is and is not formalized, including any weaker
-    theorem, changed hypotheses, or omitted material.
+    The Riemann-Roch formula, Theorem 1.12 in the original paper, is formalized, along with Corollary 3.5 (Clifford's theorem). These statements are proved verbatim, although the relevant definitions are stated slightly differently in the formalization. The remaining results of the paper, most notably concerning the Abel-Jacobi map and its implications, are not formalized here.
   # Count the proof development, excluding Challenge.lean's deliberate sorry.
   sorry_count: 0
   sorry_in_definitions: 0
@@ -57,32 +55,52 @@ status:
   # project-level list is useful; it need not mirror Comparator declarations.
 automation:
   methods:
-    - method: "TEMPLATE: manual, copilot, agent, autonomous, or other"
-      models: ["TEMPLATE: model names, or replace this list with []"]
-      framework: "TEMPLATE: framework name, or n/a"
-      tool_setup: "TEMPLATE: exact detail, such as AI-assisted, editors, tactics, agents, or other tools used"
+    - method: "manual, copilot, agent"
+      models: ["not tracked"]
+      framework: "n/a"
+      tool_setup: "Github Copilot in VS Code, Claude Code and Codex apps used for editing"
       cost:
-        wall_time: "TEMPLATE: approximate elapsed effort"
-        spend_usd: "TEMPLATE: amount, subscription-based, or not tracked"
-        hardware: "TEMPLATE: local machine, API-only, or other"
-      prompting_notes: "TEMPLATE: representative prompting notes, or n/a"
-  spend_usd: "TEMPLATE: total amount, subscription-based, or not tracked"
-  notes: "TEMPLATE: describe the overall human and automation workflow"
+        wall_time: "not tracked"
+        spend_usd: "not tracked"
+        hardware: "local machine"
+      prompting_notes: "n/a"
+  spend_usd: "not tracked"
+  notes: "Initial development was manual with autocomplete from Github copilot. Agents were used in later phases, for purposes including: refactoring, simplifying and shortening proofs, debugging after version bumps, filling in some doc strings."
 fidelity:
-  divergences: "TEMPLATE: all known divergences from the cited source, or none known"
+  divergences: "none known`"
 
 review:
-  status: "TEMPLATE: honest review status, for example self-assessed"
+  status: "self-assessed"
   reviewers:
-    - "TEMPLATE: reviewer name, or none"
-  notes: "TEMPLATE: describe statement audits and mathematical review performed"
+    - "none"
+  notes: "theorem statements written manually"
 alignment:
-  namespace: "TEMPLATE: project namespace"
+  namespace: "Propositions"
+alignment:
+  namespace: "Propositions"
   statements:
-    - source: "TEMPLATE: source theorem or section"
-      lean: "TEMPLATE: fully qualified Lean declaration"
-      module: "TEMPLATE: Lean module containing the declaration"
-      status: "TEMPLATE: proved, partial, adapted, or other honest description"
-      note: "TEMPLATE: explain the correspondence and any qualifications"
+    - source: "Baker--Norine (2007), Theorem 1.12 (Riemann--Roch for Graphs)"
+      lean: "Propositions.riemann_roch"
+      module: "ChipFiringWithLean.Solution"
+      status: "adapted"
+      note: >-
+        The same Riemann--Roch identity, phrased with witnesses for
+        the relational predicate rank_eq instead of the paper's rank function.
 
-acknowledgements: "TEMPLATE: libraries, tools, and people to credit"
+    - source: "Baker--Norine (2007), Corollary 3.5 (Clifford's Theorem for Graphs)"
+      lean: "Propositions.clifford"
+      module: "ChipFiringWithLean.Solution"
+      status: "adapted"
+      note: >-
+        The same Clifford bound, phrased using rank_eq witnesses and
+        nonnegativity of the ranks of D and K-D.
+
+    - source: "Baker--Norine (2007), definition of divisor rank"
+      lean: "Propositions.rank_well_defined"
+      module: "ChipFiringWithLean.Solution"
+      status: "adapted"
+      note: >-
+        A formalization-specific existence-and-uniqueness result that lets the
+        Challenge represent the paper's rank function by the relation rank_eq."
+
+acknowledgements: "Mathlib"
