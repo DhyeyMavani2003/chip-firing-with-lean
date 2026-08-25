@@ -11,7 +11,7 @@ project:
     an abelian group analogous to the group of line bundles on a compact Riemann
     surface. Each class can be assigned a rank, analogous to the dimension of a linear
     series. These ranks then satisfy a formula of the form r(D) - r(K-D) = deg D + 1 -
-    g, in exact analogy to Riemann surfaces. This formula is formalzied, along with the
+    g, in exact analogy to Riemann surfaces. This formula is formalized, along with the
     analog of Clifford's theorem for finite graphs.
   # Required nonempty list of name strings or mappings with a nonempty name.
   authors:
@@ -88,9 +88,10 @@ automation:
   spend_usd: "not tracked"
   notes: "Initial development was manual with autocomplete from GitHub copilot. Agents were used in later phases, for purposes including: refactoring, simplifying and shortening proofs, debugging after version bumps, filling in some doc strings."
 fidelity:
-  divergences: "The Challenge represents the source's rank function with the relational
+  divergences: >-
+    The Challenge represents the source's rank function with the relational
     predicate rank_eq, and therefore states Riemann--Roch and Clifford with
-    explicit rank witnesses. No other mathematical divergences are known."
+    explicit rank witnesses. No other mathematical divergences are known.
 
 review:
   status: "self-assessed"
@@ -122,6 +123,6 @@ alignment:
       status: "adapted"
       note: >-
         A formalization-specific existence-and-uniqueness result that lets the
-        Challenge represent the paper's rank function by the relation rank_eq."
+        Challenge represent the paper's rank function by the relation rank_eq.
 
 acknowledgements: "Mathlib"
