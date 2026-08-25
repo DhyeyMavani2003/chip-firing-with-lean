@@ -6,7 +6,13 @@ version: "v0.4"
 project:
   name: "Chip-Firing with Lean 4"
   description: >-
-    A Lean 4 / Mathlib formalization of Baker and Norine's Riemann-Roch theorem for finite graphs. Chip configurations on a finite graph, modulo chip-firing moves, form an abelian group analogous to the group of line bundles up to isomorphism on a compact Riemann surface. Each class an be assigned a rank, analagous to the dimension of a linear series. These ranks then satisfy a formula of the form r(D) - r(K-D) = deg D + 1 - g, in exact analogy to Riemann surfaces. This formula is formalzied, along with the analog of Clifford's theorem for finite graphs.
+    A Lean 4 / Mathlib formalization of Baker and Norine's Riemann-Roch theorem for
+    finite graphs. Chip configurations on a finite graph, modulo chip-firing moves, form
+    an abelian group analogous to the group of line bundles on a compact Riemann
+    surface. Each class can be assigned a rank, analogous to the dimension of a linear
+    series. These ranks then satisfy a formula of the form r(D) - r(K-D) = deg D + 1 -
+    g, in exact analogy to Riemann surfaces. This formula is formalzied, along with the
+    analog of Clifford's theorem for finite graphs.
   # Required nonempty list of name strings or mappings with a nonempty name.
   authors:
     - "Dhyey Dharmendrakumar Mavani"
@@ -46,7 +52,12 @@ sources:
     relationship: "formalizes"
 status:
   scope: >-
-    The Riemann-Roch formula, Theorem 1.12 in the original paper, is formalized, along with Corollary 3.5 (Clifford's theorem). These statements are proved verbatim, although the relevant definitions are stated slightly differently in the formalization. The remaining results of the paper, most notably concerning the Abel-Jacobi map and its implications, are not formalized here.
+    The Riemann-Roch formula, Theorem 1.12 in the original paper, is formalized, along
+    with Corollary 3.5 (Clifford's theorem). These statements are proved in restated
+    form, using the predicate rank_eq rather than the rank function itself. The
+    existence and uniqueness of the rank function is proved as a separate proposition.
+    The remaining results of the paper, most notably concerning the Abel-Jacobi map and
+    its implications, are not formalized here.
   # Count the proof development, excluding Challenge.lean's deliberate sorry.
   sorry_count: 0
   sorry_in_definitions: 0
@@ -55,27 +66,37 @@ status:
   # project-level list is useful; it need not mirror Comparator declarations.
 automation:
   methods:
-    - method: "manual, copilot, agent"
+    - method: "manual"
+    - method: "copilot"
       models: ["not tracked"]
       framework: "n/a"
-      tool_setup: "Github Copilot in VS Code, Claude Code and Codex apps used for editing"
+      tool_setup: "GitHub Copilot in VS Code"
+      cost:
+        wall_time: "not tracked"
+        spend_usd: "not tracked"
+        hardware: "local machine"
+      prompting_notes: "n/a"
+    - method: "agent"
+      models: ["not tracked"]
+      framework: "n/a"
+      tool_setup: "Claude Code and Codex CLI apps, used for editing"
       cost:
         wall_time: "not tracked"
         spend_usd: "not tracked"
         hardware: "local machine"
       prompting_notes: "n/a"
   spend_usd: "not tracked"
-  notes: "Initial development was manual with autocomplete from Github copilot. Agents were used in later phases, for purposes including: refactoring, simplifying and shortening proofs, debugging after version bumps, filling in some doc strings."
+  notes: "Initial development was manual with autocomplete from GitHub copilot. Agents were used in later phases, for purposes including: refactoring, simplifying and shortening proofs, debugging after version bumps, filling in some doc strings."
 fidelity:
-  divergences: "none known`"
+  divergences: "The Challenge represents the source's rank function with the relational
+    predicate rank_eq, and therefore states Riemann--Roch and Clifford with
+    explicit rank witnesses. No other mathematical divergences are known."
 
 review:
   status: "self-assessed"
   reviewers:
     - "none"
   notes: "theorem statements written manually"
-alignment:
-  namespace: "Propositions"
 alignment:
   namespace: "Propositions"
   statements:
