@@ -134,11 +134,49 @@ See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.5. -/
 def borrowing_move (G : CFGraph) (D : CFDiv G) (v : G.V) : CFDiv G :=
   λ w => if w = v then D v + vertex_degree G v else D w - num_edges G v w
 
+/-- The out-degree of `v` relative to `S`, counted with edge multiplicity. -/
+def outdeg_S (G : CFGraph) (S : Finset G.V) (v : G.V) : ℤ :=
+  ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
+
+@[simp] theorem outdeg_S_eq_sum_filter (G : CFGraph) (S : Finset G.V) (v : G.V) :
+    outdeg_S G S v = ∑ w ∈ Finset.univ.filter (fun x => x ∉ S),
+      (num_edges G v w : ℤ) := by
+  refine Finset.sum_congr ?_ (fun _ _ => rfl)
+  ext w
+  simp
+
+theorem outdeg_S_nonneg (G : CFGraph) (S : Finset G.V) (v : G.V) :
+    0 ≤ outdeg_S G S v := by
+  unfold outdeg_S
+  exact Finset.sum_nonneg fun _ _ => Int.natCast_nonneg _
+
+theorem outdeg_S_antitone (G : CFGraph) {S T : Finset G.V} (h : S ⊆ T) (v : G.V) :
+    outdeg_S G T v ≤ outdeg_S G S v := by
+  unfold outdeg_S
+  exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.compl_subset_compl.mpr h)
+    (fun _ _ _ => Int.natCast_nonneg _)
+
 /-- The result of firing a set $S$ of vertices, starting from a divisor $D$.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.6. -/
 def set_firing (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G :=
-  λ w => D w + ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
+  λ w => if w ∈ S then D w - outdeg_S G S w else D w + outdeg_S G Sᶜ w
+
+theorem set_firing_apply_of_mem (G : CFGraph) (D : CFDiv G) {S : Finset G.V}
+    {v : G.V} (hv : v ∈ S) :
+    set_firing G D S v = D v - outdeg_S G S v := by
+  simp [set_firing, hv]
+
+theorem set_firing_apply_of_not_mem (G : CFGraph) (D : CFDiv G)
+    {S : Finset G.V} {v : G.V} (hv : v ∉ S) :
+    set_firing G D S v = D v + outdeg_S G Sᶜ v := by
+  simp [set_firing, hv]
+
+theorem le_set_firing_apply_of_not_mem (G : CFGraph) (D : CFDiv G)
+    {S : Finset G.V} {v : G.V} (hv : v ∉ S) :
+    D v ≤ set_firing G D S v := by
+  rw [set_firing_apply_of_not_mem G D hv]
+  exact le_add_of_nonneg_right (outdeg_S_nonneg G Sᶜ v)
 
 /-- The principal divisor associated to firing a single vertex. -/
 def firing_vector (G : CFGraph) (v : G.V) : CFDiv G :=
@@ -207,6 +245,10 @@ each vertex is fired. Negative values represent borrowing.
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 2.2. -/
 abbrev firing_script (G : CFGraph) := G.V → ℤ
 
+/-- The firing script that fires exactly the vertices in `S`, once each. -/
+def indicator_script (G : CFGraph) (S : Finset G.V) : firing_script G :=
+  fun v => if v ∈ S then 1 else 0
+
 /-- The group homomorphism sending a firing script $\sigma$ to the principal divisor
 $$
 (\operatorname{prin}_G \sigma)(v) =
@@ -231,6 +273,41 @@ def prin (G : CFGraph) : firing_script G →+ CFDiv G :=
       intro u _
       ring,
   }
+
+@[simp] theorem prin_apply (G : CFGraph) (σ : firing_script G) (v : G.V) :
+    prin G σ v = ∑ u : G.V, (σ u - σ v) * (num_edges G v u : ℤ) := rfl
+
+/-- Constant firing scripts have zero principal divisor. -/
+@[simp] theorem prin_const (G : CFGraph) (c : ℤ) :
+    prin G (fun _ : G.V => c) = 0 := by
+  funext v
+  rw [prin_apply]
+  simp
+
+@[simp] theorem prin_sub_const (G : CFGraph) (σ : firing_script G) (c : ℤ) :
+    prin G (fun v => σ v - c) = prin G σ := by
+  funext v
+  rw [prin_apply, prin_apply]
+  apply Finset.sum_congr rfl
+  intro u hu
+  ring
+
+/-- Firing a set once is the same as adding the principal divisor of its indicator script. -/
+theorem set_firing_eq_add_prin_indicator_script (G : CFGraph) (D : CFDiv G)
+    (S : Finset G.V) :
+    set_firing G D S = D + prin G (indicator_script G S) := by
+  classical
+  funext v
+  by_cases hv : v ∈ S
+  · simp [set_firing, indicator_script, prin_apply, outdeg_S, hv]
+    simp only [sub_mul, one_mul]
+    rw [Finset.sum_sub_distrib]
+    have hs : S.sum (fun x => (num_edges G v x : ℤ)) =
+        (univ : Finset G.V).sum (fun x =>
+          (if x ∈ S then 1 else 0) * (num_edges G v x : ℤ)) := by simp
+    rw [← hs]
+    ring
+  · simp [set_firing, indicator_script, prin_apply, outdeg_S, hv]
 
 /-- A divisor is principal if and only if it equals `prin G σ` for some firing script `σ`.
 This gives a concrete characterization of the subgroup `principal_divisors G`. -/
@@ -799,7 +876,7 @@ private lemma reduces_to_q_mono (G : CFGraph) (q : G.V) {D₁ D₂ : CFDiv G} :
   reduces_to G q D₁ D₂ → D₁ q ≤ D₂ q := by
   rintro ⟨σ, h_reducer, h_eq⟩
   have h_prin_q : (prin G σ) q ≥ 0 := by
-    dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
+    rw [prin_apply]
     apply Finset.sum_nonneg
     intro e _
     apply mul_nonneg
@@ -864,7 +941,7 @@ private lemma constant_script_of_zero_prin {G : CFGraph} (h_conn : graph_connect
     -- apply zero_eq at u
     have zero_eq_at_u: (prin G) σ u = 0 := by
       simp only [zero_eq, Pi.zero_apply]
-    dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk] at zero_eq_at_u
+    rw [prin_apply] at zero_eq_at_u
     linarith [zero_eq_at_u]
   intro v w
   have eq_q : ∀ v : G.V, σ v = σ q := by
@@ -883,10 +960,7 @@ private lemma prin_eq_zero_of_two_sided_reducer (G : CFGraph) (q : G.V) (σ : fi
     have hv₂ := h₂ v
     repeat rw [Pi.neg_apply] at hv₂
     linarith [h₁ v]
-  funext v
-  unfold prin
-  dsimp only [AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.zero_apply]
-  simp only [h_const, sub_self, zero_mul, sum_const_zero]
+  rw [show σ = (fun _ : G.V => σ q) from funext h_const, prin_const]
 
 /-- In a connected graph, the `reduces_to` relation is antisymmetric, completing the proof
 that it is a partial order on $q$-effective divisors. -/
@@ -937,20 +1011,70 @@ while maintaining $q$-effectivity) and showing that the `reduction_excess` — t
 at active vertices — strictly decreases at each reduction step.
 -/
 
+/-- A set of vertices is legal for `D` if firing it leaves every vertex in the set
+nonnegative. -/
+def legal_set (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : Prop :=
+  ∀ v ∈ S, outdeg_S G S v ≤ D v
+
+instance (G : CFGraph) (D : CFDiv G) (S : Finset G.V) :
+    Decidable (legal_set G D S) := by
+  unfold legal_set
+  infer_instance
+
+@[simp] theorem legal_set_empty (G : CFGraph) (D : CFDiv G) :
+    legal_set G D (∅ : Finset G.V) := by
+  intro v hv
+  simp at hv
+
+theorem effective_set_firing_of_legal_set (G : CFGraph) {D : CFDiv G}
+    {S : Finset G.V} (hD : effective D) (hS : legal_set G D S) :
+    effective (set_firing G D S) := by
+  intro v
+  by_cases hv : v ∈ S
+  · rw [set_firing_apply_of_mem G D hv]
+    have h := hS v hv
+    omega
+  · exact le_trans (hD v) (le_set_firing_apply_of_not_mem G D hv)
+
+/-- Firing a legal set preserves effectivity away from a distinguished vertex. -/
+theorem q_effective_set_firing_of_legal_set (G : CFGraph) {q : G.V} {D : CFDiv G}
+    {S : Finset G.V} (hD : q_effective q D) (hS : legal_set G D S) :
+    q_effective q (set_firing G D S) := by
+  intro v hvq
+  by_cases hv : v ∈ S
+  · rw [set_firing_apply_of_mem G D hv]
+    exact sub_nonneg.mpr (hS v hv)
+  · exact le_trans (hD v hvq) (le_set_firing_apply_of_not_mem G D hv)
+
+theorem legal_set_union (G : CFGraph) {D : CFDiv G} {S T : Finset G.V}
+    (hS : legal_set G D S) (hT : legal_set G D T) :
+    legal_set G D (S ∪ T) := by
+  intro v hv
+  rcases Finset.mem_union.mp hv with hv | hv
+  · exact le_trans (outdeg_S_antitone G Finset.subset_union_left v) (hS v hv)
+  · exact le_trans (outdeg_S_antitone G Finset.subset_union_right v) (hT v hv)
+
 /-- A divisor is $q$-reduced if it is effective away from $q$, and firing any nonempty
 set of vertices disjoint from $q$ puts some vertex of that set into debt.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.4. -/
 def q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) : Prop :=
   q_effective q D ∧
-  (∀ S : Finset G.V, S ⊆ (Finset.univ.filter (· ≠ q)) → S.Nonempty →
-    ∃ v ∈ S, D v < ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ))
+  ∀ S : Finset G.V, q ∉ S → S.Nonempty → ¬ legal_set G D S
+
+/-- A nonempty set avoiding `q` contains a vertex that would go into debt when fired
+from a `q`-reduced divisor. -/
+theorem q_reduced.exists_lt_outdeg {G : CFGraph} {q : G.V} {D : CFDiv G}
+    (hred : q_reduced G q D) {S : Finset G.V} (hq : q ∉ S) (hS : S.Nonempty) :
+    ∃ v ∈ S, D v < outdeg_S G S v := by
+  by_contra! h
+  exact hred.2 S hq hS h
 
 
 
 /-- Any firing script $\sigma$ attains its maximum on a nonempty set $S$, and applying
 $\sigma$ removes at least $\operatorname{outdeg}_S(v)$ chips from each $v \in S$. -/
-private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V, S.Nonempty ∧ ∀ v ∈ S, (∀ w : G.V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ ∑ w ∈ (univ.filter (λ x => x ∉ S)), (num_edges G v w : ℤ) := by
+private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Finset G.V, S.Nonempty ∧ ∀ v ∈ S, (∀ w : G.V, σ w ≤ σ v ∧ (w ∈ S → σ w = σ v)) ∧ -(prin G σ v) ≥ outdeg_S G S v := by
   let max_exists := Finset.exists_max_image Finset.univ σ
     (by use Classical.arbitrary G.V; simp only [mem_univ])
   rcases max_exists with ⟨w, ⟨_,w_argmax⟩⟩
@@ -976,7 +1100,9 @@ private lemma maxset_of_script (G : CFGraph) (σ : firing_script G) : ∃ S : Fi
     dsimp only [S] at y_in_S; simp only [Finset.mem_filter, mem_univ, true_and] at y_in_S
     rw [h_x]; exact y_in_S
   -- Show the outdegree inequality
-  unfold prin; simp only [AddMonoidHom.coe_mk, ZeroHom.coe_mk, ge_iff_le]
+  rw [prin_apply]
+  rw [outdeg_S_eq_sum_filter]
+  simp only [ge_iff_le]
   rw [← Finset.sum_neg_distrib]
   rw [← Finset.sum_filter_add_sum_filter_not univ (fun x ↦ x ∉ S)]
 
@@ -1014,25 +1140,12 @@ $q$-effective one by firing $q$ the least. -/
 private lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) (σ : firing_script G) :
   q_reduced G q (D + prin G σ) → q_effective q D → q_reducer G q σ := by
   intro h_q_reduced h_q_effective v
-  unfold q_reduced at h_q_reduced
   have h_eff := h_q_reduced.1
-  have h_red := h_q_reduced.2
-
-
   rcases (maxset_of_script G (-σ)) with ⟨S, ⟨w, h_w⟩, h_S⟩
-  specialize h_red S
   have q_S : q ∈ S := by
     contrapose! h_q_effective with q_nin_S
-    have : S ⊆ Finset.filter (fun x ↦ x ≠ q) univ := by
-      intro x x_in_S
-      simp only [ne_eq, Finset.mem_filter, mem_univ, true_and]
-      contrapose! q_nin_S with x_eq_q
-      rw [← x_eq_q]
-      exact x_in_S
-    specialize h_red this
-    have : S.Nonempty := by use w
-    specialize h_red this
-    rcases h_red with ⟨v, v_in_S, h_debt⟩
+    rcases h_q_reduced.exists_lt_outdeg q_nin_S ⟨w, h_w⟩ with
+      ⟨v, v_in_S, h_debt⟩
     have dv_neg := lt_of_lt_of_le h_debt (h_S v v_in_S).2
     simp only [Pi.add_apply, map_neg, Pi.neg_apply, neg_neg, add_lt_iff_neg_right] at dv_neg
     unfold q_effective; push Not; use v
@@ -1063,22 +1176,14 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
   constructor
   · -- Show q_effective holds
     exact q_eff
-  · -- Show the outdegree condition
-    intro S h_S_subset h_S_nonempty
-    have q_nin_S : q ∉ S := by
-      intro h_contra
-      have := h_S_subset h_contra
-      simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at this
+  · -- Show there is no nonempty legal set avoiding q
+    intro S q_nin_S h_S_nonempty
     contrapose! h_maximal with h_reduces
-    let σ : firing_script G := λ v => if v ∈ S then 1 else 0
+    let σ := indicator_script G S
     have h_reducer : q_reducer G q σ := by
       intro v
-      dsimp only [σ]
-      have : q ∉ S := by
-        by_contra! h_S
-        apply h_S_subset at h_S
-        simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at h_S
-      simp only [this, ↓reduceIte, ge_iff_le]
+      dsimp only [σ, indicator_script]
+      simp only [q_nin_S, ↓reduceIte]
       by_cases h : v ∈ S <;> simp only [h, ↓reduceIte, Std.le_refl, zero_le_one]
     use D + prin G σ
     constructor
@@ -1088,34 +1193,9 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
       use σ
     constructor
     · -- Show q_effective
-      intro v v_ne_q
-      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply, σ]
-      by_cases h_v : v ∈ S
-      · -- Case: v ∈ S
-        simp only [h_v, ↓reduceIte, ge_iff_le]
-        rw [← Finset.sum_filter_add_sum_filter_not univ (λ x => x ∈ S)]
-        have : ∑ x ∈ Finset.filter (fun x ↦ x ∈ S) univ, ((if x ∈ S then (1:ℤ) else 0) - 1) * ↑(num_edges G v x) = (0 : ℤ) := by
-          apply Finset.sum_eq_zero
-          intro y h_y
-          have h_y_in_S : y ∈ S := by simp only [subset_univ,
-              filter_mem_eq_of_subset] at h_y; exact h_y
-          simp only [h_y_in_S, ↓reduceIte, sub_self, zero_mul]
-        rw [this, zero_add]
-        have : ∑  x ∈ Finset.filter (fun x ↦ x ∉ S) univ, ((if x ∈ S then (1:ℤ) else 0) - 1) * ↑(num_edges G v x) = - ∑ x ∈ Finset.filter (fun x ↦ x ∉ S) univ, ↑(num_edges G v x) := by
-          rw [← Finset.sum_neg_distrib]
-          apply Finset.sum_congr rfl
-          intro x h_x; simp only [Finset.mem_filter, mem_univ, true_and] at h_x; simp only [h_x,
-              ↓reduceIte, zero_sub, Int.reduceNeg, neg_mul, one_mul]
-        rw [this]
-        specialize h_reduces v h_v
-        linarith
-      . -- Case: v ∉ S
-        simp only [h_v, ↓reduceIte, sub_zero, ite_mul, one_mul, zero_mul, sum_ite_mem, univ_inter,
-            ge_iff_le]
-        apply add_nonneg
-        exact q_eff v v_ne_q
-        apply Finset.sum_nonneg; intro w w_in_S
-        simp only [Nat.cast_nonneg]
+      rw [show σ = indicator_script G S from rfl,
+        ← set_firing_eq_add_prin_indicator_script]
+      exact q_effective_set_firing_of_legal_set G q_eff h_reduces
     . -- Show ¬ reduces_to
       by_contra! h_reduces
       have h' : reduces_to G q D (D + prin G σ) := by use σ
@@ -1131,7 +1211,7 @@ private lemma q_reduced_of_maximal {G : CFGraph} (h_conn : graph_connected G) {q
       let h_v := Classical.choose_spec h_S_nonempty
       have v_S : v ∈ S := by exact h_v
       specialize prin_zero v q
-      dsimp only [σ] at prin_zero
+      dsimp only [σ, indicator_script] at prin_zero
       simp only [v_S, ↓reduceIte, q_nin_S, one_ne_zero] at prin_zero
 
 /-- The $q$-reduced representative of an effective divisor is effective.
@@ -1201,16 +1281,12 @@ private lemma q_reduced_of_no_active (G :CFGraph) {q : G.V} {D : CFDiv G} (h_eff
   contrapose! h_no_active with h_not_q_reduced
   dsimp only [q_reduced, ne_eq] at h_not_q_reduced
   push Not at h_not_q_reduced
-  rcases h_not_q_reduced h_eff with ⟨S, h_S_subset, h_S_nonempty, h_outdeg⟩
-  have q_nin_S : q ∉ S := by
-    intro h_contra
-    have := h_S_subset h_contra
-    simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at this
+  rcases h_not_q_reduced h_eff with ⟨S, q_nin_S, h_S_nonempty, h_outdeg⟩
   -- Construct a firing script that fires all vertices in S
-  let σ : firing_script G := λ v => if v ∈ S then 1 else 0
+  let σ := indicator_script G S
   have h_reducer : q_reducer G q σ := by
     intro v
-    dsimp only [σ]
+    dsimp only [σ, indicator_script]
     simp only [q_nin_S, ↓reduceIte]
     by_cases h : v ∈ S
     simp only [h, ↓reduceIte, zero_le_one]; simp only [h, ↓reduceIte, Std.le_refl]
@@ -1218,42 +1294,11 @@ private lemma q_reduced_of_no_active (G :CFGraph) {q : G.V} {D : CFDiv G} (h_eff
   let h := Classical.choose_spec h_S_nonempty
   dsimp only [active]
   use σ
-  constructor
-  exact h_reducer
-  dsimp only [σ]
-  simp only [q_nin_S, ↓reduceIte, h, zero_lt_one, and_true]
-  -- Show q_effective holds
-  intro x x_ne_q
-  dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply]
-  by_cases h_x : x ∈ S
-  · -- Case: x ∈ S
-    simp only [h_x, ↓reduceIte, ge_iff_le]
-    have simp_ite : ∀ x_1 : G.V, ((if x_1 ∈ S then 1 else 0) - 1) = -(if x_1 ∈ S then 0 else 1) := by
-      intro x_1
-      by_cases h_x1 : x_1 ∈ S
-      simp only [h_x1, ↓reduceIte, sub_self, neg_zero]
-      simp only [h_x1, ↓reduceIte, zero_sub, Int.reduceNeg]
-    suffices (∑ x_1 : G.V, if x_1 ∈ S then 0 else ↑(num_edges G x x_1)) ≤ D x by
-      simp only [simp_ite, neg_mul, ite_mul, zero_mul, one_mul, sum_neg_distrib,
-          le_add_neg_iff_add_le, zero_add, this]
-    specialize h_outdeg x h_x
-    have : (∑ w ∈ Finset.filter (fun x ↦ x ∉ S) univ, ↑(num_edges G x w) : ℤ) = (∑ x_1 : G.V, if x_1 ∈ S then 0 else ↑(num_edges G x x_1)) := by
-      rw [Finset.sum_filter]
-      apply Finset.sum_congr rfl
-      intro y _
-      simp only [ite_not]
-    rw [this] at h_outdeg
-    exact h_outdeg
-  · -- Case: x ∉ S
-    simp only [h_x, ↓reduceIte, sub_zero, ite_mul, one_mul, zero_mul, sum_ite_mem, univ_inter,
-        ge_iff_le]
-    have : 0 ≤ D x := by
-      apply h_eff
-      exact x_ne_q
-    apply add_nonneg (this)
-    apply Finset.sum_nonneg
-    intro w _
-    simp only [Nat.cast_nonneg]
+  refine ⟨h_reducer, ?_, ?_⟩
+  · rw [show σ = indicator_script G S from rfl,
+      ← set_firing_eq_add_prin_indicator_script]
+    exact q_effective_set_firing_of_legal_set G h_eff h_outdeg
+  · simp only [σ, indicator_script, q_nin_S, ↓reduceIte, h, zero_lt_one]
 
 /-- The total number of chips held at active vertices of $D$.
 
@@ -1389,7 +1434,7 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
     have chips_to_inactive (x : G.V) : ¬ active G q D x → D x ≤ D' x := by
       -- Goal: 0 ≤ ∑ (σ u - σ x) * num_edges G x u
       intro h_inactive_D
-      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply, D']
+      simp only [Pi.add_apply, prin_apply, D']
       simp only [le_add_iff_nonneg_right]
       apply Finset.sum_nonneg
       intro u _
@@ -1448,7 +1493,7 @@ theorem q_effective_to_q_reduced {G : CFGraph} (h_conn : graph_connected G) {q :
       simp only [mem_univ, h_inactive_D, not_false_eq_true, ↓reduceIte, h_active_D', true_and,
           gt_iff_lt]
       -- Show D w < D' w
-      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.add_apply, D']
+      simp only [Pi.add_apply, prin_apply, D']
       simp only [lt_add_iff_pos_right]
       -- Goal: 0 < ∑ (σ u - σ w) * num_edges
       apply Finset.sum_pos'

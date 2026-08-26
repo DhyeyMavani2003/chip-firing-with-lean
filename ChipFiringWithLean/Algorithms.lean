@@ -69,18 +69,6 @@ noncomputable def greedyWinnable (G : CFGraph) (D : CFDiv G) : Bool × Option (C
   let max_fuel := greedyFuel G D
   loop D ∅ (0 : CFDiv G) max_fuel -- Initialize script as (0 : CFDiv G)
 
-/--
-Calculates the out-degree of a vertex $v$ with respect to a set $S$.
-
-This counts the number of edges from $v$ to vertices outside $S$, including $q$:
-$$
-\operatorname{outdeg}_S(v) =
-|\{w \mid \text{there is an edge from } v \text{ to } w \text{ and } w \notin S\}|.
-$$
--/
-def dhar_outdeg (G : CFGraph) (S : Finset G.V) (v : G.V) : ℤ :=
-  ∑ w ∈ Finset.univ.filter (λ w => w ∉ S), (num_edges G v w : ℤ)
-
 /-- Finds a burnable vertex $v \in S$, meaning one satisfying
 $c(v) < \operatorname{outdeg}_S(v)$.
 
@@ -88,7 +76,7 @@ Returns `some v` if found, `none` otherwise. -/
 noncomputable def findBurnableVertex (G : CFGraph) (c : G.V → ℤ) (S : Finset G.V) : Option { v : G.V // v ∈ S } :=
   -- Iterate through the list representation and find the first match
   -- Need to get proof v ∈ S, which is guaranteed by iterating S.toList
-  let p := fun v => decide (c v < dhar_outdeg G S v) -- Use decide
+  let p := fun v => decide (c v < outdeg_S G S v) -- Use decide
   match h : S.toList.find? p with -- Use find? directly now (List is open)
   | some v =>
     -- Prove v is in the original finset S

@@ -326,3 +326,25 @@ lemma zero_divisor_rank (G : CFGraph) : rank G (0:CFDiv G) = 0 := by
   simp only [deg, AddMonoidHom.coe_mk, ZeroHom.coe_mk, Pi.zero_apply, sum_const_zero, Int.reduceLE,
       imp_false] at ineq
   exact ineq
+
+theorem one_le_apply_of_q_reduced_of_rank_geq_one {G : CFGraph} {q : G.V}
+    {D : CFDiv G} (hred : q_reduced G q D) (hrank : rank G D ≥ 1) :
+    1 ≤ D q := by
+  classical
+  have hval : ∀ v : G.V, v ≠ q → (D - one_chip q) v = D v := by
+    intro v hv
+    simp [Pi.sub_apply, one_chip_apply_other' q v hv]
+  have hwin : winnable G (D - one_chip q) :=
+    (rank_geq_iff G D 1).mpr hrank (one_chip q) ⟨eff_one_chip q, deg_one_chip q⟩
+  have hred' : q_reduced G q (D - one_chip q) := by
+    refine ⟨fun v hv => by rw [hval v hv]; exact hred.1 v hv, ?_⟩
+    intro S hq hSne hlegal
+    apply hred.2 S hq hSne
+    intro v hvS
+    rw [← hval v (fun hvq => hq (hvq ▸ hvS))]
+    exact hlegal v hvS
+  have heff : effective (D - one_chip q) :=
+    effective_of_winnable_and_q_reduced G q _ hwin hred'
+  have hq := heff q
+  simp only [Pi.sub_apply, one_chip_apply_v] at hq
+  omega

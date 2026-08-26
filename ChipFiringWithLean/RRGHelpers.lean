@@ -109,23 +109,12 @@ private lemma maximal_unwinnable_q_reduced_chips_at_q (G : CFGraph) (q : G.V) (D
       rw [Pi.add_apply]
       simp only [ne_eq, h_v_ne_q, not_false_eq_true, one_chip_apply_other', add_zero, ge_iff_le]
       apply h_qred.1 v hv
-    · intro S hS_subset hS_nonempty
-      -- Use the q_reducedness of D
-      have := h_qred.2
-      specialize this S hS_subset hS_nonempty
-      rcases this with ⟨v, hv_in_S, h_dv_lt_outdeg⟩
-      use v
-      simp only [hv_in_S, Pi.add_apply, true_and]
-      suffices one_chip q v = 0 by
-        rw [this]
-        simp only [add_zero, h_dv_lt_outdeg]
-      suffices q ≠ v by
-        rw [one_chip_apply_other]
-        exact this
-      intro h_absurd
-      rw [← h_absurd] at hv_in_S
-      apply hS_subset at hv_in_S
-      simp only [ne_eq, Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at hv_in_S
+    · intro S hq hS_nonempty hlegal
+      apply h_qred.2 S hq hS_nonempty
+      intro v hv_in_S
+      have hvq : v ≠ q := fun hvq => hq (hvq ▸ hv_in_S)
+      simpa only [Pi.add_apply, one_chip_apply_other' q v hvq, add_zero] using
+        hlegal v hv_in_S
   have h_nonneg : D q + 1 ≥ 0 := by
     have h := h_eff q
     rw [Pi.add_apply] at h

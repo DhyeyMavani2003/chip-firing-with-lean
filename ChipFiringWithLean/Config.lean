@@ -20,7 +20,7 @@ out-degree to $V(G) \setminus S$. Equivalently, the associated divisor is $q$-re
 A *maximal superstable* configuration is one that is not dominated by any other
 superstable configuration.
 
-The quantity `outdeg_S G q S v` counts edges from $v$ to vertices outside $S$, and is the
+The quantity `outdeg_S G S v` counts edges from $v$ to vertices outside $S$, and is the
 relevant threshold for the superstability condition.
 -/
 
@@ -292,13 +292,6 @@ lemma config_eq_of_le_and_degree {q : G.V} {c1 c2 : Config G q} (h_le : c2 ≤ c
   · use v
     simp only [mem_univ, h_gt, and_self]
 
-/-- The out-degree of a vertex $v$ with respect to a set $S$.
-
-This is the number of edges from $v$ to vertices outside $S$, and is used to define the
-superstability condition. -/
-def outdeg_S (G : CFGraph) (q : G.V) (S : Finset G.V) (v : G.V) : ℤ :=
-  ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
-
 /-- A configuration $c$ is *superstable* if for every nonempty
 $S \subseteq V(G) \setminus \{q\}$, some vertex in $S$ has fewer chips than its
 out-degree to $V(G) \setminus S$.
@@ -306,7 +299,7 @@ out-degree to $V(G) \setminus S$.
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.12. -/
 def superstable (G : CFGraph) (q : G.V) (c : Config G q) : Prop :=
   ∀ S ⊆  Vtilde q, S.Nonempty →
-    ∃ v ∈ S, c.chips v < outdeg_S G q S v
+    ∃ v ∈ S, c.chips v < outdeg_S G S v
 
 /-- A configuration $c$ is superstable if and only if `toDiv d c` is $q$-reduced,
 for any prescribed degree $d$.
@@ -314,13 +307,7 @@ for any prescribed degree $d$.
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Remark 3.14. -/
 lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G q) :
   superstable G q c ↔ q_reduced G q (toDiv d c) := by
-
-  -- Little rewriting needed later
-  have comp_eq (S : Finset G.V): univ \ S = Finset.filter (λ w => w ∉ S) univ := by
-    ext w
-    simp only [mem_sdiff, mem_univ, true_and, Finset.mem_filter]
-
-  dsimp only [superstable, q_reduced, ne_eq]
+  dsimp only [superstable, ne_eq]
   constructor
   -- Forward direction
   intro h_superstable
@@ -331,42 +318,31 @@ lemma superstable_iff_q_reduced (G : CFGraph) (q : G.V) (d : ℤ) (c : Config G 
   simp only [ne_eq, hv_ne_q, not_false_eq_true, one_chip_apply_other', mul_zero, add_zero,
       ge_iff_le]
   exact c.non_negative v
-  -- Show the outdegree condition
-  intro S hS_subset hS_nonempty
-
-  specialize h_superstable S hS_subset hS_nonempty
-  rcases h_superstable with ⟨v, hv_in_S, hv_outdeg⟩
-  use v
-  constructor
-  exact hv_in_S
-  dsimp only [outdeg_S] at hv_outdeg
+  -- Show there is no nonempty legal set avoiding q
+  intro S hq hS_nonempty hlegal
+  have hS_subset : S ⊆ Vtilde q := by
+    intro v hv_in_S
+    simp only [Vtilde, Finset.mem_filter, mem_univ, true_and]
+    exact fun hvq => hq (hvq ▸ hv_in_S)
+  obtain ⟨v, hv_in_S, hv_outdeg⟩ := h_superstable S hS_subset hS_nonempty
   have h_v_ne_q : v ≠ q := by
-    intro hv_eq_q
-    rw [hv_eq_q] at hv_in_S
-    have h := hS_subset hv_in_S
-
-    simp only [Finset.mem_filter, mem_univ, not_true_eq_false, and_false] at h
-  rw [eval_toDiv_ne_q d c h_v_ne_q]
-  rw [← comp_eq S]
-  exact hv_outdeg
+    exact fun hvq => hq (hvq ▸ hv_in_S)
+  have hge := hlegal v hv_in_S
+  rw [eval_toDiv_ne_q d c h_v_ne_q] at hge
+  omega
   -- Reverse direction
-  intro h_q_reduced
-  rcases h_q_reduced with ⟨h_nonneg, h_outdeg⟩
-  intro S hS_subset hS_nonempty
-  specialize h_outdeg S hS_subset hS_nonempty
-  rcases h_outdeg with ⟨v, hv_in_S, hv_outdeg⟩
+  intro h_q_reduced S hS_subset hS_nonempty
+  have hq : q ∉ S := by
+    intro hq_in_S
+    have := hS_subset hq_in_S
+    simp only [Vtilde, Finset.mem_filter, mem_univ, ne_eq, not_true_eq_false,
+      and_false] at this
+  obtain ⟨v, hv_in_S, hv_outdeg⟩ :=
+    h_q_reduced.exists_lt_outdeg hq hS_nonempty
   use v
   refine ⟨hv_in_S, ?_⟩
-  dsimp only [toDiv, Pi.add_apply, Pi.smul_apply, Int.zsmul_eq_mul] at hv_outdeg
-  have h_v_neq_q : v ≠ q := by
-    intro hv_eq_q
-    rw [hv_eq_q] at hv_in_S
-    have h := hS_subset hv_in_S
-    simp only [Finset.mem_filter, mem_univ, ne_eq, not_true_eq_false, and_false] at h
-  simp only [ne_eq, h_v_neq_q, not_false_eq_true, one_chip_apply_other', mul_zero,
-      add_zero] at hv_outdeg
-  dsimp only [outdeg_S]
-  rw [comp_eq S]
+  have h_v_neq_q : v ≠ q := fun hvq => hq (hvq ▸ hv_in_S)
+  rw [eval_toDiv_ne_q d c h_v_neq_q] at hv_outdeg
   exact hv_outdeg
 
 /-- The canonical configuration of a $q$-reduced divisor is superstable. -/
@@ -457,7 +433,7 @@ def is_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) : Prop 
   | [] => False
   | [x] => (x = q)
   | v :: w :: rest =>
-      outdeg_S G q (univ \ (w :: rest).toFinset) v > c.chips v
+      outdeg_S G (univ \ (w :: rest).toFinset) v > c.chips v
       -- v isn't in the set made out of w :: rest
       ∧ ¬ (w :: rest).contains v
       ∧ is_burn_list G c (w :: rest)
@@ -692,7 +668,7 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
       by_cases h_vx : v = x
       . -- Case: v = x
         rw [← h_vx] at h_bl
-        suffices ∑ (w : G.V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G q (univ \ (y :: rest').toFinset) v by
+        suffices ∑ (w : G.V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G (univ \ (y :: rest').toFinset) v by
           linarith [this, h_bl.1]
         dsimp only [burn_flow]
         have ind_v : L.list.idxOf v = 0 := by

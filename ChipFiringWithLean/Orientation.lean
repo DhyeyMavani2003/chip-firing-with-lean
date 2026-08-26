@@ -693,7 +693,7 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
   suffices h_v : ∃ v ∈ S, ∀ w : G.V, flow O w v > 0 → w ∉ S by
     rcases h_v with ⟨v, h_v, h_flow⟩
     have h_prin : (prin G) σ v + indeg G O v ≤ 0 := by
-      dsimp only [prin, AddMonoidHom.coe_mk, ZeroHom.coe_mk]
+      rw [prin_apply]
       rw [indeg_eq_sum_flow O v]
       have h_diff : ∀ u : G.V, σ u - σ v ≤ if u ∈ S then 0 else -1 := by
         intro u
@@ -799,11 +799,10 @@ private lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
     dsimp only [is_source]
     simp only [indeg_zero]
   · -- Show no valid firing move exists for subsets not containing q
-    intro S h_q_S S_nonempty
+    intro S h_q_S S_nonempty hlegal
     have h_source := subset_source G O S S_nonempty hO.1
     rcases h_source with ⟨v, h_v_S, h_flow⟩
-    use v
-    refine ⟨h_v_S, ?_⟩
+    apply (not_lt_of_ge (hlegal v h_v_S))
     dsimp only [ordiv]
     -- Cancel -1 from both sides
     apply Int.lt_of_le_sub_one
@@ -831,6 +830,7 @@ private lemma ordiv_q_reduced {G : CFGraph} (O : CFOrientation G) {q : G.V}
       exact flow_bound
     rw [Finset.sum_ite, sum_const,smul_zero, zero_add] at sum_flow_bound
     -- Do some annoying casting business to remove ↑.
+    rw [outdeg_S_eq_sum_filter]
     rw [← Nat.cast_sum, ← Nat.cast_sum]
     apply Nat.cast_le.mpr
     apply le_trans sum_flow_bound
