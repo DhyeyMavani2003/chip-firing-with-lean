@@ -134,11 +134,49 @@ See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.5. -/
 def borrowing_move (G : CFGraph) (D : CFDiv G) (v : G.V) : CFDiv G :=
   λ w => if w = v then D v + vertex_degree G v else D w - num_edges G v w
 
+/-- The out-degree of `v` relative to `S`, counted with edge multiplicity. -/
+def outdeg_S (G : CFGraph) (S : Finset G.V) (v : G.V) : ℤ :=
+  ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
+
+@[simp] theorem outdeg_S_eq_sum_filter (G : CFGraph) (S : Finset G.V) (v : G.V) :
+    outdeg_S G S v = ∑ w ∈ Finset.univ.filter (fun x => x ∉ S),
+      (num_edges G v w : ℤ) := by
+  refine Finset.sum_congr ?_ (fun _ _ => rfl)
+  ext w
+  simp
+
+theorem outdeg_S_nonneg (G : CFGraph) (S : Finset G.V) (v : G.V) :
+    0 ≤ outdeg_S G S v := by
+  unfold outdeg_S
+  exact Finset.sum_nonneg fun _ _ => Int.natCast_nonneg _
+
+theorem outdeg_S_antitone (G : CFGraph) {S T : Finset G.V} (h : S ⊆ T) (v : G.V) :
+    outdeg_S G T v ≤ outdeg_S G S v := by
+  unfold outdeg_S
+  exact Finset.sum_le_sum_of_subset_of_nonneg (Finset.compl_subset_compl.mpr h)
+    (fun _ _ _ => Int.natCast_nonneg _)
+
 /-- The result of firing a set $S$ of vertices, starting from a divisor $D$.
 
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 1.6. -/
 def set_firing (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : CFDiv G :=
-  λ w => D w + ∑ (v ∈ S), (if w = v then -vertex_degree G v else num_edges G v w)
+  λ w => if w ∈ S then D w - outdeg_S G S w else D w + outdeg_S G Sᶜ w
+
+theorem set_firing_apply_of_mem (G : CFGraph) (D : CFDiv G) {S : Finset G.V}
+    {v : G.V} (hv : v ∈ S) :
+    set_firing G D S v = D v - outdeg_S G S v := by
+  simp [set_firing, hv]
+
+theorem set_firing_apply_of_not_mem (G : CFGraph) (D : CFDiv G)
+    {S : Finset G.V} {v : G.V} (hv : v ∉ S) :
+    set_firing G D S v = D v + outdeg_S G Sᶜ v := by
+  simp [set_firing, hv]
+
+theorem le_set_firing_apply_of_not_mem (G : CFGraph) (D : CFDiv G)
+    {S : Finset G.V} {v : G.V} (hv : v ∉ S) :
+    D v ≤ set_firing G D S v := by
+  rw [set_firing_apply_of_not_mem G D hv]
+  exact le_add_of_nonneg_right (outdeg_S_nonneg G Sᶜ v)
 
 /-- The principal divisor associated to firing a single vertex. -/
 def firing_vector (G : CFGraph) (v : G.V) : CFDiv G :=
@@ -231,6 +269,17 @@ def prin (G : CFGraph) : firing_script G →+ CFDiv G :=
       intro u _
       ring,
   }
+
+@[simp] theorem prin_apply (G : CFGraph) (σ : firing_script G) (v : G.V) :
+    prin G σ v = ∑ u : G.V, (σ u - σ v) * (num_edges G v u : ℤ) := rfl
+
+@[simp] theorem prin_sub_const (G : CFGraph) (σ : firing_script G) (c : ℤ) :
+    prin G (fun v => σ v - c) = prin G σ := by
+  funext v
+  rw [prin_apply, prin_apply]
+  apply Finset.sum_congr rfl
+  intro u hu
+  ring
 
 /-- A divisor is principal if and only if it equals `prin G σ` for some firing script `σ`.
 This gives a concrete characterization of the subgroup `principal_divisors G`. -/
@@ -940,7 +989,42 @@ at active vertices — strictly decreases at each reduction step.
 /-- A divisor is $q$-reduced if it is effective away from $q$, and firing any nonempty
 set of vertices disjoint from $q$ puts some vertex of that set into debt.
 
+
+
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.4. -/
+
+def legal_set (G : CFGraph) (D : CFDiv G) (S : Finset G.V) : Prop :=
+  ∀ v ∈ S, outdeg_S G S v ≤ D v
+
+instance (G : CFGraph) (D : CFDiv G) (S : Finset G.V) :
+    Decidable (legal_set G D S) := by
+  unfold legal_set
+  infer_instance
+
+@[simp] theorem legal_set_empty (G : CFGraph) (D : CFDiv G) :
+    legal_set G D (∅ : Finset G.V) := by
+  intro v hv
+  simp at hv
+
+theorem effective_set_firing_of_legal_set (G : CFGraph) {D : CFDiv G}
+    {S : Finset G.V} (hD : effective D) (hS : legal_set G D S) :
+    effective (set_firing G D S) := by
+  intro v
+  by_cases hv : v ∈ S
+  · rw [set_firing_apply_of_mem G D hv]
+    have h := hS v hv
+    omega
+  · exact le_trans (hD v) (le_set_firing_apply_of_not_mem G D hv)
+
+theorem legal_set_union (G : CFGraph) {D : CFDiv G} {S T : Finset G.V}
+    (hS : legal_set G D S) (hT : legal_set G D T) :
+    legal_set G D (S ∪ T) := by
+  intro v hv
+  rcases Finset.mem_union.mp hv with hv | hv
+  · exact le_trans (outdeg_S_antitone G Finset.subset_union_left v) (hS v hv)
+  · exact le_trans (outdeg_S_antitone G Finset.subset_union_right v) (hT v hv)
+
+
 def q_reduced (G : CFGraph) (q : G.V) (D : CFDiv G) : Prop :=
   q_effective q D ∧
   (∀ S : Finset G.V, S ⊆ (Finset.univ.filter (· ≠ q)) → S.Nonempty →

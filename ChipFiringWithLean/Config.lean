@@ -292,13 +292,6 @@ lemma config_eq_of_le_and_degree {q : G.V} {c1 c2 : Config G q} (h_le : c2 ≤ c
   · use v
     simp only [mem_univ, h_gt, and_self]
 
-/-- The out-degree of a vertex $v$ with respect to a set $S$.
-
-This is the number of edges from $v$ to vertices outside $S$, and is used to define the
-superstability condition. -/
-def outdeg_S (G : CFGraph) (q : G.V) (S : Finset G.V) (v : G.V) : ℤ :=
-  ∑ w ∈ (univ \ S), (num_edges G v w : ℤ)
-
 /-- A configuration $c$ is *superstable* if for every nonempty
 $S \subseteq V(G) \setminus \{q\}$, some vertex in $S$ has fewer chips than its
 out-degree to $V(G) \setminus S$.
@@ -306,7 +299,7 @@ out-degree to $V(G) \setminus S$.
 See: [Corry-Perkinson](https://pubs.ams.org/ebooks/mbk/114), Definition 3.12. -/
 def superstable (G : CFGraph) (q : G.V) (c : Config G q) : Prop :=
   ∀ S ⊆  Vtilde q, S.Nonempty →
-    ∃ v ∈ S, c.chips v < outdeg_S G q S v
+    ∃ v ∈ S, c.chips v < outdeg_S G S v
 
 /-- A configuration $c$ is superstable if and only if `toDiv d c` is $q$-reduced,
 for any prescribed degree $d$.
@@ -457,7 +450,7 @@ def is_burn_list (G : CFGraph) {q : G.V} (c : Config G q) (L : List G.V) : Prop 
   | [] => False
   | [x] => (x = q)
   | v :: w :: rest =>
-      outdeg_S G q (univ \ (w :: rest).toFinset) v > c.chips v
+      outdeg_S G (univ \ (w :: rest).toFinset) v > c.chips v
       -- v isn't in the set made out of w :: rest
       ∧ ¬ (w :: rest).contains v
       ∧ is_burn_list G c (w :: rest)
@@ -692,7 +685,7 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
       by_cases h_vx : v = x
       . -- Case: v = x
         rw [← h_vx] at h_bl
-        suffices ∑ (w : G.V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G q (univ \ (y :: rest').toFinset) v by
+        suffices ∑ (w : G.V), burn_flow L ⟨w,v⟩ ≥ outdeg_S G (univ \ (y :: rest').toFinset) v by
           linarith [this, h_bl.1]
         dsimp only [burn_flow]
         have ind_v : L.list.idxOf v = 0 := by
