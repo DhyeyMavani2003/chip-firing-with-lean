@@ -1,6 +1,5 @@
 import ChipFiringWithLean.RRGHelpers
 
-set_option linter.unusedVariables false
 set_option trace.split.failure true
 
 universe u
@@ -264,7 +263,7 @@ private theorem one_le_of_gonality_leq {G : CFGraph} {k : ℤ} (h_gon : gonality
 
 /-- The *(divisorial) gonality* of a connected graph is the smallest degree of a divisor
 of rank at least one. -/
-noncomputable def gonality {G : CFGraph} (h_conn : graph_connected G) : ℤ :=
+noncomputable def gonality {G : CFGraph} (_h_conn : graph_connected G) : ℤ :=
   sInf {k : ℤ | gonality_leq G k}
 
 /-- A connected graph has gonality at most $g+1$, where $g$ is its genus. -/
@@ -332,7 +331,7 @@ and via a different construction by Hendrey in
 [Sparse graphs of high gonality](https://doi.org/10.1137/16M1095329). We are not aware
 of a formalization of this result. -/
 def max_gonality_existence (g : ℕ) : Prop :=
-  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G) (g_eq : genus G = g),
+  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G) (_g_eq : genus G = g),
     gonality h_conn = (g + 3) / 2
 
 /-- The statement that in a given genus $g$, there exists a Brill-Noether general graph:
@@ -353,7 +352,7 @@ namely Conjecture 3.9(2). It was proved by Cools-Draisma-Payne-Robeva in
 [A tropical proof of the Brill-Noether theorem](https://doi.org/10.1016/j.aim.2012.02.019),
 but we are not aware of a formalization of this result. -/
 def brill_noether_general_existence (g : ℤ) : Prop :=
-  ∃ (G : CFGraph.{u}) (h_conn : graph_connected G) (g_eq : genus G = g),
+  ∃ (G : CFGraph.{u}) (_h_conn : graph_connected G) (_g_eq : genus G = g),
     ∀ (D : CFDiv G), (rank G D + 1) * (rank G (canonical_divisor G - D) + 1) ≤ g
 
 /-- The gonality conjecture for finite graphs: every connected graph of genus $g$ has gonality
@@ -375,7 +374,7 @@ there exists a divisor of degree $d$ and rank at least $r$.
 This is an open problem, posed in slightly different form by Baker in
 [Specialization of linear systems from curves to graphs](https://doi.org/10.2140/ant.2008.2.613),
 Conjecture 3.9(1). -/
-def brill_noether_conjecture {G : CFGraph} (h_conn : graph_connected G) (r d : ℤ) : Prop :=
+def brill_noether_conjecture {G : CFGraph} (_h_conn : graph_connected G) (r d : ℤ) : Prop :=
   let g := genus G
   let ρ := g - (r + 1) * (g - d + r)
   0 ≤ ρ → ∃ (D : CFDiv G), rank G D ≥ r ∧ deg D = d

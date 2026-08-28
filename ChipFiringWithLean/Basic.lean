@@ -4,8 +4,6 @@ import Mathlib.Analysis.Normed.Ring.Lemmas
 import Mathlib.Data.Matrix.Mul
 
 
-set_option linter.unusedVariables false
-set_option linter.unusedSectionVars false
 
 universe u
 
@@ -109,7 +107,7 @@ def one_chip {G : CFGraph} (v_chip : G.V) : CFDiv G :=
 
 -- Canonical simplifications for evaluations of one_chip.
 @[simp] lemma one_chip_apply_v {G : CFGraph} (v : G.V) : one_chip v v = 1 := by
-  exact if_pos rfl
+  exact ite_eq_left rfl
 @[simp] lemma one_chip_apply_other {G : CFGraph} (v w : G.V) : v ≠ w → one_chip v w = 0 := by
   simp only [ne_eq, one_chip, ite_eq_right_iff, one_ne_zero, imp_false]
   intro h
@@ -432,7 +430,7 @@ lemma eff_one_chip {G : CFGraph} (v : G.V) : effective (one_chip v) := by
 
 /-- The divisor $D_1-D_2$ is effective if and only if $D_1 \ge D_2$. -/
 lemma sub_eff_iff_geq {G : CFGraph} (D₁ D₂ : CFDiv G) : effective (D₁ - D₂) ↔ D₁ ≥ D₂ :=
-  forall_congr' fun v => sub_nonneg
+  forall_congr' (fun _ => sub_nonneg)
 
 /-- A divisor is winnable if it is linearly equivalent to an effective divisor.
 
@@ -1158,7 +1156,7 @@ private lemma q_reducer_of_add_princ_reduced (G : CFGraph) (q : G.V) (D : CFDiv 
 
 /-- Alternative description of $q$-reduced divisors: they are the maximal $q$-effective
 divisors in their linear equivalence classes with respect to the $q$-reduction order. -/
-private lemma maximum_of_q_reduced (G : CFGraph) {q : G.V} {D : CFDiv G} (q_eff : q_effective q D) : q_reduced G q D → ∀ D' : CFDiv G, linear_equiv G D D' → q_effective q D' → reduces_to G q D' D := by
+private lemma maximum_of_q_reduced (G : CFGraph) {q : G.V} {D : CFDiv G} : q_reduced G q D → ∀ D' : CFDiv G, linear_equiv G D D' → q_effective q D' → reduces_to G q D' D := by
   intro h_q_reduced D' h_lequiv h_eff
   unfold linear_equiv at h_lequiv
   obtain ⟨σ, hσ⟩ := (principal_iff_eq_prin G (D'-D)).mp h_lequiv
@@ -1226,7 +1224,7 @@ private lemma q_reduced_of_effective_is_effective (G : CFGraph) (q : G.V) (E E' 
   -- the order, and chips away from q are nonnegative since E' is q-effective.
   have h_qeff : q_effective q E := fun v _ => h_eff v
   have h_red : reduces_to G q E E' :=
-    maximum_of_q_reduced G h_qred.1 h_qred E h_equiv.symm h_qeff
+    maximum_of_q_reduced G h_qred E h_equiv.symm h_qeff
   intro v
   by_cases hvq : v = q
   · rw [hvq]

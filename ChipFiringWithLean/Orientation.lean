@@ -1,9 +1,7 @@
 import ChipFiringWithLean.Config
 import Mathlib.Data.DFinsupp.Multiset
 
-set_option linter.unusedVariables false
 set_option trace.split.failure true
-set_option linter.unusedSectionVars false
 
 open Multiset Finset
 
@@ -170,7 +168,7 @@ private lemma indeg_eq_sum_flow {G : CFGraph} (O : CFOrientation G) (v : G.V) :
       simp only [↓reduceIte, Multiset.card_singleton, Prod.mk.injEq, and_true, sum_ite_eq',
           mem_univ]
     · -- Case ev ≠ v
-      rw [if_neg h_ev_eq_v, Multiset.card_zero]
+      rw [ite_eq_right h_ev_eq_v, Multiset.card_zero]
       -- Flip the sides of the equation in the goal
       have : ∑ x : G.V, (if (x, v) = (eu, ev) then 1 else 0) = 0 := by
         apply Finset.sum_eq_zero
@@ -600,7 +598,7 @@ private theorem config_to_orientation_unique (G : CFGraph) (q : G.V)
     rw [source_of_acyclic_with_unique_source hO₁, source_of_acyclic_with_unique_source hO₂]
   · -- Case v ≠ q: use vertex degree equality
     rw [h_deg₁, h_deg₂] at h_config_eq
-    simp only [if_neg hv] at h_config_eq
+    simp only [ite_eq_right hv] at h_config_eq
     -- From config degrees being equal, show indegrees are equal
     have h := congr_arg (fun x => x + 1) h_config_eq
     simp only [sub_add_cancel] at h
@@ -741,7 +739,7 @@ lemma ordiv_unwinnable (G : CFGraph) (O : CFOrientation G) :
       by_cases h_u_in_S : u ∈ S
       · -- Case: u ∈ S. No edges from u to v.
         simp only [h_u_in_S]
-        rw [if_true]
+        rw [ite_true]
         contrapose! h_flow
         use u
         norm_num at h_flow

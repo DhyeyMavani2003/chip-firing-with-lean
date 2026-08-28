@@ -1,6 +1,5 @@
 import ChipFiringWithLean.Orientation
 
-set_option linter.unusedVariables false
 
 namespace CF
 
@@ -47,7 +46,7 @@ and `script` is the net borrowing count for each vertex if winnable.
 @[simp]
 noncomputable def greedyWinnable (G : CFGraph) (D : CFDiv G) : Bool × Option (CFDiv G) :=
   let rec loop (current_D : CFDiv G) (M : Finset G.V) (script : CFDiv G) (fuel : Nat) : Bool × Option (CFDiv G) :=
-    if h_fuel_zero : fuel = 0 then (false, none) -- Fuel exhaustion implies failure
+    if _h_fuel_zero : fuel = 0 then (false, none) -- Fuel exhaustion implies failure
     else if is_effective current_D then (true, some script)
     else if M = Finset.univ then (false, none) -- All vertices borrowed, still not effective
     else
@@ -64,7 +63,7 @@ noncomputable def greedyWinnable (G : CFGraph) (D : CFDiv G) : Bool × Option (C
           -- This state implies unwinnability because we can't make progress.
           (false, none)
   termination_by fuel
-  decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
+  decreasing_by simp_wf; exact Nat.pos_of_ne_zero _h_fuel_zero -- Simpler explicit proof
   -- Initial call with generous fuel
   let max_fuel := greedyFuel G D
   loop D ∅ (0 : CFDiv G) max_fuel -- Initialize script as (0 : CFDiv G)
@@ -100,7 +99,7 @@ noncomputable def dharBurningSet (G : CFGraph) (q : G.V) (c : G.V → ℤ) : Fin
   let initial_S := Finset.univ.erase q
   let rec loop (S : Finset G.V) (fuel : Nat) : Finset G.V :=
     -- Check fuel for termination safety
-    if h_fuel_zero : fuel = 0 then S -- Name hypothesis
+    if _h_fuel_zero : fuel = 0 then S -- Name hypothesis
     else
       match findBurnableVertex G c S with
       -- If a burnable vertex v is found, remove it and recurse
@@ -108,7 +107,7 @@ noncomputable def dharBurningSet (G : CFGraph) (q : G.V) (c : G.V → ℤ) : Fin
       -- If no burnable vertex found in S, S is stable, return it
       | none        => S
   termination_by fuel
-  decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
+  decreasing_by simp_wf; exact Nat.pos_of_ne_zero _h_fuel_zero -- Simpler explicit proof
   loop initial_S (Fintype.card G.V + 1)
 
 /-- Fires every vertex in $S$, starting from the divisor $D$. -/
@@ -127,7 +126,7 @@ Returns `none` if fuel runs out, implying potential unwinnability or insufficien
 -/
 noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (max_fuel : Nat) : Option (CFDiv G) :=
   let rec loop (current_D : CFDiv G) (fuel : Nat) : Option (CFDiv G) :=
-    if h_fuel_zero : fuel = 0 then none -- Name hypothesis
+    if _h_fuel_zero : fuel = 0 then none -- Name hypothesis
     else
       -- Check if any vertex v != q has D(v) < 0
       let non_q_vertices := Finset.univ.erase q
@@ -138,7 +137,7 @@ noncomputable def makeNonNegativeExceptQ (G : CFGraph) (q : G.V) (D : CFDiv G) (
           -- Borrow at the in-debt non-source vertex and continue.
           loop (borrowing_move G current_D v) (fuel - 1)
   termination_by fuel
-  decreasing_by simp_wf; exact Nat.pos_of_ne_zero h_fuel_zero -- Simpler explicit proof
+  decreasing_by simp_wf; exact Nat.pos_of_ne_zero _h_fuel_zero -- Simpler explicit proof
   loop D max_fuel
 
 /--

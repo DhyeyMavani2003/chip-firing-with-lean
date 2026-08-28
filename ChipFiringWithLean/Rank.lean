@@ -1,8 +1,6 @@
 import ChipFiringWithLean.Basic
 
-set_option linter.unusedVariables false
 set_option trace.split.failure true
-set_option linter.unusedSectionVars false
 
 open Multiset Finset
 

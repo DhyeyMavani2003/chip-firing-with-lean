@@ -1,8 +1,6 @@
 import ChipFiringWithLean.Basic
 
-set_option linter.unusedVariables false
 set_option trace.split.failure true
-set_option linter.unusedSectionVars false
 
 open Multiset Finset
 
@@ -756,8 +754,8 @@ lemma burnin_degree {G : CFGraph} {q : G.V} {c : Config G q} (L : burn_list G c)
           . -- Subcase: w = x
             rw [h_wx]
             have h0 : (x :: y :: rest').idxOf x = 0 := List.idxOf_cons_self
-            rw [h0, if_neg (fun ⟨_, h⟩ => Nat.not_lt_zero _ h),
-               if_neg (fun ⟨h_mem, _⟩ => (h' ▸ h_x_nin_rest) h_mem)]
+            rw [h0, ite_eq_right (fun ⟨_, h⟩ => Nat.not_lt_zero _ h),
+               ite_eq_right (fun ⟨h_mem, _⟩ => (h' ▸ h_x_nin_rest) h_mem)]
           . -- Subcase: w ≠ x
             simp only [List.mem_cons, h_wx, false_or]
             rw [List.idxOf_cons_ne (y :: rest') (Ne.symm h_wx)]

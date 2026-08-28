@@ -9,4 +9,4 @@ name = "ChipFiringWithLean"
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.33.0"
+rev = "v4.34.0-rc1"
