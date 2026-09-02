@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mathlib-initiative/formalization.yaml/main/schema/formalization.schema.json
+version: "v0.4"
+project:
+  name: "Chip-Firing with Lean 4"
+  description: >-
+    A Lean 4 / Mathlib formalization of Baker and Norine's Riemann-Roch theorem for
+    finite graphs. Chip configurations on a finite graph, modulo chip-firing moves, form
+    an abelian group analogous to the group of line bundles on a compact Riemann
+    surface. Each class can be assigned a rank, analogous to the dimension of a linear
+    series. These ranks then satisfy a formula of the form r(D) - r(K-D) = deg D + 1 -
+    g, in exact analogy to Riemann surfaces. This formula is formalized, along with the
+    analog of Clifford's theorem for finite graphs.
+  authors:
+    - "Dhyey Dharmendrakumar Mavani"
+    - "Nathan Pflueger"
+  license: "Apache-2.0"
+  responsible_maintainers:
+    - "Dhyey Dharmendrakumar Mavani"
+    - "Nathan Pflueger"
+classification:
+  arxiv: ["math.CO"]
+  msc2020: ["05C57", "14T20"]
+sources:
+  - title: "Riemann-Roch and Abel-Jacobi theory on a finite graph"
+    authors:
+      - "Matthew Baker"
+      - "Serguei Norine"
+    id: "https://doi.org/10.1016/j.aim.2007.04.012"
+    type: "article"
+    location: "Advances in Mathematics 215 (2007), no. 2, 766–788"
+    relationship: "formalizes"
+status:
+  scope: >-
+    The Riemann-Roch formula, Theorem 1.12 in the original paper, is formalized, along
+    with Corollary 3.5 (Clifford's theorem). These statements are presented using the
+    predicate rank_eq rather than the rank function itself. The remaining results of the
+    paper, most notably those concerning the Abel-Jacobi map and its implications, are
+    not formalized here.
+  # Exclude the two deliberate sorries in PalomarStatements.lean.
+  sorry_count: 0
+  sorry_in_definitions: 0
+  axioms: [propext, Classical.choice, Quot.sound]
+automation:
+  methods:
+    - method: "manual"
+    - method: "copilot"
+      models: ["not tracked"]
+      framework: "n/a"
+      tool_setup: "GitHub Copilot in VS Code"
+      cost:
+        wall_time: "not tracked"
+        spend_usd: "not tracked"
+        hardware: "local machine"
+      prompting_notes: "n/a"
+    - method: "agent"
+      models: ["not tracked"]
+      framework: "n/a"
+      tool_setup: "Claude Code and Codex CLI apps, used for editing"
+      cost:
+        wall_time: "not tracked"
+        spend_usd: "not tracked"
+        hardware: "local machine"
+      prompting_notes: "n/a"
+  spend_usd: "not tracked"
+  notes: >-
+    Initial development was manual with autocomplete from GitHub Copilot. Agents were
+    used in later phases for tasks including refactoring, simplifying proofs, debugging
+    after version bumps, and writing documentation.
+fidelity:
+  divergences: >-
+    The statement module represents the source's rank function with the relational
+    predicate rank_eq, and therefore states Riemann--Roch and Clifford with explicit
+    rank witnesses. No other mathematical divergences are known.
+review:
+  status: "self-assessed"
+  reviewers:
+    - "none"
+  notes: "theorem statements written manually"
+alignment:
+  namespace: "Propositions"
+  statements:
+    - source: "Baker--Norine (2007), Theorem 1.12 (Riemann--Roch for Graphs)"
+      lean: "Propositions.riemann_roch"
+      module: "ChipFiringWithLean.PalomarSolution"
+      status: "adapted"
+      note: >-
+        The same Riemann--Roch identity, phrased with witnesses for
+        the relational predicate rank_eq instead of the paper's rank function.
+
+    - source: "Baker--Norine (2007), Corollary 3.5 (Clifford's Theorem for Graphs)"
+      lean: "Propositions.clifford"
+      module: "ChipFiringWithLean.PalomarSolution"
+      status: "adapted"
+      note: >-
+        The same Clifford bound, phrased using rank_eq witnesses and
+        nonnegativity of the ranks of D and K-D.
+acknowledgements: "Mathlib"

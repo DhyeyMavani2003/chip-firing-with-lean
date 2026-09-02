@@ -1,0 +1,14 @@
+{
+  "challenge_module": "PalomarStatements",
+  "solution_module": "ChipFiringWithLean.PalomarSolution",
+  "theorem_names": [
+    "Propositions.riemann_roch",
+    "Propositions.clifford"
+  ],
+  "permitted_axioms": [
+    "propext",
+    "Quot.sound",
+    "Classical.choice"
+  ],
+  "enable_nanoda": true
+}

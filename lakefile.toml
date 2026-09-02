@@ -6,6 +6,9 @@ defaultTargets = ["ChipFiringWithLean"]
 [[lean_lib]]
 name = "ChipFiringWithLean"
 
+[[lean_lib]]
+name = "PalomarStatements"
+
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
