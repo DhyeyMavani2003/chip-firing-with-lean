@@ -74,8 +74,12 @@ fidelity:
 review:
   status: "self-assessed"
   reviewers:
-    - "none"
-  notes: "theorem statements written manually"
+    - "Nathan Pflueger"
+  notes: >-
+    The definitions were compared against the definitions as stated in Baker--Norine
+    (2007), and the theorem statements were compared against Theorem 1.12 and Corollary
+    3.5. The docstrings detail the precise comparison of Lean statements to wording in
+    the paper. No independent external review was conducted.
 alignment:
   namespace: "Propositions"
   statements:
