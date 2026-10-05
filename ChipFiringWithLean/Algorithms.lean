@@ -1,4 +1,8 @@
-import ChipFiringWithLean.Orientation
+module
+
+public import ChipFiringWithLean.Orientation
+
+@[expose] public section
 
 
 namespace CF
@@ -23,15 +27,15 @@ open Finset BigOperators List
 def is_effective (D : CFDiv G) : Bool := decide (∀ v, D v ≥ 0)
 
 /-- A small size measure used only to set conservative default loop fuel. -/
-private def divisorMagnitude (G : CFGraph) (D : CFDiv G) : Nat :=
+def divisorMagnitude (G : CFGraph) (D : CFDiv G) : Nat :=
   ∑ v : G.V, Int.natAbs (D v)
 
 /-- Default fuel for greedy routines, scaled by the actual chip counts in the input. -/
-private def greedyFuel (G : CFGraph) (D : CFDiv G) : Nat :=
+def greedyFuel (G : CFGraph) (D : CFDiv G) : Nat :=
   (Fintype.card G.V + 1) * (divisorMagnitude G D + 1) ^ 2 + 1
 
 /-- Number of chips away from the source, used for the q-reduction loop budget. -/
-private def nonSourceChipCount (G : CFGraph) (q : G.V) (D : CFDiv G) : Nat :=
+def nonSourceChipCount (G : CFGraph) (q : G.V) (D : CFDiv G) : Nat :=
   ∑ v ∈ Finset.univ.erase q, Int.toNat (D v)
 
 /--

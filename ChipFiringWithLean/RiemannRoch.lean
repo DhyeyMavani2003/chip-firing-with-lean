@@ -1,4 +1,8 @@
-import ChipFiringWithLean.RRGHelpers
+module
+
+public import ChipFiringWithLean.RRGHelpers
+
+@[expose] public section
 
 set_option trace.split.failure true
 

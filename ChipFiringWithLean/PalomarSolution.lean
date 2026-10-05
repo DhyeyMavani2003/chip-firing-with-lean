@@ -1,4 +1,8 @@
-import ChipFiringWithLean.RiemannRoch
+module
+
+public import ChipFiringWithLean.RiemannRoch
+
+@[expose] public section
 
 namespace Propositions
 

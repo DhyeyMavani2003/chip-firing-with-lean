@@ -1,5 +1,9 @@
-import ChipFiringWithLean.Orientation
-import ChipFiringWithLean.Rank
+module
+
+public import ChipFiringWithLean.Orientation
+public import ChipFiringWithLean.Rank
+
+@[expose] public section
 
 set_option trace.split.failure true
 
@@ -25,7 +29,7 @@ noncomputable def qReducedRep {G : CFGraph}
   Classical.choose (unique_q_reduced h_conn q D)
 
 /-- The canonical representative is linearly equivalent to $D$ and is $q$-reduced. -/
-private lemma qReducedRep_spec {G : CFGraph}
+lemma qReducedRep_spec {G : CFGraph}
     (h_conn : graph_connected G) (q : G.V) (D : CFDiv G) :
     linear_equiv G D (qReducedRep h_conn q D) ∧ q_reduced G q (qReducedRep h_conn q D) :=
   (Classical.choose_spec (unique_q_reduced h_conn q D)).1

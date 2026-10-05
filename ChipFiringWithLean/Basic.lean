@@ -1,7 +1,11 @@
-import Mathlib.Algebra.CharP.Defs
-import Mathlib.Algebra.Group.Subgroup.Finite
-import Mathlib.Analysis.Normed.Ring.Lemmas
-import Mathlib.Data.Matrix.Mul
+module
+
+public import Mathlib.Algebra.CharP.Defs
+public import Mathlib.Algebra.Group.Subgroup.Finite
+public import Mathlib.Analysis.Normed.Ring.Lemmas
+public import Mathlib.Data.Matrix.Mul
+
+@[expose] public section
 
 
 
@@ -414,11 +418,8 @@ def effective {G : CFGraph} (D : CFDiv G) : Prop :=
 /-- The submonoid of effective divisors is denoted `Eff G`. -/
 def Eff (G : CFGraph) : AddSubmonoid (CFDiv G) :=
   { carrier := {D : CFDiv G | effective D},
-    zero_mem' := by
-      simp only [effective, ge_iff_le, Set.mem_ofPred_eq, Pi.zero_apply, Std.le_refl, implies_true]
-    add_mem' := by
-      intro D₁ D₂ h_eff1 h_eff2 v
-      exact add_nonneg (h_eff1 v) (h_eff2 v) }
+    zero_mem' := fun _ => le_refl 0
+    add_mem' := fun {_D₁ _D₂} h_eff1 h_eff2 v => add_nonneg (h_eff1 v) (h_eff2 v) }
 
 @[simp] lemma mem_Eff {G : CFGraph} {D : CFDiv G} : D ∈ Eff G ↔ effective D := Iff.rfl
 

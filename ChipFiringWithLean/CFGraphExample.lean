@@ -1,5 +1,9 @@
-import ChipFiringWithLean.Basic
-import Mathlib.LinearAlgebra.Matrix.Symmetric
+module
+
+public import ChipFiringWithLean.Basic
+public import Mathlib.LinearAlgebra.Matrix.Symmetric
+
+@[expose] public section
 
 set_option trace.split.failure true
 

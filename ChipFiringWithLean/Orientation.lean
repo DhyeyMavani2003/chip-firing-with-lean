@@ -1,5 +1,9 @@
-import ChipFiringWithLean.Config
-import Mathlib.Data.DFinsupp.Multiset
+module
+
+public import ChipFiringWithLean.Config
+public import Mathlib.Data.DFinsupp.Multiset
+
+@[expose] public section
 
 set_option trace.split.failure true
 

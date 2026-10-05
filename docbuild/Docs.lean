@@ -1,8 +1,10 @@
-import ChipFiringWithLean.Basic
-import ChipFiringWithLean.Config
-import ChipFiringWithLean.Orientation
-import ChipFiringWithLean.Rank
-import ChipFiringWithLean.RRGHelpers
-import ChipFiringWithLean.RiemannRoch
-import ChipFiringWithLean.Algorithms
-import ChipFiringWithLean.CFGraphExample
+module
+
+public import ChipFiringWithLean.Basic
+public import ChipFiringWithLean.Config
+public import ChipFiringWithLean.Orientation
+public import ChipFiringWithLean.Rank
+public import ChipFiringWithLean.RRGHelpers
+public import ChipFiringWithLean.RiemannRoch
+public import ChipFiringWithLean.Algorithms
+public import ChipFiringWithLean.CFGraphExample
