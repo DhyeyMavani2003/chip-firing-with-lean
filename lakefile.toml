@@ -12,4 +12,4 @@ name = "PalomarStatements"
 [[require]]
 name = "mathlib"
 scope = "leanprover-community"
-rev = "v4.34.0"
+rev = "v4.35.0-rc4"
